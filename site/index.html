@@ -360,6 +360,18 @@ const rel = ts => { const m = (ts - nowS()) / 60, a = Math.abs(m);
   const s = a < 60 ? Math.round(a) + " min" : a < 2880 ? (a / 60).toFixed(a < 600 ? 1 : 0) + " h" : Math.round(a / 1440) + " d";
   return m >= 0 ? "in " + s : s + " ago"; };
 const short = t => String(t).replace(/^Counter-Strike:\s*/, "");
+// what exactly the bet is on: "PRIVATE +1.5", "Over 2.5", "fnatic (map 1)", or just the team for the match winner
+const betLabel = (market, side) => {
+  if (!market || market === "Match Winner" || side === "other") return side;
+  const at = market.toLowerCase().indexOf(side.toLowerCase() + " (");
+  const h = at < 0 ? null : market.slice(at + side.length).match(/^ \(([+-][\d.]+)\)/);
+  if (h) return `${side} ${h[1]}`;
+  const ou = market.match(/(\d+\.5)\s*$/);
+  if (/^(over|under)$/i.test(side) && ou) return `${side} ${ou[1]}`;
+  const mp = market.match(/^Map (\d) Winner/);
+  if (mp) return `${side} (map ${mp[1]})`;
+  return side;
+};
 const split = t => { const s = short(t); const i = s.indexOf(" - "); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 3)]; };
 const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
@@ -496,10 +508,10 @@ function signals() {
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(x.start)}</b><span style="display:block;padding-left:16px">${day(x.start)} · ${rel(x.start)}</span></td>
       ${matchCell({match: x.match, url: x.url, vtier: x.vtier, kind: x.market === "Match Winner" ? "match" : "side", market: x.market}, true)}
       <td data-label="Informed"><b class="num">${usd0(x.money)}</b> <span style="color:var(--mute)">/ ${usd0(x.other_money)}</span><span class="split">${x.wallets.length} wallet${x.wallets.length === 1 ? "" : "s"}: ${x.wallets.slice(0, 3).map(w => esc(wname(w))).join(", ")}</span></td>
-      <td class="side" data-label="Bet on">${esc(x.side)}</td>
+      <td class="side" data-label="Bet on">${esc(betLabel(x.market, x.side))}</td>
       <td class="r num" data-label="Price">${px != null ? px.toFixed(2) + `<span class="split">${Math.round(px * 100)}%</span>` : "–"}</td>
       <td data-label="Status">${status}</td></tr>
-      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">Informed wallets on ${esc(x.side)}</p><div class="wl">${x.wallets.map(walletRecord).join("")}</div>
+      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">Informed wallets on ${esc(betLabel(x.market, x.side))}</p><div class="wl">${x.wallets.map(walletRecord).join("")}</div>
         ${x.against.length ? `<p class="head" style="margin-top:14px">On the other side</p><div class="wl">${x.against.map(walletRecord).join("")}</div>` : ""}
         ${x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
   }).join("");
@@ -528,7 +540,7 @@ function walletsPanel() {
   if (!ws.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No wallet meets the bar right now.</td></tr>'; return; }
   tb.innerHTML = ws.map(w => {
     const r = w.record;
-    const bets = w.betting.length ? w.betting.map(b => `<div>${b.side === "other" ? "against the signal · " : ""}<b class="num">${usd0(b.usd)}</b> · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
+    const bets = w.betting.length ? w.betting.map(b => `<div>${b.side === "other" ? "against the signal · " : ""}<b class="num">${usd0(b.usd)}</b>${b.side !== "other" ? " on " + esc(betLabel(b.market, b.side)) : ""} · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
       : '<span class="split">no upcoming bets</span>';
     return `<tr><td data-label="Wallet"><a href="https://polymarket.com/profile/${esc(w.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(w))}</b></a><span class="split">${esc(w.wallet.slice(0, 10))}…</span></td>
       <td class="r num" data-label="Bets">${r.n}</td>
@@ -552,7 +564,7 @@ function history() {
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(b.start)}</b><span style="display:block;padding-left:16px">${day(b.start)}</span></td>
       ${matchCell(b, true)}
       <td data-label="Informed">${b.wallets ? `<b class="num">${usd0(b.money)}</b><span class="split">${b.wallets.length} wallet${b.wallets.length === 1 ? "" : "s"}</span>` : `<div>${pathHtml(b.path, b.escalated)}</div>`}</td>
-      <td class="side" data-label="Bet on">${esc(b.side)}${b.flipped ? '<span class="split">side flipped later</span>' : ""}</td>
+      <td class="side" data-label="Bet on">${esc(betLabel(b.market, b.side))}${b.flipped ? '<span class="split">side flipped later</span>' : ""}</td>
       <td class="r num" data-label="Avg price">${b.price.toFixed(2)}</td>
       <td class="r num" data-label="Staked">${b.stake ? usd(b.stake) : "–"}${tr.length > 1 ? `<span class="split">${tr.map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</span>` : ""}</td>
       <td data-label="Result"><span class="tag ${b.status}">${label[b.status]}</span>${b.status === "lost" && b.winner ? `<span class="split">${esc(b.winner)} won</span>` : ""}${b.status === "open" ? `<span class="split">to win ${usd(b.shares - b.stake, true)}</span>` : ""}</td>
