@@ -96,7 +96,7 @@ def tick(store, log=print):
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=meta["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
                 stakes=B.STAKES, stats=stats, series=series, bets=bets[:500],
-                planned=B.planned(matches, led, meta["opened_at"], now.timestamp()), scanned=len(matches),
+                planned=B.planned(matches, led, meta["opened_at"], now.timestamp()), scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for m in matches if m["level"]),
                 validation=C.validation(led))
     (work / "meta.json").write_text(json.dumps(meta))

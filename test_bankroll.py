@@ -123,3 +123,47 @@ def test_live_flag_adds_20_once_on_the_same_side_never_against():
     only["2"]["history"] = [dict(t=only["2"]["start"] + 600, level="LIVE", side="B", price=0.35, pts=0, snap=None)]
     bets, _, _ = B.run(only, T0, only["2"]["start"] + 3600)
     assert bets[0]["level"] == "LIVE" and bets[0]["stake"] == 20 and bets[0]["side"] == "B"
+
+
+def _minfo(market, outcomes, prices, venue="poly", winner=None):
+    return dict(venue=venue, match="Counter-Strike: A vs B (BO3) - Cup", tier="low", start=T0, market=market,
+                teams=outcomes, prices=prices, winner=winner, flow=1000, cid="c-" + market, ref="slug", url="u")
+
+
+def _mrow(market, outcome, usd, lvl, pts):
+    return dict(venue="poly", match="Counter-Strike: A vs B (BO3) - Cup", start=T0, tier="low", market=market,
+                outcome=outcome, usd=usd, level=lvl, pts=pts, avg_price=0.3, share=0.2, mshare=0.7, why=[], name="",
+                wallet="0x1", first=T0 - 600, pre_match=True)
+
+
+def test_each_flagged_market_becomes_its_own_prediction_at_its_own_price():
+    infos = [_minfo("Match Winner", ["A", "B"], {"A": 0.7, "B": 0.3}),
+             _minfo("Map 1 Winner", ["A", "B"], {"A": 0.65, "B": 0.35}),
+             _minfo("Map 1 Total Rounds: Over/Under 21.5", ["Over", "Under"], {"Over": 0.5, "Under": 0.5}),
+             _minfo("Total Maps O/U 2.5", ["Over", "Under"], {"Over": 0.4, "Under": 0.6}, venue="kalshi")]
+    ms = C.build_matches(infos, [_mrow("Map 1 Winner", "B", 6000, "HIGH", 10)])
+    assert [m["market"] for m in ms] == ["Match Winner", "Map 1 Winner"]       # unflagged side markets skipped
+    mw, m1 = ms
+    assert mw["fix_side"] is None and mw["tracked_is"] == "favorite"            # map money doesn't leak into it
+    assert m1["fix_side"] == "B" and m1["price"] == 0.35 and m1["level"] == "HIGH" and m1["kind"] == "map"
+    assert m1["id"] == mw["id"] + "|Map 1 Winner" and m1["refs"]["poly_cid"] == "c-Map 1 Winner"
+
+
+def test_market_labels_and_side_market_dominance_point():
+    assert C.poly_market_label({"sportsMarketType": "totals", "groupItemTitle": "O/U 2.5 Games"}) == "Total Maps O/U 2.5"
+    assert C.poly_market_label({"sportsMarketType": "moneyline", "groupItemTitle": "Match Winner"}) == "Match Winner"
+    assert C.event_label({"event_ticker": "KXCS2TOTALMAPS-26OCT18X", "title": "x"}) == "Total Maps O/U 2.5"
+    assert C.market_kind("Map 2 Winner") == "map" and C.market_kind("Map 1 Rounds Handicap: A (-3.5)") == "rounds"
+    base = dict(net=1500, share=0.05, x_p90=1, pre_match=True, avg_price=0.5, move=0, first=T0)
+    side, _ = C.score(dict(base, market="Map 1 Total Rounds: Over/Under 21.5", mshare=0.8), "mid", None, T0)
+    main, _ = C.score(dict(base, market="Match Winner", mshare=0.8), "mid", None, T0)
+    assert side == main + 1
+
+
+def test_explanation_names_the_market():
+    led = {"1": rec(1, [(T0, "MEDIUM", "B", 0.35)])}
+    led["1"].update(market="Map 1 Winner", kind="map")
+    bets, _, _ = B.run(led, T0, T0 + 3600)
+    w = bets[0]["why"]
+    assert w["headline"].startswith("$20 on B to win Map 1") and bets[0]["kind"] == "map"
+    assert "single-map market" in " ".join(w["sections"][2]["bullets"])

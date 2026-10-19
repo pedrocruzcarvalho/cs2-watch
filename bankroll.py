@@ -13,6 +13,7 @@ Plan (start $300, paper only, nothing is placed):
   - A tranche the balance can't cover is skipped.
 """
 
+from cs2_watch import KIND_NAME
 from explain import explain
 
 STAKES = {"HIGH": 40.0, "MEDIUM": 20.0, "LOW": 10.0, "LIVE": 20.0}
@@ -77,13 +78,14 @@ def run(ledger, opened_at, now):
         tr, path, esc, flipped = tranches(r, opened_at, now)
         if not tr:
             continue
-        key = (r["match"], r["start"])
+        key = (r["match"], r["start"], r.get("market", "Match Winner"))
         pre = [t["level"] for t in tr if t["level"] in RANK]
         bets[key] = dict(match=r["match"], start=r["start"], side=tr[0]["side"], level=max(pre, key=RANK.get) if pre
                          else "LIVE", live=any(t["level"] == "LIVE" for t in tr), first_level=tr[0]["level"],
                          path=path, escalated=esc,
             flipped=flipped, tranches=[], stake=0.0, shares=0.0, status="open", pnl=0.0, winner=None,
             settled_at=None, url=r.get("urls", {}).get("poly"), final_level=r.get("level"), teams=r.get("teams", []),
+            market=r.get("market", "Match Winner"), kind=r.get("kind", "match"),
             snap=next((t["snap"] for t in reversed(tr) if t.get("snap")), None))
         for t in tr:
             events.append((t["t"], 0, key, t))
@@ -127,7 +129,7 @@ def run(ledger, opened_at, now):
         paid = sum(tr["stake"] for tr in b["tranches"])
         b["price"] = round(sum(tr["price"] * tr["stake"] for tr in b["tranches"]) / paid, 3) if paid else \
             b["tranches"][0]["price"]
-        b["why"] = explain(b["side"], b["teams"], b["start"], b["path"], b["tranches"], b["snap"],
+        b["why"] = explain(b["side"], b["teams"], b["start"], b["path"], b["tranches"], b["snap"], market=b["market"],
                            escalation=ESCALATION, stakes=STAKES, status=b["status"], winner=b["winner"], pnl=b["pnl"],
                            stake=b["stake"], shares=b["shares"], flipped=b["flipped"], now=now)
         b.pop("snap")
@@ -166,6 +168,8 @@ def stats(bets, balance):
     by_path = [group("escalated", [b for b in settled if b["escalated"]]),
                group("flagged once, never rose", [b for b in settled if not b["escalated"] and b["level"] != "LIVE"]),
                group("live bet added", [b for b in settled if b.get("live")])]
+    by_market = [group(name, [b for b in settled if b.get("kind", "match") == kind]) | dict(
+        kind=kind, open=sum(b.get("kind", "match") == kind for b in open_)) for kind, name in KIND_NAME.items()]
     return dict(start=START_BALANCE, balance=round(balance, 2), equity=round(equity, 2),
                 profit=round(equity - START_BALANCE, 2), settled_pnl=round(pnl, 2),
                 roi=round(pnl / staked, 4) if staked else None, staked=staked,
@@ -176,7 +180,7 @@ def stats(bets, balance):
                 escalated=sum(b["escalated"] for b in bets),
                 best=max((b["pnl"] for b in settled), default=0), worst=min((b["pnl"] for b in settled), default=0),
                 max_drawdown=round(dd, 2), streak=f"{streak} {kind}" if kind else "", by_level=by_level,
-                by_path=by_path, escalation=ESCALATION)
+                by_path=by_path, by_market=by_market, escalation=ESCALATION)
 
 
 def planned(matches, ledger, opened_at, now):
@@ -184,15 +188,16 @@ def planned(matches, ledger, opened_at, now):
     held = {}
     bets, _, _ = run(ledger, opened_at, now)
     for b in bets:
-        held[(b["match"], b["start"])] = b
-    hist = {(r["match"], r["start"]): r.get("history", []) for r in ledger.values() if r.get("mode") == "live"}
+        held[(b["match"], b["start"], b["market"])] = b
+    hist = {(r["match"], r["start"], r.get("market", "Match Winner")): r.get("history", [])
+            for r in ledger.values() if r.get("mode") == "live"}
     out = []
     for m in matches:
         live_now = m["start"] <= now and not m["winner"] and m.get("live_side")
         if not live_now and (m["start"] <= now or m["level"] not in STAKES or not m.get("fix_side")):
             continue
-        b = held.get((m["match"], m["start"]))
-        path = [(h["level"], h["t"]) for h in hist.get((m["match"], m["start"]), []) if h["level"] in STAKES]
+        b = held.get((m["match"], m["start"], m["market"]))
+        path = [(h["level"], h["t"]) for h in hist.get((m["match"], m["start"], m["market"]), []) if h["level"] in STAKES]
         path = [p for i, p in enumerate(path) if i == 0 or p[0] != path[i - 1][0]]
         price = m["prices"].get(m["live_side"] if live_now else m["fix_side"])
         snap = dict(flags=m["flags"], money=m["money"], flow=m["flow"], tier=m["tier"], conflict=m["conflict"])
@@ -201,10 +206,11 @@ def planned(matches, ledger, opened_at, now):
                         live=True)
             path = b["path"] if b else [("LIVE", now)]
         why = explain(b["side"] if b else (m["live_side"] if live_now else m["fix_side"]), m["teams"], m["start"], path,
-                      b["tranches"] if b else [], snap,
+                      b["tranches"] if b else [], snap, market=m["market"],
                       escalation=ESCALATION, stakes=STAKES, stake=b["stake"] if b else 0.0,
                       shares=b["shares"] if b else 0.0, flipped=bool(b and b["flipped"]), now=now)
-        out.append(dict(why=why, live_now=bool(live_now), match=m["match"], start=m["start"],
+        out.append(dict(why=why, live_now=bool(live_now), match=m["match"], start=m["start"], market=m["market"],
+                        kind=m["kind"],
                         level="LIVE" if live_now else m["level"], pts=m["pts"],
                         side=m["live_side"] if live_now else m["fix_side"],
                         price=price, bettable="poly" in m["refs"] and price is not None,

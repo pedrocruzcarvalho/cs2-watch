@@ -74,6 +74,8 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
 .why .res-won li { color: var(--good); font-weight: 600; } .why .res-lost li { color: var(--bad); font-weight: 600; }
 .evidence { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .hint { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.mk { display: inline-block; margin-top: 2px; padding: 0 7px; border-radius: 6px; font-size: 11px; font-weight: 600; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border); }
+.mk.match { display: none; }
 .esc { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--high); color: #fff; }
 </style>
 </head>
@@ -107,10 +109,15 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
         <thead><tr><th>Path</th><th class="r">W–L</th><th class="r">Staked</th><th class="r">P&amp;L</th><th class="r">ROI</th></tr></thead>
         <tbody id="t-path"></tbody>
       </table></div>
+      <div class="scroll" style="margin-top:12px"><table>
+        <thead><tr><th>Market</th><th class="r">W–L</th><th class="r">Staked</th><th class="r">P&amp;L</th><th class="r">ROI</th><th class="r">Open</th></tr></thead>
+        <tbody id="t-mkt"></tbody>
+      </table></div>
       <ul class="rules" style="margin-top:14px">
         <li>$300 start. First flag: <b>$40</b> HIGH, <b>$20</b> MEDIUM, <b>$10</b> LOW on the flagged side, at the price at that moment.</li>
         <li><b>Escalation</b> (LOW → MEDIUM → HIGH before kickoff) tops up to <b id="esc-x">1.5</b>× the new level's stake at the new price: LOW → HIGH = $60 in total.</li>
         <li><b class="LIVE">LIVE</b>: a bet placed during the match that passes a much stricter test (fresh wallet, $3k+, 25%+ of the match) adds <b>$20</b> on that side. Never against an existing bet.</li>
+        <li>Every market is judged on its own: match winner, map winners, total maps, map handicap, round totals and handicaps. Side markets are bet at their own price, only once something in them is flagged.</li>
         <li>Downgrades keep what's in. If the flagged side flips, no new money goes in. Every tranche pays +1c spread and Polymarket's fee.</li>
         <li>Skipped if the balance can't cover it. Paper only: no real bets are placed.</li>
       </ul>
@@ -202,6 +209,13 @@ function paths() {
     <td class="r ${cls(r.roi)}">${pct(r.roi, true)}</td></tr>`).join("");
 }
 
+function markets() {
+  document.getElementById("t-mkt").innerHTML = (D.stats.by_market || []).map(r => `<tr><td>${esc(r.name)}</td>
+    <td class="r">${r.won}–${r.lost}</td><td class="r">${usd0(r.staked)}</td><td class="r ${cls(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td>
+    <td class="r ${cls(r.roi)}">${pct(r.roi, true)}</td><td class="r">${r.open || ""}</td></tr>`).join("");
+}
+const mkTag = b => `<div><span class="mk ${b.kind || "match"}">${esc(b.market || "Match Winner")}</span></div>`;
+
 function levels() {
   document.getElementById("t-lvl").innerHTML = D.stats.by_level.map(r => `<tr><td>${pill(r.level)}</td><td class="r">${usd0(r.stake)}</td>
     <td class="r">${r.won}–${r.lost}</td><td class="r ${cls(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td>
@@ -228,7 +242,7 @@ function plan() {
     const other = Object.entries(b.money).filter(([t]) => t !== b.side).reduce((a, [, v]) => a + v, 0);
     const links = Object.entries(b.urls).map(([v, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${v === "poly" ? "Polymarket" : "Kalshi"}</a>`).join(" · ");
     return `<tr class="m" data-i="${i}"><td>${when(b.start)}<div class="small">${b.live_now ? '<b class="LIVE">LIVE NOW</b>' : rel(b.start)}</div></td>
-      <td>${esc(short(b.match))}<div class="small">${esc(b.tier)} tier · ${links}</div></td>
+      <td>${esc(short(b.match))}${mkTag(b)}<div class="small">${esc(b.tier)} tier · ${links}</div></td>
       <td>${pathHtml(b.path, b.escalated)}<div class="small">now ${b.level} · ${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div></td>
       <td class="side">${esc(b.side)}${b.flipped ? `<div class="small">flipped: bet stays on ${esc(b.bet_side)}</div>` : ""}</td>
       <td class="r">${b.price != null ? b.price.toFixed(2) + `<div class="small">${Math.round(b.price * 100)}% implied</div>` : "–"}</td>
@@ -252,7 +266,7 @@ function history() {
   if (!bs.length) { tb.innerHTML = `<tr><td colspan="9" class="empty">Nothing here yet.</td></tr>`; return; }
   const label = {won: "Won", lost: "Lost", open: "Open", skipped: "Skipped", void: "Void"};
   tb.innerHTML = bs.map((b, i) => `<tr class="m" data-i="${i}"><td>${when(b.start)}<span class="hint">▸ why</span></td>
-    <td>${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(short(b.match))}</a>` : esc(short(b.match))}</td>
+    <td>${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(short(b.match))}</a>` : esc(short(b.match))}${mkTag(b)}</td>
     <td>${pathHtml(b.path, b.escalated)}</td><td class="side">${esc(b.side)}${b.flipped ? '<div class="small">side flipped later</div>' : ""}</td>
     <td class="r">${b.price.toFixed(2)}</td>
     <td class="r">${b.stake ? usd(b.stake) : "–"}${b.tranches.length > 1 ? `<div class="small">${b.tranches.filter(t => t.stake).map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</div>` : ""}</td>
@@ -274,7 +288,7 @@ async function load() {
     const r = await fetch("api/data?t=" + Date.now(), {cache: "no-store"});
     const d = await r.json();
     if (!d.stats) throw new Error("no data yet: the scanner hasn't run");
-    D = d; kpis(); chart(); levels(); paths(); plan(); history();
+    D = d; kpis(); chart(); levels(); paths(); markets(); plan(); history();
   } catch (e) {
     if (!D) document.getElementById("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }

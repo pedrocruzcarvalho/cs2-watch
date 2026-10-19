@@ -8,6 +8,17 @@ was known *then*, not what the flags look like now.
 
 from datetime import datetime, timezone
 
+from cs2_watch import market_kind
+
+KIND_CONTEXT = {
+    "map": "This is a single-map market. Fixing one map is easier and cheaper than fixing a match: a team only "
+           "has to lose that map, and it can still win the series.",
+    "maps": "This is a total-maps or map-handicap market. These can be fixed without changing who wins (for "
+            "example by dropping one map), which is why fixers like them.",
+    "rounds": "This is a round-level market (total rounds or round handicap on one map). These markets are tiny, "
+              "so a big bet here is very visible, and throwing rounds doesn't require losing the match.",
+}
+
 LEVEL_WORD = {"HIGH": "HIGH", "MEDIUM": "MEDIUM", "LOW": "LOW"}
 
 
@@ -87,8 +98,9 @@ def flag_sentence(f, start):
 
 
 def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, status="open", winner=None, pnl=0.0,
-            stake=0.0, shares=0.0, flipped=False, now=None):
+            stake=0.0, shares=0.0, flipped=False, now=None, market="Match Winner"):
     snap = snap or {}
+    kind = market_kind(market)
     flags = snap.get("flags") or []
     other = next((t for t in teams if t != side), "the other team")
     mine = [f for f in flags if f.get("outcome") == side] or flags
@@ -108,11 +120,12 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
         because = f"a {money(lead['usd'])} anonymous Kalshi order backed them ({lead['share']:.0%} of the match's money)"
     else:
         because = "flagged money backed them"
+    what = (f"{side} to beat {other}" if kind == "match" else
+            f"{side} to win {market.replace(' Winner', '')}" if kind == "map" else f"{side} in {market}")
     if stake:
-        head = f"{money(stake)} on {side} to beat {other}" + (f" at an average {avg:.2f}" if avg else "") + \
-               f", because {because}."
+        head = f"{money(stake)} on {what}" + (f" at an average {avg:.2f}" if avg else "") + f", because {because}."
     else:
-        head = f"Flagged: {side} vs {other}, because {because}."
+        head = f"Flagged: {what}, because {because}."
 
     sections = []
     why_flagged = [flag_sentence(f, start) for f in mine[:4]] or [
@@ -158,6 +171,8 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     sections.append(dict(title="Why this stake", bullets=stake_b))
 
     ctx = []
+    if kind in KIND_CONTEXT:
+        ctx.append(KIND_CONTEXT[kind])
     if snap.get("live"):
         ctx.append("LIVE flags are much stricter than pre-match ones, because big in-play bets on the score are "
                    "normal. Every one of these had to hold: placed during the match; $3,000+ and 25%+ of all money "
@@ -169,7 +184,7 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     elif tier == "mid":
         ctx.append("One well-known team is playing, so bigger bets are more normal here. The flag had to clear "
                    "a higher bar.")
-    if avg is not None:
+    if avg is not None and kind in ("match", "map"):
         if avg < 0.5:
             ctx.append(f"{side} was the underdog ({avg * 100:.0f}% implied): the flagged money is betting on an "
                        f"upset, the classic fix pattern.")
@@ -178,8 +193,11 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
                        f"unusually confident, not that it expects an upset.")
     m = snap.get("money") or {}
     if m:
-        ctx.append(f"Flagged money: {money(m.get(side, 0))} on {side} vs {money(sum(v for k, v in m.items() if k != side))} "
-                   f"on {other}, out of {money(snap.get('flow', 0))} traded on the match.")
+        ctx.append(f"Flagged money in this market: {money(m.get(side, 0))} on {side} vs "
+                   f"{money(sum(v for k, v in m.items() if k != side))} on {other}, out of "
+                   f"{money(snap.get('flow', 0))} traded in it.")
+    elif avg is not None and kind not in ("match", "map"):
+        ctx.append(f"{side} was priced at {avg:.2f} ({avg * 100:.0f}% implied) when the bet went in.")
     if (snap.get("conflict") or against) and not snap.get("live"):
         ctx.append(f"There was also suspicious money on {other}, which weakens the signal (the level was lowered "
                    f"one step for that).")

@@ -56,7 +56,7 @@ GAMMA = "https://gamma-api.polymarket.com"
 DATA = "https://data-api.polymarket.com"
 KALSHI = "https://api.elections.kalshi.com/trade-api/v2"
 CS2_SERIES = 10310
-KALSHI_SERIES = ["KXCS2GAME", "KXCS2MAP"]
+KALSHI_SERIES = ["KXCS2GAME", "KXCS2MAP", "KXCS2TOTALMAPS"]
 UA = {"User-Agent": "Mozilla/5.0"}
 SWEEP = 0.97                 # fills at >= this (or <= 1 - this) are post-result sweeps
 MIN_POSITION = 500           # USDC; smaller positions are never candidates
@@ -138,6 +138,32 @@ def poly_trades(event_id):
     return out
 
 
+def poly_market_label(m):
+    """One name per market type, shared with Kalshi: 'Match Winner', 'Map 1 Winner', 'Total Maps O/U 2.5',
+    'Map Handicap: ...', 'Map 1 Total Rounds: Over/Under 21.5', 'Map 1 Rounds Handicap: ...'."""
+    t, title = m.get("sportsMarketType"), m.get("groupItemTitle") or ""
+    if t == "moneyline" or title.lower().startswith("match"):
+        return "Match Winner"
+    if t == "totals":
+        n = re.search(r"([\d.]+)", title)
+        return f"Total Maps O/U {n.group(1) if n else '2.5'}"
+    return title or "Match Winner"
+
+
+def market_kind(label):
+    if label == "Match Winner":
+        return "match"
+    if re.fullmatch(r"Map \d+ Winner", label):
+        return "map"
+    if "Rounds" in label:
+        return "rounds"
+    return "maps"                                                   # total maps, map handicap
+
+
+KIND_NAME = {"match": "Match winner", "map": "Map winners", "maps": "Total maps & map handicap",
+             "rounds": "Round totals & handicaps"}
+
+
 def winner_of(market, ended=False):
     """Winner once the market is closed, or once the match has ended and the price has gone to ~1.
     (Polymarket's formal resolution can lag the end of the match by hours.)"""
@@ -159,13 +185,16 @@ def poly_positions(event, trades, cutoff=None):
     real = [t for t in trades if (1 - SWEEP) < t["price"] < SWEEP and t["conditionId"] in markets
             and (cutoff is None or t["timestamp"] < cutoff)]
     notional = [t["size"] * t["price"] for t in real]
+    mflow = {}
+    for t in real:
+        mflow[t["conditionId"]] = mflow.get(t["conditionId"], 0) + t["size"] * t["price"]
     stats = dict(n_trades=len(real), flow=sum(notional), p90=p90(notional),
                  pre_flow=sum(t["size"] * t["price"] for t in real if t["timestamp"] < start))
     pos = {}
     for t in sorted(real, key=lambda t: t["timestamp"]):
         k = (t["proxyWallet"], t["conditionId"], t["outcome"])
         p = pos.setdefault(k, dict(wallet=t["proxyWallet"], name=t.get("name") or t.get("pseudonym") or "",
-                                   market=markets[t["conditionId"]].get("groupItemTitle") or "Match",
+                                   market=poly_market_label(markets[t["conditionId"]]),
                                    outcome=t["outcome"], buy=0.0, sell=0.0, shares=0.0, fills=0,
                                    first=t["timestamp"], last=t["timestamp"], pre=0.0))
         usd = t["size"] * t["price"]
@@ -185,6 +214,8 @@ def poly_positions(event, trades, cutoff=None):
             continue
         p["avg_price"] = p["buy"] / p["shares"] if p["shares"] else 0
         p["share"] = p["net"] / stats["flow"] if stats["flow"] else 0
+        p["mshare"] = p["net"] / mflow[cid] if mflow.get(cid) else 0
+        p["market_flow"] = mflow.get(cid, 0)
         p["x_p90"] = p["net"] / stats["p90"] if stats["p90"] else 0
         p["pre_match"] = p["pre"] >= 0.5 * p["buy"]
         p["move"] = line_move(real, cid, outcome, p["first"], start)
@@ -201,25 +232,32 @@ def match_winner_market(event):
 
 
 def poly_info(event, trades, cutoff=None):
-    """Teams, last traded price per team on the match-winner market, and the winner once resolved."""
-    mw = match_winner_market(event)
-    teams = json.loads(mw.get("outcomes") or "[]")
-    px = {}
+    """Per market: outcomes, last traded price per outcome, winner once known, money traded. The match-winner
+    market's teams also become the match's teams."""
+    markets = []
+    by_cid = {}
     for t in sorted(trades, key=lambda t: t["timestamp"]):
-        if t["conditionId"] != mw["conditionId"] or (cutoff is not None and t["timestamp"] >= cutoff):
+        if (cutoff is not None and t["timestamp"] >= cutoff) or not (1 - SWEEP) < t["price"] < SWEEP:
             continue
-        if not (1 - SWEEP) < t["price"] < SWEEP:
-            continue
-        px[t["outcome"]] = t["price"]
-        other = next((x for x in teams if x != t["outcome"]), None)
-        if other:
-            px[other] = 1 - t["price"]
-    if not px and cutoff is None:
-        try:
-            px = dict(zip(teams, (float(x) for x in json.loads(mw.get("outcomePrices") or "[]"))))
-        except Exception:
-            px = {}
-    return dict(teams=teams, prices=px, winner=winner_of(mw, event.get("ended")))
+        by_cid.setdefault(t["conditionId"], []).append(t)
+    for m in event["markets"]:
+        outs = json.loads(m.get("outcomes") or "[]")
+        px, flow = {}, 0.0
+        for t in by_cid.get(m["conditionId"], []):
+            flow += t["size"] * t["price"]
+            px[t["outcome"]] = t["price"]
+            other = next((x for x in outs if x != t["outcome"]), None)
+            if other:
+                px[other] = 1 - t["price"]
+        if not px and cutoff is None:
+            try:
+                px = dict(zip(outs, (float(x) for x in json.loads(m.get("outcomePrices") or "[]"))))
+            except Exception:
+                px = {}
+        markets.append(dict(market=poly_market_label(m), cid=m["conditionId"], outcomes=outs, prices=px,
+                            winner=winner_of(m, event.get("ended")), flow=round(flow)))
+    mw = next((x for x in markets if x["market"] == "Match Winner"), markets[0])
+    return dict(teams=mw["outcomes"], prices=mw["prices"], winner=mw["winner"], markets=markets)
 
 
 def p90(xs):
@@ -337,10 +375,11 @@ def kalshi_trades(ticker, since):
 def kalshi_blocks(event, cutoff=None):
     """Kalshi has no wallets, so the unit is one taker order: fills on the same side in the same second."""
     start = event["start"].timestamp()
-    teams = [m.get("yes_sub_title") or m["ticker"] for m in event["markets"]]
+    totals = event["event_ticker"].startswith("KXCS2TOTALMAPS")
+    teams = ["Over", "Under"] if totals else [m.get("yes_sub_title") or m["ticker"] for m in event["markets"]]
     rows = []
     for m in event["markets"]:
-        team = m.get("yes_sub_title") or m["ticker"]
+        team = "Over" if totals else (m.get("yes_sub_title") or m["ticker"])
         other = next((t for t in teams if t != team), "NOT " + team)
         for t in kalshi_trades(m["ticker"], start - 4 * 86400):
             side = t.get("taker_side")
@@ -372,13 +411,19 @@ def kalshi_blocks(event, cutoff=None):
         if r["ts"] < start:
             b["pre"] += r["usd"]
     res = []
-    winners = {m.get("yes_sub_title"): m.get("result") == "yes" for m in event["markets"] if m.get("result")}
+    if totals:
+        winners = {"Over": m.get("result") == "yes" for m in event["markets"] if m.get("result")}
+        if winners:
+            winners["Under"] = not winners["Over"]
+    else:
+        winners = {m.get("yes_sub_title"): m.get("result") == "yes" for m in event["markets"] if m.get("result")}
     for b in blocks:
         b["net"] = b["buy"]
         if b["net"] < MIN_POSITION:
             continue
         b["avg_price"] = b["buy"] / b["shares"]
         b["share"] = b["net"] / stats["flow"] if stats["flow"] else 0
+        b["mshare"], b["market_flow"] = b["share"], stats["flow"]       # a Kalshi event is a single market
         b["x_p90"] = b["net"] / stats["p90"] if stats["p90"] else 0
         b["pre_match"] = b["pre"] >= 0.5 * b["buy"]
         seq = [(r["ts"], r["p_team"] if r["yes_team"] == b["outcome"] else 1 - r["p_team"]) for r in rows
@@ -396,10 +441,14 @@ def kalshi_blocks(event, cutoff=None):
         if t not in last and o:
             last[t] = 1 - last[o]
     stats.update(prices=last, teams=teams, winner=next((k for k, v in winners.items() if v), None))
+    stats["markets"] = [dict(market=event_label(event), cid=None, outcomes=teams, prices=last, winner=stats["winner"],
+                             flow=round(stats["flow"]))]
     return res, stats
 
 
 def event_label(e):
+    if e.get("event_ticker", "").startswith("KXCS2TOTALMAPS"):
+        return "Total Maps O/U 2.5"
     t = e.get("title", "")
     return "Map " + t.split("Map ")[1].split(" ")[0] + " Winner" if "Map " in t else "Match Winner"
 
@@ -429,6 +478,9 @@ def score(p, tier_, wallet, match_start, baseline=None):
     if p["x_p90"] >= 25:
         pts += 1
         why.append(f"{p['x_p90']:.0f}x a typical big trade on this match (p90)")
+    if p.get("market", "Match Winner") != "Match Winner" and p.get("mshare", 0) >= 0.5:
+        pts += 1
+        why.append(f"{p['mshare']:.0%} of all money in the {p['market']} market")
     if wallet:
         if wallet.get("created"):
             age = (match_start - wallet["created"]) / 86400
@@ -538,12 +590,12 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
             t, ptitle = poly_tier.get(match_key(title), ("unknown", None))
             title = f"{title}  [{ptitle.split(' - ', 1)[-1]}]" if ptitle else title
         start = (iso(e["startTime"]) if venue == "poly" else e["start"]).timestamp()
-        if venue == "poly" or e["event_ticker"].startswith("KXCS2GAME"):
-            infos.append(dict(venue=venue, match=title, tier=t, start=start, teams=stats["teams"],
-                              prices=stats["prices"], winner=stats["winner"], flow=round(stats["flow"]),
-                              ref=e["slug"] if venue == "poly" else e["event_ticker"],
+        for mk in stats["markets"]:
+            infos.append(dict(venue=venue, match=title, tier=t, start=start, market=mk["market"],
+                              teams=mk["outcomes"], prices=mk["prices"], winner=mk["winner"], flow=mk["flow"],
+                              cid=mk["cid"], ref=e["slug"] if venue == "poly" else e["event_ticker"],
                               url=(f"https://polymarket.com/event/{e['slug']}" if venue == "poly"
-                                   else "https://kalshi.com/markets/kxcs2game")))
+                                   else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}")))
         for p in pos:
             w = _wallets.get(p["wallet"]) if p["wallet"] else None
             pts, why = score(p, t, w, start, baseline)
@@ -552,6 +604,7 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
                        wallet=p["wallet"], name=p["name"], market=p["market"], outcome=p["outcome"],
                        usd=round(p["net"]), avg_price=round(p["avg_price"], 3), share=round(p["share"], 3),
                        first=p["first"], won=p["won"], x_p90=round(p["x_p90"], 1),
+                       mshare=round(p.get("mshare", p["share"]), 3), market_flow=round(p.get("market_flow", 0)),
                        pre_match=p["pre_match"], move=round(p["move"], 3), match_flow=round(stats["flow"]), wallet_info=w,
                        url=(f"https://polymarket.com/event/{e['slug']}" if venue == "poly"
                             else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}"))
@@ -608,7 +661,7 @@ def corroborate(rows):
 
 LEVELS = ["HIGH", "MEDIUM", "LOW", ""]
 FLAG_KEYS = ("venue", "market", "outcome", "usd", "avg_price", "share", "level", "pts", "why", "name", "wallet",
-             "first", "profile", "pre_match", "move", "x_p90", "wallet_info")
+             "first", "profile", "pre_match", "move", "x_p90", "wallet_info", "mshare", "market_flow")
 
 
 def team_for(outcome, teams):
@@ -650,63 +703,76 @@ def live_check(r):
 
 
 def build_matches(infos, rows):
-    """One record per real-world match (Polymarket and Kalshi merged): which side the flagged money backed."""
+    """One record per real-world match and market (Polymarket and Kalshi merged): which outcome the flagged money
+    backed in that market. The match-winner market is always kept (it is also the control for validation);
+    side markets (maps, totals, handicaps, rounds) only when something in them is flagged."""
     groups = []
-    for i in sorted(infos, key=lambda i: i["venue"] != "poly"):       # poly first: it names the tournament
+    for i in sorted(infos, key=lambda i: (i["venue"] != "poly", i.get("market", "Match Winner") != "Match Winner")):
         g = next((g for g in groups if same_match(g["key"], match_key(i["match"])) and abs(g["start"] - i["start"]) < 6 * 3600),
                  None)
         if not g:
-            g = dict(key=match_key(i["match"]), start=i["start"], match=i["match"], tier=i["tier"],
-                     teams=i["teams"], venues={}, winner=None)
+            g = dict(key=match_key(i["match"]), start=i["start"], match=i["match"], tier=i["tier"], teams=i["teams"],
+                     markets={})
             groups.append(g)
-        g["venues"][i["venue"]] = i
-        if i["winner"] and not g["winner"]:
-            g["winner"] = team_for(i["winner"], g["teams"])
+        g["markets"].setdefault(i.get("market", "Match Winner"), {})[i["venue"]] = i
     out = []
     for g in groups:
-        mine = [r for r in rows if same_match(match_key(r["match"]), g["key"]) and abs(r["start"] - g["start"]) < 6 * 3600]
-        flagged = sorted((r for r in mine if r["level"]), key=lambda r: (LEVELS.index(r["level"]), -r["pts"]))
-        money, best = {t: 0.0 for t in g["teams"]}, {}
-        for r in flagged:
-            t = team_for(r["outcome"], g["teams"])
-            if t:
-                money[t] += r["usd"]
-                best.setdefault(t, r)                                  # flagged is sorted best-first
-        side = max(money, key=money.get) if money and max(money.values()) > 0 else None
-        lvl, pts, conflict = "", 0, False
-        if side:
-            lvl, pts = best[side]["level"], best[side]["pts"]
-            if sum(v for t, v in money.items() if t != side) >= 0.5 * money[side]:
-                conflict = True                                        # flagged money on both sides
-                lvl = LEVELS[min(LEVELS.index(lvl) + 1, 3)]
-        live = []
-        for r in mine:
-            why = live_check(r)
-            if why and team_for(r["outcome"], g["teams"]):
-                live.append({k: r[k] for k in FLAG_KEYS if k in r} | dict(level="LIVE", why=why))
-        live_money = {}
-        for f in live:
-            t = team_for(f["outcome"], g["teams"])
-            live_money[t] = live_money.get(t, 0) + f["usd"]
-        live_side = max(live_money, key=live_money.get) if live_money else None
-        if live_side and sum(v for t, v in live_money.items() if t != live_side) >= 0.5 * live_money[live_side]:
-            live_side = None                                           # live money on both sides: no signal
-        prices = next((v["prices"] for v in g["venues"].values() if v.get("prices")), {})
-        fav = max(prices, key=prices.get) if prices else None
-        tracked = side or fav
-        out.append(dict(
-            id=f"{'-'.join(sorted(g['key']))}|{datetime.fromtimestamp(g['start'], timezone.utc):%Y-%m-%d}",
-            match=g["match"], tier=g["tier"], start=g["start"], teams=g["teams"], winner=g["winner"],
-            level=lvl, pts=pts, conflict=conflict, fix_side=side, money={t: round(v) for t, v in money.items()},
-            tracked=tracked, tracked_is="flagged" if side else "favorite",
-            price=round(prices[tracked], 3) if tracked in prices else None, prices=prices,
-            refs={v["venue"]: v["ref"] for v in g["venues"].values()},
-            urls={v["venue"]: v["url"] for v in g["venues"].values()},
-            flow=sum(v["flow"] for v in g["venues"].values()),
-            flags=[{k: r[k] for k in FLAG_KEYS if k in r} for r in flagged],
-            live_side=live_side, live_flags=sorted(live, key=lambda f: -f["usd"]),
-            live_money={t: round(v) for t, v in live_money.items()}))
-    return sorted(out, key=lambda m: m["start"])
+        base_id = f"{'-'.join(sorted(g['key']))}|{datetime.fromtimestamp(g['start'], timezone.utc):%Y-%m-%d}"
+        mine_all = [r for r in rows if same_match(match_key(r["match"]), g["key"]) and abs(r["start"] - g["start"]) < 6 * 3600]
+        for label, venues in g["markets"].items():
+            first = next(iter(venues.values()))
+            outcomes = (venues.get("poly") or first)["teams"]
+            mine = [r for r in mine_all if r.get("market", "Match Winner") == label]
+            m = judge_market(mine, outcomes)
+            if label != "Match Winner" and not m["level"] and not m["live_side"]:
+                continue
+            winner = next((team_for(v["winner"], outcomes) for v in venues.values() if v.get("winner")), None)
+            prices = next((v["prices"] for v in venues.values() if v.get("prices")), {})
+            fav = max(prices, key=prices.get) if prices else None
+            tracked = m["fix_side"] or fav
+            refs = {v["venue"]: v["ref"] for v in venues.values()}
+            if venues.get("poly", {}).get("cid"):
+                refs["poly_cid"] = venues["poly"]["cid"]
+            out.append(dict(m, id=base_id if label == "Match Winner" else f"{base_id}|{label}", match_id=base_id,
+                            market=label, kind=market_kind(label), match=g["match"], tier=g["tier"], start=g["start"],
+                            teams=outcomes, winner=winner, tracked=tracked,
+                            tracked_is="flagged" if m["fix_side"] else "favorite",
+                            price=round(prices[tracked], 3) if tracked in prices else None, prices=prices, refs=refs,
+                            urls={v["venue"]: v["url"] for v in venues.values()},
+                            flow=sum(v["flow"] for v in venues.values())))
+    return sorted(out, key=lambda m: (m["start"], m["kind"] != "match", m["market"]))
+
+
+def judge_market(mine, outcomes):
+    """Flagged side, level and LIVE flag for one market's positions."""
+    flagged = sorted((r for r in mine if r["level"]), key=lambda r: (LEVELS.index(r["level"]), -r["pts"]))
+    money, best = {t: 0.0 for t in outcomes}, {}
+    for r in flagged:
+        t = team_for(r["outcome"], outcomes)
+        if t:
+            money[t] += r["usd"]
+            best.setdefault(t, r)                                      # flagged is sorted best-first
+    side = max(money, key=money.get) if money and max(money.values()) > 0 else None
+    lvl, pts, conflict = "", 0, False
+    if side:
+        lvl, pts = best[side]["level"], best[side]["pts"]
+        if sum(v for t, v in money.items() if t != side) >= 0.5 * money[side]:
+            conflict = True                                            # flagged money on both sides
+            lvl = LEVELS[min(LEVELS.index(lvl) + 1, 3)]
+    live, live_money = [], {}
+    for r in mine:
+        why = live_check(r)
+        t = team_for(r["outcome"], outcomes)
+        if why and t:
+            live.append({k: r[k] for k in FLAG_KEYS if k in r} | dict(level="LIVE", why=why))
+            live_money[t] = live_money.get(t, 0) + r["usd"]
+    live_side = max(live_money, key=live_money.get) if live_money else None
+    if live_side and sum(v for t, v in live_money.items() if t != live_side) >= 0.5 * live_money[live_side]:
+        live_side = None                                               # live money on both sides: no signal
+    return dict(level=lvl, pts=pts, conflict=conflict, fix_side=side, money={t: round(v) for t, v in money.items()},
+                flags=[{k: r[k] for k in FLAG_KEYS if k in r} for r in flagged],
+                live_side=live_side, live_flags=sorted(live, key=lambda f: -f["usd"]),
+                live_money={t: round(v) for t, v in live_money.items()})
 
 
 def load_ledger():
@@ -722,7 +788,7 @@ def save_ledger(led):
 
 
 LEDGER_KEYS = ("match", "tier", "start", "teams", "level", "pts", "conflict", "fix_side", "tracked", "tracked_is",
-               "price", "refs", "urls", "money")
+               "price", "refs", "urls", "money", "market", "kind", "match_id")
 
 
 def record(led, matches, mode, now):
@@ -752,7 +818,7 @@ def record(led, matches, mode, now):
                                     # the evidence as it stood at this moment, so a bet can explain itself later
                                     snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
                                               conflict=m["conflict"]) if m["level"] else None)]
-        led[k] = {f: m[f] for f in LEDGER_KEYS} | dict(mode=mode, made=now, history=hist,
+        led[k] = {f: m.get(f) for f in LEDGER_KEYS} | dict(mode=mode, made=now, history=hist,
                                                        winner=m["winner"] if mode == "backtest" else None)
 
 
@@ -780,11 +846,18 @@ def resolve(led, now, log=print):
         try:
             if "poly" in r["refs"]:
                 e = get(f"{GAMMA}/events?slug={r['refs']['poly']}")[0]
-                w = winner_of(match_winner_market(e), e.get("ended"))
+                cid = r["refs"].get("poly_cid")
+                mk = next((m for m in e["markets"] if m["conditionId"] == cid), None) if cid else None
+                w = winner_of(mk or match_winner_market(e), e.get("ended"))
             else:
-                e = get(f"{KALSHI}/events/{r['refs']['kalshi']}?with_nested_markets=true")
+                tk = r["refs"]["kalshi"]
+                e = get(f"{KALSHI}/events/{tk}?with_nested_markets=true")
                 ms = e.get("markets") or e.get("event", {}).get("markets", [])
-                w = next((m.get("yes_sub_title") for m in ms if m.get("result") == "yes"), None)
+                if tk.startswith("KXCS2TOTALMAPS"):
+                    res = next((m.get("result") for m in ms if m.get("result")), None)
+                    w = {"yes": "Over", "no": "Under"}.get(res)
+                else:
+                    w = next((m.get("yes_sub_title") for m in ms if m.get("result") == "yes"), None)
             if w:
                 r["winner"] = team_for(w, r["teams"]) or w
                 r["resolved_at"] = now
@@ -798,7 +871,8 @@ def validation(led):
     """Per mode and level: how often the tracked side won vs the price it was trading at."""
     out = {}
     for mode in ("live", "backtest"):
-        rows = [r for r in led.values() if r["mode"] == mode and r.get("winner") and r.get("price") is not None]
+        rows = [r for r in led.values() if r["mode"] == mode and r.get("winner") and r.get("price") is not None
+                and r.get("market", "Match Winner") == "Match Winner"]
         for lvl in LEVELS:
             g = [r for r in rows if r["level"] == lvl]
             if not g:
