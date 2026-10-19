@@ -130,6 +130,8 @@ def flag_sentence(f, start):
         s = (f"An anonymous order on Kalshi bought {money(f['usd'])} of {f['outcome']} at {f['avg_price']:.2f}{timing}, "
              f"{share:.0%} {where}.")
     else:
+        rec = f.get("record")
+        rec_txt = (f" Track record: {rec['text']}. Verdict: {rec['label']} ({rec['why']})." if rec else "")
         s = lead + (f"On Polymarket, {describe_wallet(f, start)} put {money(f['usd'])} on {f['outcome']} at "
              f"{f['avg_price']:.2f}{timing}. That is {share:.0%} {where}.")
     extra = []
@@ -141,6 +143,8 @@ def flag_sentence(f, start):
         extra.append("the same side was also hit hard on the other venue")
     if extra:
         s += " Also: " + "; ".join(extra) + "."
+    if f.get("venue") != "kalshi" and not f.get("cluster"):
+        s += rec_txt
     return s + f" ({f['level']}, {f['pts']} pts)"
 
 

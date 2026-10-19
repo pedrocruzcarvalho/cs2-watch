@@ -625,9 +625,11 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
             pts, why = score(p, t, w, start, baseline)
             lvl = level(pts, p["net"], p["share"])
             if watched:
-                pts += 5
-                why.insert(0, f"watched wallet: {watched.get('reason') or 'on the watchlist'}")
-                lvl = watch_level(lvl, p["net"])
+                pts += watched.get("bonus", 5)                 # weight depends on the wallet's track record
+                why.insert(0, f"watched wallet (+{watched.get('bonus', 5)}): {watched.get('reason') or 'on the watchlist'}"
+                              + (f"; record says {watched['verdict']}" if watched.get("verdict") else ""))
+                if watched.get("floors", True):
+                    lvl = watch_level(lvl, p["net"])
             row = dict(venue=venue, match=title, tier=t, start=start, pts=pts, level=lvl, why=why,
                        watched=watched.get("reason") if watched else None,
                        wallet=p["wallet"], name=p["name"], market=p["market"], outcome=p["outcome"],
@@ -692,7 +694,7 @@ def corroborate(rows):
 LEVELS = ["HIGH", "MEDIUM", "LOW", ""]
 FLAG_KEYS = ("venue", "market", "outcome", "usd", "avg_price", "share", "level", "pts", "why", "name", "wallet",
              "first", "profile", "pre_match", "move", "x_p90", "wallet_info", "mshare", "market_flow", "cluster",
-             "members", "watched")
+             "members", "watched", "record")
 
 
 def team_for(outcome, teams):
@@ -945,7 +947,8 @@ def update_watch(auto, rows, now):
         a = auto.setdefault(r["wallet"], dict(name=r.get("name") or "", first_seen=now, flags={}))
         k = f"{match_key_str(r['match'])}|{r['start']:.0f}|{r['market']}|{r['outcome']}"
         f = a["flags"].setdefault(k, dict(match=r["match"], market=r["market"], outcome=r["outcome"], start=r["start"]))
-        f.update(level=r["level"], usd=r["usd"], won=r.get("won") if r.get("won") is not None else f.get("won"))
+        f.update(level=r["level"], usd=r["usd"], price=r.get("avg_price"),
+                 won=r.get("won") if r.get("won") is not None else f.get("won"))
         a["last_seen"] = now
     for w in [w for w, a in auto.items() if now - a.get("last_seen", a["first_seen"]) > AUTO_WATCH_DAYS * 86400]:
         del auto[w]

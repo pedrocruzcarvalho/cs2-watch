@@ -26,10 +26,11 @@ from pathlib import Path
 import bankroll as B
 import cs2_watch as C
 import oddspapi as O
+import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
-        "watchlist": "watchlist.json"}
+        "watchlist": "watchlist.json", "state:profiles": "profiles.json"}
 KEEP_DAYS = 90
 
 
@@ -69,7 +70,21 @@ class Files:
         (self.root / key.replace(":", "_")).write_bytes(data)
 
 
-def watch_view(auto_watched, manual, rows):
+def watch_weights(auto_watched, manual, profiles):
+    """How much a watched wallet's bets count, from its track record. Hand-picked wallets always count fully."""
+    out = {}
+    for w, v in auto_watched.items():
+        prof = profiles.get(w.lower())
+        vd = prof["verdict"] if prof else "unclear"
+        out[w.lower()] = dict(v, verdict=vd, bonus=W.BONUS[vd], floors=vd == "suspect")
+    for w, v in manual.items():
+        prof = profiles.get(w.lower())
+        out[w.lower()] = dict(v, reason=v.get("note") or "added by hand", source="manual", bonus=5, floors=True,
+                              verdict=prof["verdict"] if prof else None)
+    return out
+
+
+def watch_view(auto_watched, manual, rows, profiles=None):
     """Watchlist for the dashboard: every watched wallet, why, its record, and what it is betting on now."""
     now_bets = {}
     for r in rows:
@@ -79,10 +94,12 @@ def watch_view(auto_watched, manual, rows):
     out = []
     for w, v in auto_watched.items():
         out.append(dict(wallet=w, source="auto", reason=v["reason"], name=v.get("name"), since=v["since"],
-                        won=v["won"], lost=v["lost"], flags=v["flags"], betting=now_bets.get(w.lower(), [])))
+                        won=v["won"], lost=v["lost"], flags=v["flags"], betting=now_bets.get(w.lower(), []),
+                        profile=(profiles or {}).get(w.lower())))
     for w, v in manual.items():
         out.append(dict(wallet=w, source="manual", reason=v.get("note") or "added by hand", name=v.get("name"),
-                        since=v.get("added_at"), won=None, lost=None, flags=None, betting=now_bets.get(w.lower(), [])))
+                        since=v.get("added_at"), won=None, lost=None, flags=None, betting=now_bets.get(w.lower(), []),
+                        profile=(profiles or {}).get(w.lower())))
     return sorted(out, key=lambda x: (not x["betting"], -(x["since"] or 0)))
 
 
@@ -101,12 +118,21 @@ def tick(store, log=print):
 
     auto = O.load(work / "watch_auto.json")
     manual = O.load(work / "watchlist.json")                       # edited from the dashboard (functions/api/watchlist.js)
+    profiles = O.load(work / "profiles.json")                      # wallet track records (wallets.py)
     auto_watched = C.update_watch(auto, [], now.timestamp())
-    C.WATCH = {w.lower(): v for w, v in auto_watched.items()} | {
-        w.lower(): dict(v, reason=v.get("note") or "added by hand", source="manual") for w, v in manual.items()}
+    C.WATCH = watch_weights(auto_watched, manual, profiles)
     flags, rows, infos = C.scan(now - timedelta(hours=6), now + timedelta(hours=36), ["poly"], baseline, log=log)
     auto_watched = C.update_watch(auto, rows, now.timestamp())
     (work / "watch_auto.json").write_text(json.dumps(auto))
+    # track records: watched wallets first, then every MEDIUM/HIGH-flagged wallet in this scan
+    who = list(dict.fromkeys([w.lower() for w in list(auto_watched) + list(manual)] +
+                             [r["wallet"].lower() for r in rows if r.get("wallet") and r.get("level") in ("MEDIUM", "HIGH")]))
+    traded = {w.lower(): (i or {}).get("traded") for w, i in C._wallets.items()}
+    W.refresh(profiles, who, {w.lower(): a for w, a in auto.items()}, traded, now.timestamp(), log=log)
+    (work / "profiles.json").write_text(json.dumps(profiles))
+    for r in rows:
+        if r.get("wallet"):
+            r["record"] = W.summary(profiles.get(r["wallet"].lower()))
     matches = C.build_matches(infos, rows)
     led = C.load_ledger()
     C.apply_line_moves(led, matches, now.timestamp())
@@ -128,10 +154,10 @@ def tick(store, log=print):
                 planned=B.planned(matches, led, meta["opened_at"], now.timestamp()), scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for m in matches if m["level"]),
                 validation=C.validation(led),
-                watch=watch_view(auto_watched, manual, rows))
+                watch=watch_view(auto_watched, manual, rows, profiles))
     (work / "meta.json").write_text(json.dumps(meta))
 
-    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi", "state:watch_auto"):
+    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi", "state:watch_auto", "state:profiles"):
         store.put(key, (work / KEYS[key]).read_bytes())
     store.put("dashboard", json.dumps(dash, default=str).encode())
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} matches, {dash['flagged']} flagged, "
