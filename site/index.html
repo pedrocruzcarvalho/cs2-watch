@@ -267,7 +267,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Flagged right now</h2><span class="cap" id="flag-count"></span></header>
-    <p class="sub">Before kickoff and live. Money goes in at the first flag and tops up if it escalates. Click a row for the reasons.</p>
+    <p class="sub">Before kickoff and live. The bet goes in during the last 30 minutes before kickoff, at the level the match has then. Click a row for the reasons.</p>
     <dl class="key">
       <div><dt><span class="tag esc">escalated</span></dt><dd>The level went up before kickoff (for example LOW → MEDIUM), so the plan added money. The row explains what caused it.</dd></div>
       <div><dt><span class="tag won">↑ bookmakers agree</span></dt><dd>At 1xBet, Stake or Pinnacle, this side's chance of winning rose by 6 or more percentage points in 12 hours (for example 44% → 50%, about odds 2.25 → 2.00), the same way as the flagged money. Counts as +1 level.</dd></div>
@@ -323,6 +323,9 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <li><b>Real prices:</b> each bet fills against Polymarket's order book at that moment, fee included. If nobody is selling, nothing is bet.</li>
       <li><b>Also flagged:</b> split bets (3+ fresh wallets, $5k+ together) and line moves (the flagged side up 12c+ in the 6 hours before kickoff raises the level).</li>
       <li><b>Bookmaker check:</b> Pinnacle, 1xBet and Stake odds (via OddsPapi). If their chance for the flagged side moves 6+ points the same way in 12 h, the level goes up one step; the opposite way, down one step.</li>
+      <li><b>When bets go in:</b> since Oct 19 21:26 UTC, new bets are placed in the last 30 minutes before kickoff, at the level the match has then (1.5× if the flag rose during the day). Money on these matches mostly arrives in the final hour. Bets placed earlier stay as they were.</li>
+      <li><b>Tiers from Valve's own ranking:</b> T1 #1–20, T2 #21–50, T3 #51–100, T4 #101–200, T5 #201+, T6 unranked. Matches where both teams are top 30, or big-stage events, are skipped.</li>
+      <li><b>Who would have to throw:</b> backing one side means the other has to lose on purpose. If that team is in Valve's top 50 (T1–T2, e.g. BIG #25), the flag is dropped and nothing is bet. If it's #51–100 (T3), the flag drops one level.</li>
       <li><b>Share of the match is judged against kickoff:</b> money on these matches arrives late (about 10% is in 6 hours before kickoff, half in the last hour), so a bet's share is measured against the money the match is expected to have by kickoff, never less than a typical match of its tier. An early $6,000 that is 86% of the market 12 hours out counts as about 25%.</li>
       <li><b>Size floors:</b> Polymarket stakes are big, so a flag needs real money: LOW from $3k, MEDIUM from $5k (or $3k if it's 30%+ of the match), HIGH from $10k (or $5k at 30%+).</li>
       <li><b>Downgrades</b> keep what's in. If the flagged side flips, no new money goes in. A bet the balance can't cover is skipped.</li>
@@ -359,7 +362,9 @@ function pathHtml(path, escd) {
 function matchCell(b, link) {
   const [teams, ev] = split(b.match);
   const name = link && b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(teams)}</a>` : esc(teams);
-  return `<td class="match"><b>${name}</b><span class="ev">${esc(ev)}${b.tier ? " · " + esc(b.tier) + " tier" : ""}</span>
+  const rk = Object.entries(b.ranks || {}).map(([t, r]) => `${esc(t)} ${r ? "#" + r : "unranked"}`).join(" · ");
+  return `<td class="match"><b>${name}</b><span class="ev">${esc(ev)}${b.vtier ? " · <b>" + esc(b.vtier) + "</b>" : b.tier ? " · " + esc(b.tier) + " tier" : ""}</span>
+    ${rk ? `<span class="ev" style="display:block" title="Valve Regional Standings">${rk}</span>` : ""}
     ${b.kind && b.kind !== "match" ? `<div><span class="tag mk">${esc(b.market)}</span></div>` : ""}</td>`;
 }
 function whyHtml(w, status) {
@@ -472,7 +477,7 @@ function plan() {
       <td data-label="Level"><div>${pathHtml(b.path, b.escalated)}<div class="times">${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div>${b.sharp ? `<span class="tag ${b.sharp.agree ? "won" : "lost"}" style="margin-top:4px" title="${b.sharp.agree ? "+1 level" : "-1 level"}: ${esc(b.sharp.book)} moved ${Math.round(b.sharp.move * 100)} points ${b.sharp.agree ? "towards" : "against"} this side in 12 h">${b.sharp.agree ? "↑ bookmakers agree" : "↓ bookmakers disagree"}</span>` : ""}${b.steam ? '<span class="tag won" style="margin-top:4px" title="+1 level: the Polymarket price moved 12+ cents towards this side in the 6 h before kickoff">↑ line move</span>' : ""}</div></td>
       <td class="side" data-label="Backing">${esc(b.side)}${b.flipped ? `<span class="split">flipped · bet stays on ${esc(b.bet_side)}</span>` : ""}</td>
       <td class="r num" data-label="Price">${b.price != null ? b.price.toFixed(2) + `<span class="split">${Math.round(b.price * 100)}%</span>` : "–"}${b.steam ? `<span class="split pos">↑ from ${b.steam.low.toFixed(2)}</span>` : ""}${bookLine(b)}</td>
-      <td class="r num" data-label="In">${!b.bettable ? '<span class="split">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<span class="split pos">to win ${usd(b.in_shares - b.in_stake, true)}</span>` : '<span class="split">next scan</span>'}</td>
+      <td class="r num" data-label="In">${!b.bettable ? '<span class="split">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<span class="split pos">to win ${usd(b.in_shares - b.in_stake, true)}</span>` : '<span class="split">bets 30 min before kickoff</span>'}</td>
       <td class="r num hide-sm">${usd0((b.money || {})[b.side])} <span style="color:var(--mute)">/ ${usd0(other)}</span><span class="split">of ${usd0(b.flow)} · ${links}</span></td></tr>
       <tr class="more" id="p-${i}" ${isOpen ? "" : "hidden"}><td colspan="7">${whyHtml(b.why, "open")}${evidence(b)}</td></tr>`;
   }).join("");

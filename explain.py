@@ -91,6 +91,13 @@ def adjust_text(a, side):
                 f"{a['now']:.2f} since {hhmm(a['since'])} ({a['move'] * 100:.0f} cents), more than the 12 cents in "
                 f"6 hours that counts as a strong move. Money spread over many accounts moves the price even when "
                 f"no single wallet stands out.")
+    if a["kind"] == "throw":
+        if a["effect"] == "drop":
+            return (f"Flag dropped: backing {side} means {a['team']} would have to lose on purpose, and {a['team']} is "
+                    f"#{a['rank']} in Valve's ranking ({a['tier']}). Established teams have salaries, sponsors and "
+                    f"careers at stake and very rarely throw, so no money is bet.")
+        return (f"-1 level: {a['team']} would have to lose on purpose and is #{a['rank']} in Valve's ranking "
+                f"({a['tier']}), a team with something to lose, so the flag counts for less.")
     if a["kind"] == "conflict":
         return (f"-1 level, money on both sides: {money(a['other_money'])} of flagged money also went on "
                 f"{a['other']}, which muddies the signal.")
@@ -100,6 +107,8 @@ def adjust_text(a, side):
 def cause_text(c, side):
     """Why a step escalated, for the 'Why this stake' bullets."""
     if not c:
+        return ""
+    if c["kind"] == "window":
         return ""
     if c["kind"] == "bets":
         return (f"The flagged bets themselves got stronger: on their own they went from {c.get('prev') or 'nothing'} to "
@@ -220,7 +229,16 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
         else:
             note = ""
         total += t["stake"]
-        if t["level"] == "LIVE":
+        if (t.get("cause") or {}).get("kind") == "window":
+            c = t["cause"]
+            why_now = (f"The flag first appeared as {c['first']} and had risen to {c['level']}, so it gets "
+                       f"{escalation}x the normal {c['level']} stake ({money(stakes[c['level']])})."
+                       if c.get("rose") else f"{c['level']} = {money(stakes[c['level']])} in the plan.")
+            stake_b.append(f"{hhmm(t['t'])}: bet placed in the last 30 minutes before kickoff, at the level the match "
+                           f"had then. Money on these matches mostly arrives in the final hour, so the flag is judged "
+                           f"on the near-final picture. {money(t['stake'])} went on {side} at {t['price']:.2f} "
+                           f"({implied}). {why_now}" + note)
+        elif t["level"] == "LIVE":
             stake_b.append(f"{hhmm(t['t'])}: during the match, a bet passed the strict LIVE test, so the plan "
                            f"{'added' if i else 'placed'} {money(t['stake'])} on {side} at {t['price']:.2f} "
                            f"({implied}){', bringing the total to ' + money(total) if i else ''}. The price is the "
@@ -277,6 +295,11 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
                    "normal. Every one of these had to hold: placed during the match; $3,000+ and 25%+ of all money "
                    "on the match; a wallet under 7 days old or with 5 or fewer markets ever (Kalshi: one $15,000+ "
                    "order worth 50%+ of the match); price still open (0.10 to 0.85); not a tier-1 match.")
+    ranks = {k: v for k, v in (snap.get("ranks") or {}).items()}
+    if ranks:
+        ctx.append("Valve ranking: " + ", ".join(
+            f"{k} #{v}" if v else f"{k} unranked" for k, v in ranks.items()) +
+            (f" (match tier {snap.get('vtier')}, from the stronger team)." if snap.get("vtier") else "."))
     tier = snap.get("tier")
     if tier == "low":
         ctx.append("Lower-tier match: thin market where one bettor can dominate, and where most fixing cases happen.")

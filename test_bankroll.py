@@ -4,6 +4,16 @@ import cs2_watch as C
 T0 = 1_800_000_000
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def old_rule(monkeypatch):
+    """Most tests describe the first-flag rule, which still governs every bet placed before the switch."""
+    monkeypatch.setattr(B, "SWITCH_TS", 10 ** 12)
+    monkeypatch.setattr(C, "TEAMS", {})
+
+
 def rec(i, history, winner=None, poly=True, start=None, resolved=None):
     s = start if start is not None else T0 + 86400 + i * 3600
     return dict(mode="live", match=f"Counter-Strike: A vs B #{i}", start=s, level=history[-1][1] if history else "",
@@ -279,3 +289,35 @@ def test_early_bets_are_judged_against_the_money_expected_by_kickoff():
     assert abs(C.expected_total(7000, 5000, 6, floor=0) - (5000 + 2000 / 0.10)) < 1e-6
     # after kickoff: real totals
     assert C.expected_total(7000, 5000, -1, floor=99999) == 7000
+
+
+
+def test_new_rule_waits_for_the_last_30_minutes_and_keeps_earlier_bets(monkeypatch):
+    monkeypatch.setattr(B, "SWITCH_TS", T0 + 1000)
+    r = rec(1, [(T0, "LOW", "A", 0.40)], start=T0 + 20 * 3600)                 # placed before the switch: kept
+    r["history"] += [dict(t=T0 + 5 * 3600, level="HIGH", side="A", price=0.45, pts=9, snap=None),   # outside window
+                     dict(t=T0 + 20 * 3600 - 1200, level="HIGH", side="A", price=0.50, pts=9, snap=None, window=True)]
+    bets, _, _ = B.run({"1": r}, T0, T0 + 30 * 3600)
+    assert [round(t["stake"]) for t in bets[0]["tranches"]] == [10, 50]         # $10 kept, top-up only in the window
+    assert bets[0]["tranches"][1]["price"] == 0.50
+    r2 = rec(2, [(T0 + 2000, "LOW", "A", 0.40), (T0 + 3 * 3600, "MEDIUM", "A", 0.42)], start=T0 + 20 * 3600)
+    assert B.run({"2": r2}, T0, T0 + 10 * 3600)[0] == []                      # nothing before the window
+    r2["history"].append(dict(t=T0 + 20 * 3600 - 900, level="MEDIUM", side="A", price=0.44, pts=7, snap=None,
+                              window=True))
+    b = B.run({"2": r2}, T0, T0 + 30 * 3600)[0][0]
+    assert b["stake"] == 30 and b["tranches"][0]["cause"]["rose"]              # rose LOW->MEDIUM: 1.5 x $20
+    assert "last 30 minutes before kickoff" in " ".join(b["why"]["sections"][0]["bullets"] +
+                                                         b["why"]["sections"][1]["bullets"])
+
+
+def test_flags_that_need_an_established_team_to_throw_are_dropped(monkeypatch):
+    monkeypatch.setattr(C, "TEAMS", {"teams": {"big": (25, 1500, "BIG"), "private": (95, 900, "PRIVATE"),
+                                               "nobodies": (250, 500, "Nobodies")}})
+    row = lambda out: dict(_mrow("Match Winner", out, 12000, "HIGH", 11), match="Counter-Strike: BIG vs PRIVATE (BO3) - Cup")
+    m = C.judge_market([row("PRIVATE")], ["BIG", "PRIVATE"])                   # BIG (#25) would have to throw
+    assert m["level"] == "" and m["dropped"]["team"] == "BIG"
+    m = C.judge_market([row("BIG")], ["BIG", "PRIVATE"])                       # PRIVATE (#95, T3) would throw
+    assert m["level"] == "MEDIUM" and m["adjust"][-1]["kind"] == "throw"
+    m = C.judge_market([row("BIG")], ["BIG", "Nobodies"])                      # #250 would throw: unchanged
+    assert m["level"] == "HIGH"
+    assert C.vtier("Counter-Strike: BIG vs Nobodies (BO3) - Cup") == "T2" and C.tier("Counter-Strike: Nobodies vs Zed (BO3)") == "low"

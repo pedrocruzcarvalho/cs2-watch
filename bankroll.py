@@ -13,6 +13,7 @@ Plan (start $300, paper only, nothing is placed):
   - A tranche the balance can't cover is skipped.
 """
 
+import cs2_watch as C
 from cs2_watch import KIND_NAME
 from explain import explain
 
@@ -47,12 +48,18 @@ def fill(stake, asks):
     return shares, spent, (paid_px / shares if shares else None), used
 
 
+SWITCH_TS = 1792445200        # from this moment new bets wait for the last 30 minutes; earlier bets stay as placed
+
+
 def tranches(r, opened_at, now):
-    """The bets the plan places on one match, from its level history. Returns (tranches, path, escalated, flipped)."""
+    """The bets the plan places on one match, from its level history. Returns (tranches, path, escalated, flipped).
+    Before SWITCH_TS: bet at the first flag, top up on escalation. From SWITCH_TS: nothing goes in until the betting
+    window (the last 30 minutes before kickoff); then the stake follows the level at that moment, 1.5x if the flag
+    rose during the day; a rise inside the window still tops up. LIVE bets are unchanged."""
     if r.get("mode") != "live" or "poly" not in r.get("refs", {}):
         return [], [], False, False
     out, side, top, staked, flipped, escalated = [], None, 0, 0.0, False, False
-    path, prev = [], None
+    path, prev, first = [], None, None
     for h in r.get("history", []):
         before, prev = prev, h
         if h["t"] > now:
@@ -71,13 +78,21 @@ def tranches(r, opened_at, now):
             continue
         if h["level"] in RANK and (side is None or h["side"] == side) and (not path or path[-1][0] != h["level"]):
             path.append((h["level"], h["t"]))
+        if h["level"] in RANK and first is None:
+            first = h["level"]
         if h["level"] not in STAKES or h.get("price") is None or h["t"] < opened_at:
             continue
+        new_rule = h["t"] >= SWITCH_TS
+        if new_rule and not h.get("window") and r["start"] - h["t"] > C.BET_WINDOW:
+            continue                                                   # waiting for the last 30 minutes
         if side is None:
-            side, top = h["side"], RANK[h["level"]]
-            out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=STAKES[h["level"]],
-                            snap=h.get("snap"), asks=h.get("asks")))
-            staked = STAKES[h["level"]]
+            rose = new_rule and RANK[h["level"]] > RANK.get(first, 0)
+            stake = STAKES[h["level"]] * (ESCALATION if rose else 1)
+            side, top, escalated = h["side"], RANK[h["level"]], escalated or rose
+            out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=stake, snap=h.get("snap"),
+                            asks=h.get("asks"),
+                            cause=dict(kind="window", rose=rose, first=first, level=h["level"]) if new_rule else None))
+            staked = stake
         elif h["side"] != side:
             flipped = True
             break
@@ -131,7 +146,8 @@ def run(ledger, opened_at, now):
                          path=path, escalated=esc,
             flipped=flipped, tranches=[], stake=0.0, shares=0.0, status="open", pnl=0.0, winner=None,
             settled_at=None, url=r.get("urls", {}).get("poly"), final_level=r.get("level"), teams=r.get("teams", []),
-            market=r.get("market", "Match Winner"), kind=r.get("kind", "match"),
+            market=r.get("market", "Match Winner"), kind=r.get("kind", "match"), vtier=r.get("vtier"),
+            ranks=r.get("ranks") or {},
             snap=next((t["snap"] for t in reversed(tr) if t.get("snap")), None))
         for t in tr:
             events.append((t["t"], 0, key, t))
@@ -262,7 +278,7 @@ def planned(matches, ledger, opened_at, now):
         price = m["prices"].get(m["live_side"] if live_now else m["fix_side"])
         snap = dict(flags=m["flags"], money=m["money"], flow=m["flow"], tier=m["tier"], conflict=m["conflict"],
                     steam=m.get("steam"), sharp=m.get("sharp"), books=m.get("books"), base_level=m.get("base_level"),
-                    base_pts=m.get("base_pts"), adjust=m.get("adjust"))
+                    base_pts=m.get("base_pts"), adjust=m.get("adjust"), vtier=m.get("vtier"), ranks=m.get("ranks"))
         if live_now:
             snap = dict(flags=m["live_flags"], money=m["live_money"], flow=m["flow"], tier=m["tier"], conflict=False,
                         live=True)
@@ -272,7 +288,7 @@ def planned(matches, ledger, opened_at, now):
                       escalation=ESCALATION, stakes=STAKES, stake=b["stake"] if b else 0.0,
                       shares=b["shares"] if b else 0.0, flipped=bool(b and b["flipped"]), now=now)
         out.append(dict(why=why, live_now=bool(live_now), match=m["match"], start=m["start"], market=m["market"],
-                        kind=m["kind"],
+                        kind=m["kind"], vtier=m.get("vtier"), ranks=m.get("ranks") or {},
                         level="LIVE" if live_now else m["level"], pts=m["pts"],
                         side=m["live_side"] if live_now else m["fix_side"],
                         price=price, bettable="poly" in m["refs"] and price is not None, steam=m.get("steam"),

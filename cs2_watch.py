@@ -45,6 +45,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+import teams as TM
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -101,11 +103,35 @@ def iso(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=timezone.utc) if s else None
 
 
+TEAMS = {}                   # Valve ranking state from teams.py; set by the caller. Empty = old hand-made list.
+BET_WINDOW = 30 * 60         # new bets go in during the last 30 minutes before kickoff (see bankroll.py)
+
+
+def team_names(title):
+    core = re.sub(r"^Counter-Strike:\s*", "", title.split("  [")[0]).split(" (")[0].split(" - ")[0].split(":")[0]
+    return [x.strip() for x in re.split(r"\s+vs\.?\s+", core)]
+
+
+def vtier(title):
+    """Valve tier of the stronger team: T1 #1-20, T2 #21-50, T3 #51-100, T4 #101-200, T5 #201+, T6 unranked."""
+    if not TEAMS.get("teams"):
+        return {"top": "T1", "mid": "T2"}.get(tier(title), "T6")
+    rs = [r for r in (TM.rank(TEAMS, n) for n in team_names(title)) if r]
+    return TM.tier_of_rank(min(rs) if rs else None)
+
+
 def tier(title):
-    """'top': big-stage main event, or two top teams. 'mid': one top team (neutral). 'low': the rest."""
+    """'top' (excluded): big-stage main event, or both teams in Valve's top 30. 'mid': stronger team in the top 50.
+    'low': the rest. Without the Valve ranking, falls back to the hand-made top-team list."""
     t = title.lower()
     if any(k in t for k in TOP_EVENTS) and not any(k in t for k in ("qualifier", "academy", " open")):
         return "top"
+    if TEAMS.get("teams"):
+        rs = [TM.rank(TEAMS, n) for n in team_names(title)]
+        if len(rs) == 2 and all(r and r <= 30 for r in rs):
+            return "top"
+        best = min([r for r in rs if r] or [999])
+        return "mid" if best <= 50 else "low"
     names = re.sub(r"^counter-strike:\s*", "", t).split(" (")[0]
     top = sum(any(re.fullmatch(rf"(team )?{re.escape(k)}( team| esports| gaming)?", side.strip()) for k in TOP_TEAMS)
               for side in re.split(r"\s+vs\.?\s+", names))
@@ -187,7 +213,9 @@ def winner_of(market, ended=False):
 # share of the final pre-kickoff money already traded, by hours before kickoff. Money comes very late.
 VOLUME_CURVE = [(0, 1.0), (0.25, 0.888), (1, 0.526), (3, 0.215), (6, 0.098), (12, 0.003)]
 CURVE_FLOOR = 0.10             # never scale the money seen so far up by more than 10x
-TIER_PREKICK_MEDIAN = {"low": 1176, "mid": 24438, "top": 100000, "unknown": 1176}
+TIER_PREKICK_MEDIAN = {"low": 1176, "mid": 24438, "top": 100000, "unknown": 1176,
+                       # median pre-kickoff money by Valve tier of the stronger team (265 matches, Oct 13-19 2026)
+                       "T1": 11513, "T2": 8001, "T3": 2371, "T4": 739, "T5": 805, "T6": 375}
 
 
 def traded_by_now(hours_left):
@@ -247,7 +275,7 @@ def poly_positions(event, trades, cutoff=None):
         p["avg_price"] = p["buy"] / p["shares"] if p["shares"] else 0
         # share of the money the match/market is expected to have by kickoff, not just what is there so far
         hours_left = (start - (cutoff if cutoff is not None else time.time())) / 3600
-        floor = TIER_PREKICK_MEDIAN.get(tier(event.get("title", "")), 1176)
+        floor = TIER_PREKICK_MEDIAN.get(vtier(event.get("title", "")), 1176)
         exp_match = expected_total(stats["flow"], p["net"], hours_left, floor)
         exp_market = expected_total(mflow.get(cid, 0), p["net"], hours_left)
         p["share_now"] = p["net"] / stats["flow"] if stats["flow"] else 0
@@ -807,7 +835,8 @@ def build_matches(infos, rows):
             refs = {v["venue"]: v["ref"] for v in venues.values()}
             if venues.get("poly", {}).get("cid"):
                 refs["poly_cid"] = venues["poly"]["cid"]
-            out.append(dict(m, tokens=venues.get("poly", {}).get("tokens", {}),
+            out.append(dict(m, tokens=venues.get("poly", {}).get("tokens", {}), vtier=vtier(g["match"]),
+                            ranks={n: TM.rank(TEAMS, n) for n in team_names(g["match"])} if TEAMS.get("teams") else {},
                             id=base_id if label == "Match Winner" else f"{base_id}|{label}", match_id=base_id,
                             market=label, kind=market_kind(label), match=g["match"], tier=g["tier"], start=g["start"],
                             teams=outcomes, winner=winner, tracked=tracked,
@@ -839,6 +868,15 @@ def judge_market(mine, outcomes):
             lvl = LEVELS[min(LEVELS.index(lvl) + 1, 3)]
             other = next((t for t in money if t != side), "the other side")
             adjust.append(dict(kind="conflict", effect="down", other=other, other_money=round(money[other])))
+    if side and not {norm_team(o) for o in outcomes} <= {"over", "under", "yes", "no"}:
+        thrower = next((o for o in outcomes if o != side), None)
+        r = TM.rank(TEAMS, thrower) if (thrower and TEAMS.get("teams")) else None
+        if r is not None and r <= 50:
+            adjust.append(dict(kind="throw", effect="drop", team=thrower, rank=r, tier=TM.tier_of_rank(r)))
+            lvl = ""                                                   # an established team won't throw: no flag, no bet
+        elif r is not None and r <= 100 and lvl:
+            adjust.append(dict(kind="throw", effect="down", team=thrower, rank=r, tier=TM.tier_of_rank(r)))
+            lvl = LEVELS[min(LEVELS.index(lvl) + 1, 2)]
     live, live_money = [], {}
     for r in mine:
         why = live_check(r)
@@ -850,6 +888,7 @@ def judge_market(mine, outcomes):
     if live_side and sum(v for t, v in live_money.items() if t != live_side) >= 0.5 * live_money[live_side]:
         live_side = None                                               # live money on both sides: no signal
     return dict(level=lvl, pts=pts, conflict=conflict, base_level=base, base_pts=pts, adjust=adjust,
+                dropped=next((a for a in adjust if a.get("effect") == "drop"), None),
                 fix_side=side, money={t: round(v) for t, v in money.items()},
                 flags=[{k: r[k] for k in FLAG_KEYS if k in r} for r in flagged],
                 live_side=live_side, live_flags=sorted(live, key=lambda f: -f["usd"]),
@@ -869,7 +908,7 @@ def save_ledger(led):
 
 
 LEDGER_KEYS = ("match", "tier", "start", "teams", "level", "pts", "conflict", "fix_side", "tracked", "tracked_is",
-               "price", "refs", "urls", "money", "market", "kind", "match_id", "steam")
+               "price", "refs", "urls", "money", "market", "kind", "match_id", "steam", "vtier", "ranks")
 
 
 def record(led, matches, mode, now):
@@ -893,17 +932,21 @@ def record(led, matches, mode, now):
             continue
         hist = led.get(k, {}).get("history", [])
         if mode == "live":
+            def entry(**extra):
+                return dict(t=now, level=m["level"], pts=m["pts"], side=m["fix_side"],
+                            price=m["prices"].get(m["fix_side"]) if m["fix_side"] else None,
+                            asks=book_asks(m.get("tokens", {}).get(m["fix_side"])) if m["level"] else None,
+                            # the evidence as it stood at this moment, so a bet can explain itself later
+                            snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
+                                      conflict=m["conflict"], steam=m.get("steam"), sharp=m.get("sharp"),
+                                      books=m.get("books"), base_level=m.get("base_level"),
+                                      base_pts=m.get("base_pts"), adjust=m.get("adjust"), vtier=m.get("vtier"),
+                                      ranks=m.get("ranks")) if m["level"] else None, **extra)
             last = hist[-1] if hist else None
             if not last or (last["level"], last["side"]) != (m["level"], m["fix_side"]):
-                hist = hist + [dict(t=now, level=m["level"], pts=m["pts"], side=m["fix_side"],
-                                    price=m["prices"].get(m["fix_side"]) if m["fix_side"] else None,
-                                    asks=book_asks(m.get("tokens", {}).get(m["fix_side"])) if m["level"] else None,
-                                    # the evidence as it stood at this moment, so a bet can explain itself later
-                                    snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
-                                              conflict=m["conflict"], steam=m.get("steam"), sharp=m.get("sharp"),
-                                              books=m.get("books"), base_level=m.get("base_level"),
-                                              base_pts=m.get("base_pts"), adjust=m.get("adjust"))
-                                    if m["level"] else None)]
+                hist = hist + [entry()]
+            if m["level"] and 0 < m["start"] - now <= BET_WINDOW and not any(h.get("window") for h in hist):
+                hist = hist + [entry(window=True)]                     # the bet itself goes in now
         line = list(led.get(k, {}).get("line", []))
         px0 = m["prices"].get(m["teams"][0]) if m.get("teams") else None
         if mode == "live" and px0 is not None and (not line or abs(line[-1][1] - px0) >= 0.005):
@@ -952,7 +995,7 @@ def find_clusters(small, rows, baseline=None):
         flow = max(x.get("match_flow") or 0 for x in g)
         hours_left = max((x["start"] - time.time()) / 3600, 0)
         flow_now, mflow_now = flow, mflow
-        flow = expected_total(flow, usd, hours_left, TIER_PREKICK_MEDIAN.get(g[0]["tier"], 1176))
+        flow = expected_total(flow, usd, hours_left, TIER_PREKICK_MEDIAN.get(vtier(match), 1176))
         mflow = expected_total(mflow, usd, hours_left)
         pre = sum(x["usd"] for x in g if x.get("pre_match", x.get("pre", 0) >= 0.5 * x.get("buy", 1)))
         p = dict(net=usd, share=usd / flow if flow else 0, mshare=usd / mflow if mflow else 0, x_p90=0,

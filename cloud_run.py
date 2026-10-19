@@ -26,11 +26,12 @@ from pathlib import Path
 import bankroll as B
 import cs2_watch as C
 import oddspapi as O
+import teams as TM
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
-        "watchlist": "watchlist.json", "state:profiles": "profiles.json"}
+        "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json"}
 KEEP_DAYS = 90
 
 
@@ -119,6 +120,8 @@ def tick(store, log=print):
     auto = O.load(work / "watch_auto.json")
     manual = O.load(work / "watchlist.json")                       # edited from the dashboard (functions/api/watchlist.js)
     profiles = O.load(work / "profiles.json")                      # wallet track records (wallets.py)
+    C.TEAMS = TM.refresh(O.load(work / "vrs.json"), now.timestamp(), log=log)   # Valve ranking, refreshed daily
+    (work / "vrs.json").write_text(json.dumps(C.TEAMS))
     auto_watched = C.update_watch(auto, [], now.timestamp())
     C.WATCH = watch_weights(auto_watched, manual, profiles)
     flags, rows, infos = C.scan(now - timedelta(hours=6), now + timedelta(hours=36), ["poly"], baseline, log=log)
@@ -157,7 +160,8 @@ def tick(store, log=print):
                 watch=watch_view(auto_watched, manual, rows, profiles))
     (work / "meta.json").write_text(json.dumps(meta))
 
-    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi", "state:watch_auto", "state:profiles"):
+    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi", "state:watch_auto", "state:profiles",
+                "state:vrs"):
         store.put(key, (work / KEYS[key]).read_bytes())
     store.put("dashboard", json.dumps(dash, default=str).encode())
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} matches, {dash['flagged']} flagged, "
