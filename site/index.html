@@ -66,6 +66,8 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
 .chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
 .rules { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 12.5px; } .rules li { margin: 0 0 6px; }
 .err { color: var(--bad); padding: 40px; text-align: center; }
+.path { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; } .path .arr { color: var(--muted); font-size: 11px; }
+.esc { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--high); color: #fff; }
 </style>
 </head>
 <body>
@@ -94,19 +96,24 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
         <thead><tr><th>Level</th><th class="r">Stake</th><th class="r">W–L</th><th class="r">P&amp;L</th><th class="r">ROI</th><th class="r">Open</th></tr></thead>
         <tbody id="t-lvl"></tbody>
       </table></div>
+      <div class="scroll" style="margin-top:12px"><table>
+        <thead><tr><th>Path</th><th class="r">W–L</th><th class="r">Staked</th><th class="r">P&amp;L</th><th class="r">ROI</th></tr></thead>
+        <tbody id="t-path"></tbody>
+      </table></div>
       <ul class="rules" style="margin-top:14px">
-        <li>$300 start. <b>$40</b> on HIGH, <b>$20</b> on MEDIUM, <b>$10</b> on LOW, always on the side the flagged money backed.</li>
-        <li>Placed at kickoff at the last price seen before it (scans every ~10 min), +1c spread and Polymarket's fee.</li>
+        <li>$300 start. First flag: <b>$40</b> HIGH, <b>$20</b> MEDIUM, <b>$10</b> LOW on the flagged side, at the price at that moment.</li>
+        <li><b>Escalation</b> (LOW → MEDIUM → HIGH before kickoff) tops up to <b id="esc-x">1.5</b>× the new level's stake at the new price: LOW → HIGH = $60 in total.</li>
+        <li>Downgrades keep what's in. If the flagged side flips, no new money goes in. Every tranche pays +1c spread and Polymarket's fee.</li>
         <li>Skipped if the balance can't cover it. Paper only: no real bets are placed.</li>
       </ul>
     </div>
   </div>
 
   <div class="card" style="margin-top:16px">
-    <h3>Flagged matches: upcoming bets</h3>
-    <p class="sub">What the plan will bet at kickoff if the flag still stands then. Flags can change until kickoff. Click a row for the wallets and reasons.</p>
+    <h3>Flagged matches before kickoff</h3>
+    <p class="sub">Level path is every change seen so far (scans every ~10 min). Money goes in when a match is first flagged and tops up if it escalates. Click a row for the wallets and reasons.</p>
     <div class="scroll"><table>
-      <thead><tr><th>Kickoff</th><th>Match</th><th>Level</th><th>Bet on</th><th class="r">Price</th><th class="r">Stake</th><th class="r">To win</th><th class="r">Flagged $ (side / other)</th></tr></thead>
+      <thead><tr><th>Kickoff</th><th>Match</th><th>Level path</th><th>Bet on</th><th class="r">Price now</th><th class="r">In so far</th><th class="r">Flagged $ (side / other)</th></tr></thead>
       <tbody id="t-plan"></tbody>
     </table></div>
   </div>
@@ -116,7 +123,7 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
     <p class="sub" id="hist-sub"></p>
     <div class="tools" id="f-hist"><button data-v="all" class="on">All</button><button data-v="open">Open</button><button data-v="won">Won</button><button data-v="lost">Lost</button></div>
     <div class="scroll"><table>
-      <thead><tr><th>Kickoff</th><th>Match</th><th>Level</th><th>Bet on</th><th class="r">Price</th><th class="r">Stake</th><th>Result</th><th class="r">P&amp;L</th><th class="r">Balance</th></tr></thead>
+      <thead><tr><th>Kickoff</th><th>Match</th><th>Level path</th><th>Bet on</th><th class="r">Avg price</th><th class="r">Staked</th><th>Result</th><th class="r">P&amp;L</th><th class="r">Balance</th></tr></thead>
       <tbody id="t-hist"></tbody>
     </table></div>
   </div>
@@ -135,6 +142,10 @@ const rel = ts => { const m = (ts - nowS()) / 60, a = Math.abs(m);
 const short = t => String(t).replace(/^Counter-Strike:\s*/, "");
 const pill = l => `<span class="pill ${l}">${l}</span>`;
 const cls = v => v > 0 ? "good" : v < 0 ? "bad" : "";
+const hhmm = ts => new Date(ts * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+const pathHtml = (path, escd) => !path || !path.length ? "–" : `<span class="path">${path.map(([l, t]) =>
+  `<span title="${l} since ${hhmm(t)}">${pill(l)}</span>`).join('<span class="arr">→</span>')}</span>${escd ? '<span class="esc">ESCALATED</span>' : ""}` +
+  (path.length > 1 ? `<div class="small">${path.map(([l, t]) => hhmm(t)).join(" → ")}</div>` : `<div class="small">since ${hhmm(path[0][1])}</div>`);
 let D = null, histFilter = "all";
 
 function kpis() {
@@ -146,7 +157,7 @@ function kpis() {
   document.getElementById("k-rec").textContent = `${s.wins}–${s.losses}`;
   document.getElementById("k-rec-d").textContent = s.bets ? `win rate ${pct(s.win_rate)} · ${s.streak} streak` : "no settled bets yet";
   document.getElementById("k-open").textContent = s.open;
-  document.getElementById("k-open-d").textContent = `${usd(s.at_risk)} at risk${s.skipped ? ` · ${s.skipped} skipped` : ""}`;
+  document.getElementById("k-open-d").textContent = `${usd(s.at_risk)} at risk${s.escalated ? ` · ${s.escalated} escalated` : ""}${s.skipped ? ` · ${s.skipped} skipped` : ""}`;
   document.getElementById("k-dd").textContent = usd(-s.max_drawdown);
   document.getElementById("k-dd-d").textContent = `best ${usd(s.best, true)} · worst ${usd(s.worst, true)}`;
   const age = (nowS() - D.at) / 60;
@@ -176,6 +187,13 @@ function chart() {
   box.innerHTML = s;
 }
 
+function paths() {
+  document.getElementById("esc-x").textContent = D.stats.escalation;
+  document.getElementById("t-path").innerHTML = (D.stats.by_path || []).map(r => `<tr><td>${r.name === "escalated" ? '<span class="esc" style="margin:0">ESCALATED</span>' : esc(r.name)}</td>
+    <td class="r">${r.won}–${r.lost}</td><td class="r">${usd0(r.staked)}</td><td class="r ${cls(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td>
+    <td class="r ${cls(r.roi)}">${pct(r.roi, true)}</td></tr>`).join("");
+}
+
 function levels() {
   document.getElementById("t-lvl").innerHTML = D.stats.by_level.map(r => `<tr><td>${pill(r.level)}</td><td class="r">${usd0(r.stake)}</td>
     <td class="r">${r.won}–${r.lost}</td><td class="r ${cls(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td>
@@ -191,19 +209,18 @@ function detail(b) {
 
 function plan() {
   const tb = document.getElementById("t-plan"), ps = D.planned;
-  if (!ps.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">No flagged matches in the next 36 hours.</td></tr>`; return; }
+  if (!ps.length) { tb.innerHTML = `<tr><td colspan="7" class="empty">No flagged matches in the next 36 hours.</td></tr>`; return; }
   tb.innerHTML = ps.map((b, i) => {
     const other = Object.entries(b.money).filter(([t]) => t !== b.side).reduce((a, [, v]) => a + v, 0);
     const links = Object.entries(b.urls).map(([v, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${v === "poly" ? "Polymarket" : "Kalshi"}</a>`).join(" · ");
     return `<tr class="m" data-i="${i}"><td>${when(b.start)}<div class="small">${rel(b.start)}</div></td>
       <td>${esc(short(b.match))}<div class="small">${esc(b.tier)} tier · ${links}</div></td>
-      <td>${pill(b.level)} <span class="small">${b.pts} pts</span>${b.conflict ? '<div class="small">money on both sides</div>' : ""}</td>
-      <td class="side">${esc(b.side)}</td>
+      <td>${pathHtml(b.path, b.escalated)}<div class="small">now ${b.level} · ${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div></td>
+      <td class="side">${esc(b.side)}${b.flipped ? `<div class="small">flipped: bet stays on ${esc(b.bet_side)}</div>` : ""}</td>
       <td class="r">${b.price != null ? b.price.toFixed(2) + `<div class="small">${Math.round(b.price * 100)}% implied</div>` : "–"}</td>
-      <td class="r">${b.bettable ? usd0(b.stake) : '<span class="small">not on Polymarket</span>'}</td>
-      <td class="r ${b.to_win ? "good" : ""}">${b.to_win != null ? usd(b.to_win, true) : "–"}</td>
+      <td class="r">${!b.bettable ? '<span class="small">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<div class="small good">to win ${usd(b.in_shares - b.in_stake, true)}</div>` : '<span class="small">next scan</span>'}</td>
       <td class="r">${usd0(b.money[b.side])} / ${usd0(other)}<div class="small">match ${usd0(b.flow)}</div></td></tr>
-      <tr class="detail" id="p-${i}" hidden><td colspan="8">${detail(b)}</td></tr>`;
+      <tr class="detail" id="p-${i}" hidden><td colspan="7">${detail(b)}</td></tr>`;
   }).join("");
   tb.querySelectorAll("tr.m").forEach(tr => tr.onclick = () => { const d = document.getElementById("p-" + tr.dataset.i); d.hidden = !d.hidden; });
 }
@@ -219,8 +236,9 @@ function history() {
   const label = {won: "Won", lost: "Lost", open: "Open", skipped: "Skipped", void: "Void"};
   tb.innerHTML = bs.map(b => `<tr><td>${when(b.start)}</td>
     <td>${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(short(b.match))}</a>` : esc(short(b.match))}</td>
-    <td>${pill(b.level)}</td><td class="side">${esc(b.side)}</td><td class="r">${b.price.toFixed(2)}</td>
-    <td class="r">${b.stake ? usd0(b.stake) : "–"}</td>
+    <td>${pathHtml(b.path, b.escalated)}</td><td class="side">${esc(b.side)}${b.flipped ? '<div class="small">side flipped later</div>' : ""}</td>
+    <td class="r">${b.price.toFixed(2)}</td>
+    <td class="r">${b.stake ? usd(b.stake) : "–"}${b.tranches.length > 1 ? `<div class="small">${b.tranches.filter(t => t.stake).map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</div>` : ""}</td>
     <td class="st-${b.status}">${label[b.status]}${b.status === "lost" && b.winner ? `<div class="small">${esc(b.winner)} won</div>` : ""}${b.status === "open" ? `<div class="small">to win ${usd(b.shares - b.stake, true)}</div>` : ""}</td>
     <td class="r ${cls(b.pnl)}">${b.status === "won" || b.status === "lost" ? usd(b.pnl, true) : "–"}</td>
     <td class="r">${b.balance_after != null ? usd(b.balance_after) : "–"}</td></tr>`).join("");
@@ -235,7 +253,7 @@ async function load() {
     const r = await fetch("api/data?t=" + Date.now(), {cache: "no-store"});
     const d = await r.json();
     if (!d.stats) throw new Error("no data yet: the scanner hasn't run");
-    D = d; kpis(); chart(); levels(); plan(); history();
+    D = d; kpis(); chart(); levels(); paths(); plan(); history();
   } catch (e) {
     if (!D) document.getElementById("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }

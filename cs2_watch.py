@@ -680,12 +680,20 @@ LEDGER_KEYS = ("match", "tier", "start", "teams", "level", "pts", "conflict", "f
 
 
 def record(led, matches, mode, now):
-    """live: overwrite while the match has not started, freeze at kickoff. backtest: written as-is."""
+    """live: overwrite while the match has not started, freeze at kickoff. backtest: written as-is.
+    live records also keep `history`: one entry each time the level or the flagged side changes
+    (LOW -> MEDIUM -> HIGH ...), with the time and the price of the flagged side at that moment."""
     for m in matches:
         k = f"{mode}|{m['id']}"
         if mode == "live" and (now >= m["start"] or m["price"] is None):
             continue
-        led[k] = {f: m[f] for f in LEDGER_KEYS} | dict(mode=mode, made=now,
+        hist = led.get(k, {}).get("history", [])
+        if mode == "live":
+            last = hist[-1] if hist else None
+            if not last or (last["level"], last["side"]) != (m["level"], m["fix_side"]):
+                hist = hist + [dict(t=now, level=m["level"], pts=m["pts"], side=m["fix_side"],
+                                    price=m["prices"].get(m["fix_side"]) if m["fix_side"] else None)]
+        led[k] = {f: m[f] for f in LEDGER_KEYS} | dict(mode=mode, made=now, history=hist,
                                                        winner=m["winner"] if mode == "backtest" else None)
 
 
