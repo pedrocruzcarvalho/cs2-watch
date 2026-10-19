@@ -183,6 +183,32 @@ def winner_of(market, ended=False):
     return None
 
 
+# How CS2 money arrives on Polymarket before kickoff (median over 160 low/mid-tier matches, Oct 15-19 2026):
+# share of the final pre-kickoff money already traded, by hours before kickoff. Money comes very late.
+VOLUME_CURVE = [(0, 1.0), (0.25, 0.888), (1, 0.526), (3, 0.215), (6, 0.098), (12, 0.003)]
+CURVE_FLOOR = 0.10             # never scale the money seen so far up by more than 10x
+TIER_PREKICK_MEDIAN = {"low": 1176, "mid": 24438, "top": 100000, "unknown": 1176}
+
+
+def traded_by_now(hours_left):
+    """Typical fraction of a match's pre-kickoff money already traded `hours_left` hours before kickoff."""
+    if hours_left <= 0:
+        return 1.0
+    for (h0, f0), (h1, f1) in zip(VOLUME_CURVE, VOLUME_CURVE[1:]):
+        if hours_left <= h1:
+            return f0 + (f1 - f0) * (hours_left - h0) / (h1 - h0)
+    return VOLUME_CURVE[-1][1]
+
+
+def expected_total(flow, own, hours_left, floor=0):
+    """Money a market is expected to have by kickoff: everyone else's money so far scaled up by how much usually still
+    arrives, never below what is already there or the typical final volume (`floor`). After kickoff: what is there."""
+    if hours_left <= 0:
+        return flow
+    frac = max(traded_by_now(hours_left), CURVE_FLOOR)
+    return max(flow, own + max(flow - own, 0) / frac, floor)
+
+
 def poly_positions(event, trades, cutoff=None):
     """Net buy per (wallet, market, outcome), sweeps removed. Returns positions + match-level stats.
     cutoff: ignore trades at or after this time (backtests see only what was known at kickoff)."""
@@ -219,8 +245,15 @@ def poly_positions(event, trades, cutoff=None):
         if p["net"] < CLUSTER_MIN and not (w.lower() in WATCH and p["net"] >= WATCH_MIN):
             continue
         p["avg_price"] = p["buy"] / p["shares"] if p["shares"] else 0
-        p["share"] = p["net"] / stats["flow"] if stats["flow"] else 0
-        p["mshare"] = p["net"] / mflow[cid] if mflow.get(cid) else 0
+        # share of the money the match/market is expected to have by kickoff, not just what is there so far
+        hours_left = (start - (cutoff if cutoff is not None else time.time())) / 3600
+        floor = TIER_PREKICK_MEDIAN.get(tier(event.get("title", "")), 1176)
+        exp_match = expected_total(stats["flow"], p["net"], hours_left, floor)
+        exp_market = expected_total(mflow.get(cid, 0), p["net"], hours_left)
+        p["share_now"] = p["net"] / stats["flow"] if stats["flow"] else 0
+        p["share"] = p["net"] / exp_match if exp_match else 0
+        p["mshare"] = p["net"] / exp_market if exp_market else 0
+        p["hours_left"], p["expected_flow"] = round(hours_left, 1), round(exp_match)
         p["market_flow"] = mflow.get(cid, 0)
         p["x_p90"] = p["net"] / stats["p90"] if stats["p90"] else 0
         p["pre_match"] = p["pre"] >= 0.5 * p["buy"]
@@ -476,12 +509,15 @@ def score(p, tier_, wallet, match_start, baseline=None):
     if pct is not None and pct >= 99:
         pts += 1
         why.append(f"top {100 - pct:.1f}% of {tier_}-tier positions")
+    early = p.get("hours_left", 0) > 0 and abs(p.get("share_now", p["share"]) - p["share"]) > 0.02
+    of = (f" of the ${p.get('expected_flow', 0):,} expected by kickoff ({p.get('share_now', 0):.0%} of what's traded so far, "
+          f"kickoff in {p.get('hours_left', 0):.0f} h)") if early else " of all money on the match"
     if p["share"] >= 0.4:
         pts += 2
-        why.append(f"{p['share']:.0%} of all money on the match")
+        why.append(f"{p['share']:.0%}{of}")
     elif p["share"] >= 0.2:
         pts += 1
-        why.append(f"{p['share']:.0%} of the match's money")
+        why.append(f"{p['share']:.0%}{of}")
     if p["x_p90"] >= 25:
         pts += 1
         why.append(f"{p['x_p90']:.0f}x a typical big trade on this match (p90)")
@@ -636,6 +672,8 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
                        usd=round(p["net"]), avg_price=round(p["avg_price"], 3), share=round(p["share"], 3),
                        first=p["first"], won=p["won"], x_p90=round(p["x_p90"], 1),
                        mshare=round(p.get("mshare", p["share"]), 3), market_flow=round(p.get("market_flow", 0)),
+                       share_now=round(p.get("share_now", p["share"]), 3), hours_left=p.get("hours_left"),
+                       expected_flow=p.get("expected_flow"),
                        pre_match=p["pre_match"], move=round(p["move"], 3), match_flow=round(stats["flow"]), wallet_info=w,
                        url=(f"https://polymarket.com/event/{e['slug']}" if venue == "poly"
                             else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}"))
@@ -694,7 +732,7 @@ def corroborate(rows):
 LEVELS = ["HIGH", "MEDIUM", "LOW", ""]
 FLAG_KEYS = ("venue", "market", "outcome", "usd", "avg_price", "share", "level", "pts", "why", "name", "wallet",
              "first", "profile", "pre_match", "move", "x_p90", "wallet_info", "mshare", "market_flow", "cluster",
-             "members", "watched", "record")
+             "members", "watched", "record", "share_now", "hours_left", "expected_flow")
 
 
 def team_for(outcome, teams):
@@ -912,6 +950,10 @@ def find_clusters(small, rows, baseline=None):
         shares = sum(x["usd"] / x["avg_price"] for x in g if x["avg_price"])
         mflow = max(x.get("market_flow") or 0 for x in g)
         flow = max(x.get("match_flow") or 0 for x in g)
+        hours_left = max((x["start"] - time.time()) / 3600, 0)
+        flow_now, mflow_now = flow, mflow
+        flow = expected_total(flow, usd, hours_left, TIER_PREKICK_MEDIAN.get(g[0]["tier"], 1176))
+        mflow = expected_total(mflow, usd, hours_left)
         pre = sum(x["usd"] for x in g if x.get("pre_match", x.get("pre", 0) >= 0.5 * x.get("buy", 1)))
         p = dict(net=usd, share=usd / flow if flow else 0, mshare=usd / mflow if mflow else 0, x_p90=0,
                  pre_match=pre >= 0.5 * usd, avg_price=usd / shares if shares else 0, move=0,

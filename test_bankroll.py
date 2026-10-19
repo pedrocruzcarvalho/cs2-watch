@@ -268,3 +268,14 @@ def test_escalation_names_its_cause_and_level_adds_up():
     assert "bookmakers agree: at Stake" in lvl[1] and "44% to 51%" in lvl[1] and lvl[-1] == "Level now: MEDIUM."
     stake = next(s for s in w["sections"] if s["title"] == "Why this stake")["bullets"]
     assert "escalated to MEDIUM. It rose because of this: +1 level, bookmakers agree" in stake[1]
+
+
+def test_early_bets_are_judged_against_the_money_expected_by_kickoff():
+    assert C.traded_by_now(0) == 1.0 and abs(C.traded_by_now(1) - 0.526) < 1e-9
+    assert abs(C.traded_by_now(12) - 0.003) < 1e-9 and 0.098 < C.traded_by_now(5) < 0.215
+    # $5k is the only money in a mid-tier market 16 h before kickoff: judged against the typical $24k, not 100%
+    assert C.expected_total(5000, 5000, 16, floor=24438) == 24438
+    # 6 h out, $2k from others so far -> others scaled x10 (only ~10% has usually arrived)
+    assert abs(C.expected_total(7000, 5000, 6, floor=0) - (5000 + 2000 / 0.10)) < 1e-6
+    # after kickoff: real totals
+    assert C.expected_total(7000, 5000, -1, floor=99999) == 7000

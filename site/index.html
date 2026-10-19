@@ -323,6 +323,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <li><b>Real prices:</b> each bet fills against Polymarket's order book at that moment, fee included. If nobody is selling, nothing is bet.</li>
       <li><b>Also flagged:</b> split bets (3+ fresh wallets, $5k+ together) and line moves (the flagged side up 12c+ in the 6 hours before kickoff raises the level).</li>
       <li><b>Bookmaker check:</b> Pinnacle, 1xBet and Stake odds (via OddsPapi). If their chance for the flagged side moves 6+ points the same way in 12 h, the level goes up one step; the opposite way, down one step.</li>
+      <li><b>Share of the match is judged against kickoff:</b> money on these matches arrives late (about 10% is in 6 hours before kickoff, half in the last hour), so a bet's share is measured against the money the match is expected to have by kickoff, never less than a typical match of its tier. An early $6,000 that is 86% of the market 12 hours out counts as about 25%.</li>
       <li><b>Size floors:</b> Polymarket stakes are big, so a flag needs real money: LOW from $3k, MEDIUM from $5k (or $3k if it's 30%+ of the match), HIGH from $10k (or $5k at 30%+).</li>
       <li><b>Downgrades</b> keep what's in. If the flagged side flips, no new money goes in. A bet the balance can't cover is skipped.</li>
     </ul>

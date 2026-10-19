@@ -132,8 +132,14 @@ def flag_sentence(f, start):
     else:
         rec = f.get("record")
         rec_txt = (f" Track record: {rec['text']}. Verdict: {rec['label']} ({rec['why']})." if rec else "")
+        if f.get("hours_left") and f["hours_left"] > 0 and abs(f.get("share_now", share) - share) > 0.02:
+            where_txt = (f"about {share:.0%} of the {money(f.get('expected_flow') or 0)} this match is expected to have by "
+                         f"kickoff ({f['share_now']:.0%} of what's traded so far; money on these matches mostly "
+                         f"arrives in the last hours, and kickoff was {f['hours_left']:.0f} h away)")
+        else:
+            where_txt = f"{share:.0%} {where}"
         s = lead + (f"On Polymarket, {describe_wallet(f, start)} put {money(f['usd'])} on {f['outcome']} at "
-             f"{f['avg_price']:.2f}{timing}. That is {share:.0%} {where}.")
+                    f"{f['avg_price']:.2f}{timing}. That is {where_txt}.")
     extra = []
     if (f.get("x_p90") or 0) >= 25:
         extra.append(f"about {f['x_p90']:.0f}x bigger than a typical large trade on this match")
