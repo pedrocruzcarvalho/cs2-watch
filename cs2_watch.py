@@ -59,7 +59,11 @@ CS2_SERIES = 10310
 KALSHI_SERIES = ["KXCS2GAME", "KXCS2MAP", "KXCS2TOTALMAPS"]
 UA = {"User-Agent": "Mozilla/5.0"}
 SWEEP = 0.97                 # fills at >= this (or <= 1 - this) are post-result sweeps
-MIN_POSITION = 500           # USDC; smaller positions are never candidates
+MIN_POSITION = 500           # USDC; smaller positions are never flagged on their own
+CLUSTER_MIN = 200            # ...but positions from $200 count towards a split-bet cluster
+CLUSTER_WALLETS, CLUSTER_USD = 3, 3000
+STEAM_MOVE, STEAM_WINDOW = 0.12, 6 * 3600
+CLOB = "https://clob.polymarket.com"
 TOP_EVENTS = ("major", "iem ", "blast", "esl pro league", "esports world cup", "pgl masters", "pgl cluj",
               "pgl astana", "pgl bucharest", "starladder", "perfect world", "thunderpick world", "fissure playground")
 LOW_WORDS = ("qualifier", "academy", "open", "contenders", "challengers", "league", "ligaen", "cup",
@@ -210,7 +214,7 @@ def poly_positions(event, trades, cutoff=None):
     res = []
     for (w, cid, outcome), p in pos.items():
         p["net"] = p["buy"] - p["sell"]
-        if p["net"] < MIN_POSITION:
+        if p["net"] < CLUSTER_MIN:
             continue
         p["avg_price"] = p["buy"] / p["shares"] if p["shares"] else 0
         p["share"] = p["net"] / stats["flow"] if stats["flow"] else 0
@@ -255,7 +259,8 @@ def poly_info(event, trades, cutoff=None):
             except Exception:
                 px = {}
         markets.append(dict(market=poly_market_label(m), cid=m["conditionId"], outcomes=outs, prices=px,
-                            winner=winner_of(m, event.get("ended")), flow=round(flow)))
+                            winner=winner_of(m, event.get("ended")), flow=round(flow),
+                            tokens=dict(zip(outs, json.loads(m.get("clobTokenIds") or "[]")))))
     mw = next((x for x in markets if x["market"] == "Match Winner"), markets[0])
     return dict(teams=mw["outcomes"], prices=mw["prices"], winner=mw["winner"], markets=markets)
 
@@ -582,6 +587,7 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
     save_wallets()
 
     poly_tier = {match_key(e["title"]): (tier(e["title"]), e["title"]) for v, e, _, _ in results if v == "poly"}
+    small = []
     for venue, e, pos, stats in results:
         title = e["title"]
         if venue == "poly":
@@ -593,11 +599,19 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
         for mk in stats["markets"]:
             infos.append(dict(venue=venue, match=title, tier=t, start=start, market=mk["market"],
                               teams=mk["outcomes"], prices=mk["prices"], winner=mk["winner"], flow=mk["flow"],
-                              cid=mk["cid"], ref=e["slug"] if venue == "poly" else e["event_ticker"],
+                              cid=mk["cid"], tokens=mk.get("tokens", {}),
+                              ref=e["slug"] if venue == "poly" else e["event_ticker"],
                               url=(f"https://polymarket.com/event/{e['slug']}" if venue == "poly"
                                    else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}")))
         for p in pos:
             w = _wallets.get(p["wallet"]) if p["wallet"] else None
+            if p["net"] < MIN_POSITION:
+                small.append(dict(match=title, tier=t, start=start, market=p["market"], outcome=p["outcome"],
+                                  wallet=p["wallet"], name=p["name"], usd=p["net"], avg_price=p["avg_price"],
+                                  first=p["first"], pre=p["pre"], buy=p["buy"], wallet_info=w,
+                                  match_flow=stats["flow"], market_flow=p.get("market_flow", 0),
+                                  url=f"https://polymarket.com/event/{e['slug']}"))
+                continue
             pts, why = score(p, t, w, start, baseline)
             row = dict(venue=venue, match=title, tier=t, start=start, pts=pts, level=level(pts, p["net"], p["share"]),
                        why=why,
@@ -611,6 +625,7 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
             if p["wallet"]:
                 row["profile"] = f"https://polymarket.com/profile/{p['wallet']}"
             positions_all.append(row)
+    positions_all += find_clusters(small, positions_all, baseline)
     corroborate(positions_all)
     rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
     flags = sorted((r for r in positions_all if r["level"]), key=lambda r: (rank[r["level"]], -r["pts"]))
@@ -661,7 +676,8 @@ def corroborate(rows):
 
 LEVELS = ["HIGH", "MEDIUM", "LOW", ""]
 FLAG_KEYS = ("venue", "market", "outcome", "usd", "avg_price", "share", "level", "pts", "why", "name", "wallet",
-             "first", "profile", "pre_match", "move", "x_p90", "wallet_info", "mshare", "market_flow")
+             "first", "profile", "pre_match", "move", "x_p90", "wallet_info", "mshare", "market_flow", "cluster",
+             "members")
 
 
 def team_for(outcome, teams):
@@ -733,7 +749,8 @@ def build_matches(infos, rows):
             refs = {v["venue"]: v["ref"] for v in venues.values()}
             if venues.get("poly", {}).get("cid"):
                 refs["poly_cid"] = venues["poly"]["cid"]
-            out.append(dict(m, id=base_id if label == "Match Winner" else f"{base_id}|{label}", match_id=base_id,
+            out.append(dict(m, tokens=venues.get("poly", {}).get("tokens", {}),
+                            id=base_id if label == "Match Winner" else f"{base_id}|{label}", match_id=base_id,
                             market=label, kind=market_kind(label), match=g["match"], tier=g["tier"], start=g["start"],
                             teams=outcomes, winner=winner, tracked=tracked,
                             tracked_is="flagged" if m["fix_side"] else "favorite",
@@ -746,11 +763,13 @@ def build_matches(infos, rows):
 def judge_market(mine, outcomes):
     """Flagged side, level and LIVE flag for one market's positions."""
     flagged = sorted((r for r in mine if r["level"]), key=lambda r: (LEVELS.index(r["level"]), -r["pts"]))
+    in_cluster = {w for r in flagged if r.get("cluster") for w in r.get("members_wallets", [])}
     money, best = {t: 0.0 for t in outcomes}, {}
     for r in flagged:
         t = team_for(r["outcome"], outcomes)
         if t:
-            money[t] += r["usd"]
+            if r.get("wallet") not in in_cluster:                      # already counted inside its cluster
+                money[t] += r["usd"]
             best.setdefault(t, r)                                      # flagged is sorted best-first
     side = max(money, key=money.get) if money and max(money.values()) > 0 else None
     lvl, pts, conflict = "", 0, False
@@ -788,7 +807,7 @@ def save_ledger(led):
 
 
 LEDGER_KEYS = ("match", "tier", "start", "teams", "level", "pts", "conflict", "fix_side", "tracked", "tracked_is",
-               "price", "refs", "urls", "money", "market", "kind", "match_id")
+               "price", "refs", "urls", "money", "market", "kind", "match_id", "steam")
 
 
 def record(led, matches, mode, now):
@@ -804,6 +823,7 @@ def record(led, matches, mode, now):
                     h["level"] == "LIVE" for h in old.get("history", [])):
                 old["history"] = old.get("history", []) + [dict(
                     t=now, level="LIVE", pts=0, side=m["live_side"], price=m["prices"].get(m["live_side"]),
+                    asks=book_asks(m.get("tokens", {}).get(m["live_side"])),
                     snap=dict(flags=m["live_flags"][:5], money=m["live_money"], flow=m["flow"], tier=m["tier"],
                               conflict=False, live=True))]
             continue
@@ -815,11 +835,98 @@ def record(led, matches, mode, now):
             if not last or (last["level"], last["side"]) != (m["level"], m["fix_side"]):
                 hist = hist + [dict(t=now, level=m["level"], pts=m["pts"], side=m["fix_side"],
                                     price=m["prices"].get(m["fix_side"]) if m["fix_side"] else None,
+                                    asks=book_asks(m.get("tokens", {}).get(m["fix_side"])) if m["level"] else None,
                                     # the evidence as it stood at this moment, so a bet can explain itself later
                                     snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
-                                              conflict=m["conflict"]) if m["level"] else None)]
-        led[k] = {f: m.get(f) for f in LEDGER_KEYS} | dict(mode=mode, made=now, history=hist,
+                                              conflict=m["conflict"], steam=m.get("steam")) if m["level"] else None)]
+        line = list(led.get(k, {}).get("line", []))
+        px0 = m["prices"].get(m["teams"][0]) if m.get("teams") else None
+        if mode == "live" and px0 is not None and (not line or abs(line[-1][1] - px0) >= 0.005):
+            line = (line + [[now, round(px0, 3)]])[-400:]
+        led[k] = {f: m.get(f) for f in LEDGER_KEYS} | dict(mode=mode, made=now, history=hist, line=line,
                                                        winner=m["winner"] if mode == "backtest" else None)
+
+
+def book_asks(token, levels=15):
+    """Best asks on Polymarket's public order book: [[price, shares], ...] cheapest first.
+    [] means nobody is selling; None means the book couldn't be read."""
+    if not token:
+        return None
+    try:
+        b = get(f"{CLOB}/book?token_id={token}")
+    except Exception:
+        return None
+    asks = sorted((float(a["price"]), float(a["size"])) for a in b.get("asks", []))
+    return [[p, round(s, 2)] for p, s in asks if p < SWEEP][:levels]
+
+
+def fresh_wallet(w, start):
+    """New account (under 7 days at kickoff) or almost no history (5 or fewer markets), and not a busy pro."""
+    w = w or {}
+    if w.get("traded") is not None and w["traded"] >= 500:
+        return False
+    young = w.get("created") is not None and start - w["created"] < 7 * 86400
+    few = w.get("traded") is not None and w["traded"] <= 5
+    return young or few
+
+
+def find_clusters(small, rows, baseline=None):
+    """Split bets: CLUSTER_WALLETS+ fresh wallets backing the same outcome of the same market, together
+    CLUSTER_USD+. Each piece can be small enough to pass unnoticed; together they look like one big bet."""
+    pieces = {}
+    for x in small + [r for r in rows if r["venue"] == "poly" and not r.get("cluster")]:
+        if fresh_wallet(x.get("wallet_info"), x["start"]):
+            pieces.setdefault((x["match"], x["start"], x["market"], x["outcome"]), []).append(x)
+    out = []
+    for (match, start, market, outcome), g in pieces.items():
+        usd = sum(x["usd"] for x in g)
+        if len({x["wallet"] for x in g}) < CLUSTER_WALLETS or usd < CLUSTER_USD:
+            continue
+        shares = sum(x["usd"] / x["avg_price"] for x in g if x["avg_price"])
+        mflow = max(x.get("market_flow") or 0 for x in g)
+        flow = max(x.get("match_flow") or 0 for x in g)
+        pre = sum(x["usd"] for x in g if x.get("pre_match", x.get("pre", 0) >= 0.5 * x.get("buy", 1)))
+        p = dict(net=usd, share=usd / flow if flow else 0, mshare=usd / mflow if mflow else 0, x_p90=0,
+                 pre_match=pre >= 0.5 * usd, avg_price=usd / shares if shares else 0, move=0,
+                 first=min(x["first"] for x in g), market=market)
+        t = g[0]["tier"]
+        pts, why = score(p, t, None, start, baseline)
+        pts += 4
+        why = [f"{len(g)} fresh wallets backing {outcome}, ${usd:,.0f} combined"] + why + [
+            "split across several new wallets: a known way to hide one big bet"]
+        out.append(dict(venue="poly", match=match, tier=t, start=start, pts=pts, level=level(pts, usd, p["share"]),
+                        why=why, wallet=None, name=f"{len(g)} fresh wallets", market=market, outcome=outcome,
+                        usd=round(usd), avg_price=round(p["avg_price"], 3), share=round(p["share"], 3),
+                        mshare=round(p["mshare"], 3), market_flow=round(mflow), first=p["first"], won=None, x_p90=0,
+                        pre_match=p["pre_match"], move=0, match_flow=round(flow), wallet_info=None,
+                        url=g[0].get("url"), cluster=len(g),
+                        members=[dict(name=x.get("name") or x["wallet"][:10], usd=round(x["usd"]),
+                                      profile=f"https://polymarket.com/profile/{x['wallet']}") for x in
+                                 sorted(g, key=lambda x: -x["usd"])][:10],
+                        members_wallets=[x["wallet"] for x in g]))
+    return out
+
+
+def apply_line_moves(led, matches, now):
+    """Steam: the flagged side's price climbed STEAM_MOVE+ within STEAM_WINDOW before kickoff (from this scanner's
+    own 10-minute price history). Money spread over many accounts moves the price even when no single wallet
+    stands out, so the market's level goes up one step. Call before record()."""
+    for m in matches:
+        side = m.get("fix_side")
+        r = led.get(f"live|{m['id']}")
+        if not side or not r or now >= m["start"] or side not in m["prices"] or not m.get("teams"):
+            continue
+        flip = side != m["teams"][0]
+        pts = [(t, 1 - p if flip else p) for t, p in r.get("line", []) if t >= now - STEAM_WINDOW]
+        cur = m["prices"][side]
+        if not pts:
+            continue
+        low_t, low = min(pts, key=lambda x: x[1])
+        if cur - low >= STEAM_MOVE and m["level"]:
+            m["steam"] = dict(low=round(low, 3), now=round(cur, 3), since=low_t, move=round(cur - low, 3),
+                              raised_from=m["level"])
+            m["level"] = LEVELS[max(LEVELS.index(m["level"]) - 1, 0)]
+            m["pts"] += 2
 
 
 def backfill_snapshots(led, matches, now):
@@ -1018,6 +1125,7 @@ def main():
     show(flags, a.limit)
     matches = build_matches(infos, rows)
     led = load_ledger()
+    apply_line_moves(led, matches, now.timestamp())
     record(led, matches, "live", now.timestamp())
     resolve(led, now.timestamp())
     save_ledger(led)

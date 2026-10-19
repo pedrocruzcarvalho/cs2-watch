@@ -28,6 +28,25 @@ def cost_per_share(price):
     return p + FEE * p * (1 - p)
 
 
+def fill(stake, asks):
+    """Walk the real asks (cheapest first) spending `stake` incl. the taker fee.
+    Returns (shares, spent, avg_price, levels_used)."""
+    shares = spent = paid_px = 0.0
+    used = 0
+    for p, size in asks:
+        if spent >= stake - 1e-9:
+            break
+        per = p + FEE * p * (1 - p)
+        take = min(size, (stake - spent) / per)
+        if take <= 0:
+            continue
+        shares += take
+        spent += take * per
+        paid_px += take * p
+        used += 1
+    return shares, spent, (paid_px / shares if shares else None), used
+
+
 def tranches(r, opened_at, now):
     """The bets the plan places on one match, from its level history. Returns (tranches, path, escalated, flipped)."""
     if r.get("mode") != "live" or "poly" not in r.get("refs", {}):
@@ -43,7 +62,8 @@ def tranches(r, opened_at, now):
                 continue
             side = side or h["side"]
             path.append(("LIVE", h["t"]))
-            out.append(dict(t=h["t"], level="LIVE", price=h["price"], stake=STAKES["LIVE"], snap=h.get("snap")))
+            out.append(dict(t=h["t"], level="LIVE", price=h["price"], stake=STAKES["LIVE"], snap=h.get("snap"),
+                            asks=h.get("asks")))
             staked += STAKES["LIVE"]
             continue
         if h["t"] >= r["start"]:
@@ -55,7 +75,7 @@ def tranches(r, opened_at, now):
         if side is None:
             side, top = h["side"], RANK[h["level"]]
             out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=STAKES[h["level"]],
-                            snap=h.get("snap")))
+                            snap=h.get("snap"), asks=h.get("asks")))
             staked = STAKES[h["level"]]
         elif h["side"] != side:
             flipped = True
@@ -64,7 +84,8 @@ def tranches(r, opened_at, now):
             top, escalated = RANK[h["level"]], True
             add = ESCALATION * STAKES[h["level"]] - staked
             if add > 0:
-                out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=add, snap=h.get("snap")))
+                out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=add, snap=h.get("snap"),
+                                asks=h.get("asks")))
                 staked += add
     for x in out:
         x["side"] = side
@@ -97,14 +118,26 @@ def run(ledger, opened_at, now):
     for t, kind, key, x in events:
         b = bets[key]
         if kind == 0:
-            cost = cost_per_share(x["price"])
-            tr = dict(t=t, level=x["level"], price=x["price"], stake=x["stake"], shares=round(x["stake"] / cost, 2))
+            want = min(x["stake"], max(balance, 0.0))
+            asks = x.get("asks")
+            if asks is not None:                                       # real order book at that moment
+                sh, spent, avg, used = fill(want, asks)
+                tr = dict(t=t, level=x["level"], price=round(avg, 4) if avg else x["price"], stake=round(spent, 2),
+                          shares=round(sh, 2), book=True, levels=used, wanted=x["stake"])
+                if not asks or spent <= 0.01:
+                    tr.update(skipped=True, reason="no sellers", stake=0.0, shares=0.0)
+            else:                                                      # older entries: last trade + spread
+                cost = cost_per_share(x["price"])
+                tr = dict(t=t, level=x["level"], price=x["price"], stake=x["stake"],
+                          shares=round(x["stake"] / cost, 2))
             # (the snapshot stays on the bet, not on each tranche, to keep the stored data small)
-            if balance + 1e-9 < x["stake"]:
-                tr.update(skipped=True, stake=0.0, shares=0.0)
+            if tr.get("skipped"):
+                pass
+            elif balance + 1e-9 < x["stake"]:
+                tr.update(skipped=True, reason="balance", stake=0.0, shares=0.0)
             else:
-                balance -= x["stake"]
-                b["stake"] += x["stake"]
+                balance -= tr["stake"]                                 # what was actually spent (book may be thin)
+                b["stake"] += tr["stake"]
                 b["shares"] += tr["shares"]
             b["tranches"].append(tr)
         else:
@@ -213,7 +246,7 @@ def planned(matches, ledger, opened_at, now):
                         kind=m["kind"],
                         level="LIVE" if live_now else m["level"], pts=m["pts"],
                         side=m["live_side"] if live_now else m["fix_side"],
-                        price=price, bettable="poly" in m["refs"] and price is not None,
+                        price=price, bettable="poly" in m["refs"] and price is not None, steam=m.get("steam"),
                         in_stake=b["stake"] if b else 0.0, in_shares=b["shares"] if b else 0.0,
                         bet_side=b["side"] if b else None, escalated=bool(b and b["escalated"]),
                         flipped=bool(b and b["flipped"]), path=path, conflict=m["conflict"], tier=m["tier"],

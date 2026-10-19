@@ -80,10 +80,10 @@ def tick(store, log=print):
     meta.setdefault("opened_at", now.timestamp())
     baseline = json.loads((work / "baseline.json").read_text()) if (work / "baseline.json").exists() else None
 
-    flags, rows, infos = C.scan(now - timedelta(hours=6), now + timedelta(hours=36), ["poly", "kalshi"], baseline,
-                                log=log)
+    flags, rows, infos = C.scan(now - timedelta(hours=6), now + timedelta(hours=36), ["poly"], baseline, log=log)
     matches = C.build_matches(infos, rows)
     led = C.load_ledger()
+    C.apply_line_moves(led, matches, now.timestamp())
     C.record(led, matches, "live", now.timestamp())
     C.backfill_snapshots(led, matches, now.timestamp())
     C.resolve(led, now.timestamp(), log=log)

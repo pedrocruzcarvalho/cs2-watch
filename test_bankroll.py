@@ -167,3 +167,57 @@ def test_explanation_names_the_market():
     w = bets[0]["why"]
     assert w["headline"].startswith("$20 on B to win Map 1") and bets[0]["kind"] == "map"
     assert "single-map market" in " ".join(w["sections"][2]["bullets"])
+
+
+def test_fill_walks_the_real_asks_and_handles_thin_or_empty_books():
+    sh, spent, avg, used = B.fill(40, [[0.40, 50], [0.42, 1000]])
+    per1, per2 = 0.40 + 0.05 * 0.4 * 0.6, 0.42 + 0.05 * 0.42 * 0.58
+    assert used == 2 and abs(spent - 40) < 1e-9 and abs(sh - (50 + (40 - 50 * per1) / per2)) < 1e-9
+    assert 0.40 < avg < 0.42
+    sh, spent, avg, used = B.fill(40, [[0.40, 10]])                              # thin: only 10 shares for sale
+    assert abs(sh - 10) < 1e-9 and spent < 5
+    assert B.fill(40, []) == (0.0, 0.0, None, 0)
+
+
+def test_book_fill_spends_only_what_filled_and_empty_book_skips():
+    led = {"1": rec(1, [(T0, "HIGH", "A", 0.40)], winner="A"), "2": rec(2, [(T0, "LOW", "A", 0.40)])}
+    led["1"]["history"][0]["asks"] = [[0.41, 20]]                                # thin book: ~$8.6 fills
+    led["2"]["history"][0]["asks"] = []                                          # nobody selling
+    bets, st, _ = B.run(led, T0, T0 + 10 * 86400)
+    thin = next(b for b in bets if b["match"].endswith("#1"))
+    empty = next(b for b in bets if b["match"].endswith("#2"))
+    assert thin["stake"] < 9 and thin["tranches"][0]["book"] and abs(thin["shares"] - 20) < 1e-6
+    assert empty["status"] == "skipped" and empty["tranches"][0]["reason"] == "no sellers"
+    assert abs(st["balance"] - (300 - thin["stake"] + thin["shares"])) < 0.01
+    text = " ".join(x for s in thin["why"]["sections"] for x in s["bullets"])
+    assert "real order book" in text and "not enough sellers" in text
+
+
+def _small(w, usd, created_days, traded, outcome="A", market="Match Winner"):
+    return dict(match="Counter-Strike: A vs B (BO3) - Cup", tier="low", start=T0, market=market, outcome=outcome,
+                wallet=w, name=w, usd=usd, avg_price=0.4, first=T0 - 3600, pre=usd, buy=usd,
+                wallet_info=dict(created=T0 - created_days * 86400, traded=traded), match_flow=20000,
+                market_flow=12000, url="u")
+
+
+def test_split_bets_across_fresh_wallets_become_one_cluster_flag():
+    small = [_small(f"w{i}", 900, 2, 3) for i in range(4)] + [_small("pro", 900, 400, 3000)]
+    rows = C.find_clusters(small, [])
+    assert len(rows) == 1
+    c = rows[0]
+    assert c["cluster"] == 4 and c["usd"] == 3600 and c["level"] and "pro" not in c["members_wallets"]
+    assert not C.find_clusters(small[:2], [])                                    # 2 wallets is not a cluster
+    m = C.judge_market([c, dict(_small("w0", 900, 2, 3), level="LOW", pts=4, why=[], venue="poly", wallet="w0")],
+                       ["A", "B"])
+    assert m["money"]["A"] == 3600                                               # member not counted twice
+
+
+def test_line_move_raises_the_level_one_step():
+    m = dict(id="x", start=T0 + 5 * 3600, fix_side="B", teams=["A", "B"], prices={"A": 0.40, "B": 0.60},
+             level="LOW", pts=5)
+    led = {"live|x": dict(line=[[T0 - 3 * 3600, 0.55], [T0 - 3600, 0.50]])}     # B was 0.45, now 0.60
+    C.apply_line_moves(led, [m], T0)
+    assert m["level"] == "MEDIUM" and m["steam"]["move"] == 0.15 and m["steam"]["raised_from"] == "LOW"
+    m2 = dict(m, level="LOW", prices={"A": 0.52, "B": 0.48}, steam=None)
+    C.apply_line_moves(led, [m2], T0)
+    assert m2["level"] == "LOW"                                                  # only 3c: no change

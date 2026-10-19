@@ -79,6 +79,13 @@ def flag_sentence(f, start):
     share = f.get("share") or 0
     where = "of all the money traded on this match"
     timing = " before kickoff" if f.get("pre_match") else " during the match"
+    if f.get("cluster"):
+        names = ", ".join(f"{x['name']} ({money(x['usd'])})" for x in f.get("members", [])[:5])
+        s = (f"On Polymarket, {f['cluster']} separate wallets, all brand-new or with almost no history, put a "
+             f"combined {money(f['usd'])} on {f['outcome']} at an average {f['avg_price']:.2f}{timing}, "
+             f"{share:.0%} {where}. Each piece is small on its own; splitting one big bet across fresh wallets is a "
+             f"known way to hide it. Wallets: {names}.")
+        return s + f" ({f['level']}, {f['pts']} pts)"
     if f.get("venue") == "kalshi":
         s = (f"An anonymous order on Kalshi bought {money(f['usd'])} of {f['outcome']} at {f['avg_price']:.2f}{timing}, "
              f"{share:.0%} {where}.")
@@ -141,23 +148,32 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     for i, t in enumerate(tranches):
         implied = f"{t['price'] * 100:.0f}% implied"
         if t.get("skipped"):
+            why_skip = (f"nobody was selling {side} on the order book at that moment" if t.get("reason") == "no sellers"
+                        else "the balance couldn't cover it")
             stake_b.append(f"{hhmm(t['t'])}: the plan wanted to add {money(stakes.get(t['level'], 0))} "
-                           f"({t['level']}) but the balance couldn't cover it, so it was skipped.")
+                           f"({t['level']}) but {why_skip}, so it was skipped.")
             continue
+        if t.get("book"):
+            note = (f" Filled against the real order book: average {t['price']:.3f} across {t.get('levels', 1)} "
+                    f"price level{'s' if t.get('levels', 1) != 1 else ''}, fee included.")
+            if t.get("wanted") and t["stake"] < t["wanted"] - 0.01:
+                note += f" Only {money(t['stake'])} of the {money(t['wanted'])} could be filled: not enough sellers."
+        else:
+            note = ""
         total += t["stake"]
         if t["level"] == "LIVE":
             stake_b.append(f"{hhmm(t['t'])}: during the match, a bet passed the strict LIVE test, so the plan "
                            f"{'added' if i else 'placed'} {money(t['stake'])} on {side} at {t['price']:.2f} "
                            f"({implied}){', bringing the total to ' + money(total) if i else ''}. The price is the "
-                           f"one at that scan; live prices move fast, so it can be up to 10 minutes old.")
+                           f"one at that scan; live prices move fast, so it can be up to 10 minutes old." + note)
         elif i == 0:
             stake_b.append(f"{hhmm(t['t'])}: first flagged {t['level']}, so {money(t['stake'])} went on {side} at "
-                           f"{t['price']:.2f} ({implied}). {t['level']} = {money(stakes[t['level']])} in the plan.")
+                           f"{t['price']:.2f} ({implied}). {t['level']} = {money(stakes[t['level']])} in the plan." + note)
         else:
             stake_b.append(f"{hhmm(t['t'])}: escalated to {t['level']}, so the plan topped up {money(t['stake'])} at "
                            f"{t['price']:.2f} ({implied}), bringing the total to {money(total)}. Escalations get "
                            f"{escalation}x the normal {t['level']} stake ({money(stakes[t['level']])}), because a "
-                           f"flag that keeps getting stronger is the signal this plan bets on.")
+                           f"flag that keeps getting stronger is the signal this plan bets on." + note)
     if not tranches:
         stake_b.append("No money is in yet. It goes in on the next scan if the flag still stands.")
     if len(path) > 1:
@@ -173,6 +189,11 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     ctx = []
     if kind in KIND_CONTEXT:
         ctx.append(KIND_CONTEXT[kind])
+    st = snap.get("steam")
+    if st:
+        ctx.append(f"Line move: the price of {side} climbed from {st['low']:.2f} to {st['now']:.2f} since "
+                   f"{hhmm(st['since'])} ({st['move'] * 100:.0f}c). Money spread over many accounts moves the price "
+                   f"even when no single wallet stands out, so the level was raised from {st['raised_from']} one step.")
     if snap.get("live"):
         ctx.append("LIVE flags are much stricter than pre-match ones, because big in-play bets on the score are "
                    "normal. Every one of these had to hold: placed during the match; $3,000+ and 25%+ of all money "

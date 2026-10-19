@@ -118,6 +118,8 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
         <li><b>Escalation</b> (LOW → MEDIUM → HIGH before kickoff) tops up to <b id="esc-x">1.5</b>× the new level's stake at the new price: LOW → HIGH = $60 in total.</li>
         <li><b class="LIVE">LIVE</b>: a bet placed during the match that passes a much stricter test (fresh wallet, $3k+, 25%+ of the match) adds <b>$20</b> on that side. Never against an existing bet.</li>
         <li>Every market is judged on its own: match winner, map winners, total maps, map handicap, round totals and handicaps. Side markets are bet at their own price, only once something in them is flagged.</li>
+        <li>Bets fill against Polymarket's real order book at that moment (best asks, fee included). If nobody is selling, nothing is bet.</li>
+        <li>Also flagged: <b>split bets</b> (3+ fresh wallets on the same side, $3k+ together) and <b>line moves</b> (the flagged side's price up 12c+ in the 6 h before kickoff raises the level one step).</li>
         <li>Downgrades keep what's in. If the flagged side flips, no new money goes in. Every tranche pays +1c spread and Polymarket's fee.</li>
         <li>Skipped if the balance can't cover it. Paper only: no real bets are placed.</li>
       </ul>
@@ -245,7 +247,7 @@ function plan() {
       <td>${esc(short(b.match))}${mkTag(b)}<div class="small">${esc(b.tier)} tier · ${links}</div></td>
       <td>${pathHtml(b.path, b.escalated)}<div class="small">now ${b.level} · ${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div></td>
       <td class="side">${esc(b.side)}${b.flipped ? `<div class="small">flipped: bet stays on ${esc(b.bet_side)}</div>` : ""}</td>
-      <td class="r">${b.price != null ? b.price.toFixed(2) + `<div class="small">${Math.round(b.price * 100)}% implied</div>` : "–"}</td>
+      <td class="r">${b.price != null ? b.price.toFixed(2) + `<div class="small">${Math.round(b.price * 100)}% implied</div>` : "–"}${b.steam ? `<div class="small good">↑ from ${b.steam.low.toFixed(2)} (line move)</div>` : ""}</td>
       <td class="r">${!b.bettable ? '<span class="small">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<div class="small good">to win ${usd(b.in_shares - b.in_stake, true)}</div>` : '<span class="small">next scan</span>'}</td>
       <td class="r">${usd0(b.money[b.side])} / ${usd0(other)}<div class="small">match ${usd0(b.flow)}</div></td></tr>
       <tr class="detail" id="p-${i}" hidden><td colspan="7">${whyHtml(b.why, "open")}
