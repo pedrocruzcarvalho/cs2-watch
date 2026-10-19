@@ -6,8 +6,11 @@ Rules (fixed on 2026-10-20 before any live result, from the 60-day walk-forward 
   informed   5+ such bets, luck score >= 2.5 (wins vs what the prices predicted), edge >= 10 points
   signal     on a T3-T6 match (stronger team below Valve #50 or unranked), informed wallets have $200+ net on one
              side of a market and less than half of that on the other side
-  bet        $20 on that side, in the last 30 minutes before kickoff, filled against the real order book
-             (fee included), one bet per market; $300 paper bankroll
+  bet        $20 on that side as soon as the signal appears (the next 10-minute scan), filled against the real
+             order book (fee included), one bet per market; $300 paper bankroll.
+             Changed 2026-10-20 from "last 30 minutes before kickoff" before any bet was placed: in the 60-day data,
+             copying within 10 minutes of the signal returned +18.2% vs +11.4% for waiting (same 58 bets, better
+             in both halves); the price drifts ~2 cents towards the informed side before kickoff.
 State: "records" (wallet -> recent resolved positions), "counted" (markets already added), "names",
 "account" (bets). Stored in KV as state:informed.
 """
@@ -130,11 +133,11 @@ def signals(infos, qual, vtier_of, now):
 # ------------------------------------------------------------------------------------------------ account
 
 def place_bets(state, sigs, now, book_asks, fill, log=print):
-    """In the last 30 minutes before kickoff, bet $20 on every active signal not yet bet."""
+    """As soon as a signal is active (before kickoff), bet $20 on it once."""
     acct = state.setdefault("account", dict(opened_at=now, bets={}))
     for s in sigs:
         key = s["cid"]
-        if not s["active"] or key in acct["bets"] or not 0 < s["start"] - now <= BET_WINDOW:
+        if not s["active"] or key in acct["bets"] or s["start"] <= now:
             continue
         bal = balance(acct)
         if bal < STAKE:
@@ -205,6 +208,11 @@ def wallet_line(x, side):
             f"{r['z']:.1f}. Put {money(x['usd'])} on {side} at {x['avg']:.2f} before kickoff.")
 
 
+def _ago(b):
+    h = (b["start"] - b.get("placed_at", b["start"])) / 3600
+    return f"{h:.1f} h" if h >= 1 else f"{h * 60:.0f} min"
+
+
 def explain(b, now):
     other = next((t for t in b.get("teams") or [] if t != b["side"]), "the other side")
     head = (f"{money(b['stake'])} on {b['side']}" + (" to beat " + other if b["market"] == "Match Winner" else f" ({b['market']})")
@@ -217,7 +225,7 @@ def explain(b, now):
            f"This is a {b.get('vtier')} match, where the 60-day test found the edge, and informed money on {b['side']} was "
            f"{money(b['money'])} vs {money(b.get('other_money', 0))} on the other side (needs $200+ and one-sided)."]
     if b["status"] != "skipped":
-        why.append(f"Placed in the last 30 minutes before kickoff: {money(b['stake'])} at an average {b['price']:.3f} "
+        why.append(f"Copied as soon as the signal appeared ({_ago(b)} before kickoff): {money(b['stake'])} at an average {b['price']:.3f} "
                    f"({b['price'] * 100:.0f}% implied), filled against the real order book, fee included. If {b['side']} "
                    f"wins it pays {money(b['shares'])}.")
     secs.append(dict(title="Why this bet", bullets=why))

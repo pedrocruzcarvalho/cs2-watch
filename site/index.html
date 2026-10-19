@@ -270,7 +270,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Informed money right now</h2><span class="cap" id="sig-count"></span></header>
-    <p class="sub">Upcoming matches where informed wallets have bet. A bet goes in during the last 30 minutes before kickoff when the money is $200+, one-sided, on a T3–T6 match. Click a row for the wallets and their records.</p>
+    <p class="sub">Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.</p>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Informed money</th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
@@ -338,7 +338,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <li><b>Informed wallet:</b> in its last 21 days, 5+ CS2 bets of $20+ placed before kickoff on matches that have finished, with a luck score of 2.5+ (pure luck gets there about 0.6% of the time) and wins at least 10 points above what its prices predicted.</li>
       <li><b>Luck score:</b> how many standard deviations a wallet's wins are above what the prices it paid predicted. Buying at 0.50 on 30 bets should win about 15; winning 25 is a luck score of about 3.7.</li>
       <li><b>Signal:</b> on a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), informed wallets have $200+ net on one side of a market, and less than half of that on the other side. Any market counts: match, maps, totals, rounds.</li>
-      <li><b>Bet:</b> $20 on that side, once per market, placed in the last 30 minutes before kickoff, filled against Polymarket's real order book with the fee. No sellers, no bet.</li>
+      <li><b>Bet:</b> $20 on that side, once per market, copied as soon as the signal appears (the next scan, within 10 minutes), filled against Polymarket's real order book with the fee. No sellers, no bet. Copying early beat waiting until kickoff in the 60-day data (+18.2% vs +11.4% on the same bets): the price drifts towards the informed side once they've bet.</li>
       <li><b>Why these rules:</b> in a 60-day walk-forward test (2,767 matches, 58,458 positions, no hindsight), following these wallets returned +17.5% over 55 bets and was positive in both halves. Without the $200 condition the edge disappeared. These settings were fixed before any live bet, so the live results are a fair test.</li>
       <li><b>Data:</b> Polymarket only. Tiers come from Valve's Regional Standings, refreshed daily.</li>
     </ul>
@@ -490,7 +490,7 @@ function signals() {
     const k = esc(x.cid), isOpen = opened.has("s-" + k), px = x.prices[x.side];
     const status = x.placed ? (x.placed.status === "open" ? `<span class="tag open">bet ${usd(x.placed.stake)}</span><span class="split">at ${x.placed.price.toFixed(3)}</span>`
         : `<span class="tag skipped">${esc(x.placed.status)}</span>`)
-      : x.active ? (x.start - nowS() <= 1800 ? '<span class="tag open">betting now</span>' : `<span class="tag won">signal</span><span class="split">bets ${rel(x.start - 1800)}</span>`)
+      : x.active ? '<span class="tag open">betting at the next scan</span>'
       : `<span class="tag skipped">no bet</span><span class="split">${esc(x.why_not.join("; "))}</span>`;
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(x.start)}</b><span style="display:block;padding-left:16px">${day(x.start)} · ${rel(x.start)}</span></td>
@@ -544,7 +544,7 @@ function walletsPanel() {
 function history() {
   const all = D.bets, bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
   $("hist-count").textContent = all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "";
-  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : "No bets yet. The first goes in 30 minutes before the first match with an informed signal."}</td></tr>`; return; }
+  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : "No bets yet. The first goes in at the next scan after an informed signal appears."}</td></tr>`; return; }
   const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded"};
   tb.innerHTML = bs.map((b, i) => {
     const k = key(b), isOpen = opened.has("h-" + k), tr = (b.tranches || []).filter(t => t.stake);
