@@ -79,6 +79,10 @@ def flag_sentence(f, start):
     share = f.get("share") or 0
     where = "of all the money traded on this match"
     timing = " before kickoff" if f.get("pre_match") else " during the match"
+    if f.get("watched"):
+        lead = f"Watched wallet ({f['watched']}). "
+    else:
+        lead = ""
     if f.get("cluster"):
         names = ", ".join(f"{x['name']} ({money(x['usd'])})" for x in f.get("members", [])[:5])
         s = (f"On Polymarket, {f['cluster']} separate wallets, all brand-new or with almost no history, put a "
@@ -90,7 +94,7 @@ def flag_sentence(f, start):
         s = (f"An anonymous order on Kalshi bought {money(f['usd'])} of {f['outcome']} at {f['avg_price']:.2f}{timing}, "
              f"{share:.0%} {where}.")
     else:
-        s = (f"On Polymarket, {describe_wallet(f, start)} put {money(f['usd'])} on {f['outcome']} at "
+        s = lead + (f"On Polymarket, {describe_wallet(f, start)} put {money(f['usd'])} on {f['outcome']} at "
              f"{f['avg_price']:.2f}{timing}. That is {share:.0%} {where}.")
     extra = []
     if (f.get("x_p90") or 0) >= 25:

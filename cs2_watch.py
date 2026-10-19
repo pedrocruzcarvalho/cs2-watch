@@ -61,7 +61,9 @@ UA = {"User-Agent": "Mozilla/5.0"}
 SWEEP = 0.97                 # fills at >= this (or <= 1 - this) are post-result sweeps
 MIN_POSITION = 500           # USDC; smaller positions are never flagged on their own
 CLUSTER_MIN = 200            # ...but positions from $200 count towards a split-bet cluster
-CLUSTER_WALLETS, CLUSTER_USD = 3, 3000
+CLUSTER_WALLETS, CLUSTER_USD = 3, 5000
+WATCH = {}                   # wallet -> {"reason": ..., "source": "auto"|"manual"}; set by the caller before scan()
+WATCH_MIN, WATCH_MEDIUM, WATCH_HIGH = 100, 500, 3000
 STEAM_MOVE, STEAM_WINDOW = 0.12, 6 * 3600
 CLOB = "https://clob.polymarket.com"
 TOP_EVENTS = ("major", "iem ", "blast", "esl pro league", "esports world cup", "pgl masters", "pgl cluj",
@@ -214,7 +216,7 @@ def poly_positions(event, trades, cutoff=None):
     res = []
     for (w, cid, outcome), p in pos.items():
         p["net"] = p["buy"] - p["sell"]
-        if p["net"] < CLUSTER_MIN:
+        if p["net"] < CLUSTER_MIN and not (w.lower() in WATCH and p["net"] >= WATCH_MIN):
             continue
         p["avg_price"] = p["buy"] / p["shares"] if p["shares"] else 0
         p["share"] = p["net"] / stats["flow"] if stats["flow"] else 0
@@ -460,7 +462,7 @@ def event_label(e):
 
 # ------------------------------------------------------------------------------------------------ scoring
 
-SIZE_STEPS = [(1000, 1), (5000, 2), (20000, 3)]
+SIZE_STEPS = [(3000, 1), (10000, 2), (25000, 3)]
 
 
 def score(p, tier_, wallet, match_start, baseline=None):
@@ -524,12 +526,19 @@ def score(p, tier_, wallet, match_start, baseline=None):
 
 
 def level(pts, usd, share):
-    """Points alone are not enough: a fresh wallet putting $800 on a match is noise, not a fix."""
-    if pts >= 9 and (usd >= 5000 or (usd >= 2000 and share >= 0.3)):
+    """Points alone are not enough. Polymarket stakes are big, so a few thousand dollars is ordinary money; the
+    30%-of-the-match route keeps thin matches covered, where $3k can be most of what is traded."""
+    if pts >= 9 and (usd >= 10000 or (usd >= 5000 and share >= 0.3)):
         return "HIGH"
-    if pts >= 6 and usd >= 1500:
+    if pts >= 6 and (usd >= 5000 or (usd >= 3000 and share >= 0.3)):
         return "MEDIUM"
-    return "LOW" if pts >= 4 and usd >= 1000 else ""
+    return "LOW" if pts >= 4 and usd >= 3000 else ""
+
+
+def watch_level(lvl, usd):
+    """A watched wallet's bet is at least MEDIUM from WATCH_MEDIUM and HIGH from WATCH_HIGH."""
+    floor = "HIGH" if usd >= WATCH_HIGH else "MEDIUM" if usd >= WATCH_MEDIUM else ""
+    return min(lvl or "", floor, key=lambda x: LEVELS.index(x)) if floor else lvl
 
 
 def size_percentile(x, tier_, baseline):
@@ -605,7 +614,8 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
                                    else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}")))
         for p in pos:
             w = _wallets.get(p["wallet"]) if p["wallet"] else None
-            if p["net"] < MIN_POSITION:
+            watched = WATCH.get(p["wallet"].lower()) if p["wallet"] else None
+            if p["net"] < MIN_POSITION and not watched:
                 small.append(dict(match=title, tier=t, start=start, market=p["market"], outcome=p["outcome"],
                                   wallet=p["wallet"], name=p["name"], usd=p["net"], avg_price=p["avg_price"],
                                   first=p["first"], pre=p["pre"], buy=p["buy"], wallet_info=w,
@@ -613,8 +623,13 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
                                   url=f"https://polymarket.com/event/{e['slug']}"))
                 continue
             pts, why = score(p, t, w, start, baseline)
-            row = dict(venue=venue, match=title, tier=t, start=start, pts=pts, level=level(pts, p["net"], p["share"]),
-                       why=why,
+            lvl = level(pts, p["net"], p["share"])
+            if watched:
+                pts += 5
+                why.insert(0, f"watched wallet: {watched.get('reason') or 'on the watchlist'}")
+                lvl = watch_level(lvl, p["net"])
+            row = dict(venue=venue, match=title, tier=t, start=start, pts=pts, level=lvl, why=why,
+                       watched=watched.get("reason") if watched else None,
                        wallet=p["wallet"], name=p["name"], market=p["market"], outcome=p["outcome"],
                        usd=round(p["net"]), avg_price=round(p["avg_price"], 3), share=round(p["share"], 3),
                        first=p["first"], won=p["won"], x_p90=round(p["x_p90"], 1),
@@ -677,7 +692,7 @@ def corroborate(rows):
 LEVELS = ["HIGH", "MEDIUM", "LOW", ""]
 FLAG_KEYS = ("venue", "market", "outcome", "usd", "avg_price", "share", "level", "pts", "why", "name", "wallet",
              "first", "profile", "pre_match", "move", "x_p90", "wallet_info", "mshare", "market_flow", "cluster",
-             "members")
+             "members", "watched")
 
 
 def team_for(outcome, teams):
@@ -686,7 +701,7 @@ def team_for(outcome, teams):
         next((t for t in teams if o and (norm_team(t).startswith(o) or o.startswith(norm_team(t)))), None)
 
 
-LIVE_MIN_USD, LIVE_MIN_SHARE = 3000, 0.25            # Polymarket, fresh wallet required on top
+LIVE_MIN_USD, LIVE_MIN_SHARE = 5000, 0.25            # Polymarket, fresh (or watched) wallet required on top
 KALSHI_LIVE_MIN_USD, KALSHI_LIVE_MIN_SHARE = 15000, 0.50
 LIVE_PRICE = (0.10, 0.85)
 
@@ -707,9 +722,12 @@ def live_check(r):
         return None
     fresh = age is not None and age < 7 * 86400
     few = traded is not None and traded <= 5
-    if not (fresh or few) or r["usd"] < LIVE_MIN_USD or r["share"] < LIVE_MIN_SHARE:
+    watched = r.get("watched")
+    if not (fresh or few or watched) or r["usd"] < LIVE_MIN_USD or r["share"] < LIVE_MIN_SHARE:
         return None
     why = [f"${r['usd']:,} placed during the match", f"{r['share']:.0%} of all money on the match"]
+    if watched:
+        why.append(f"watched wallet ({watched})")
     if fresh:
         why.append(f"account {max(age, 0) / 86400:.1f} days old")
     if few:
@@ -906,6 +924,53 @@ def find_clusters(small, rows, baseline=None):
                                  sorted(g, key=lambda x: -x["usd"])][:10],
                         members_wallets=[x["wallet"] for x in g]))
     return out
+
+
+AUTO_WATCH_MAX, AUTO_WATCH_DAYS = 150, 60
+
+
+def update_watch(auto, rows, now):
+    """Remember every MEDIUM/HIGH-flagged Polymarket wallet and how its flagged bets ended. A wallet goes on the
+    watchlist when a flagged bet of its WON, or when it is flagged on 2+ different matches. `auto` is the stored
+    dict {wallet: {...}}; returns the wallets currently watched automatically."""
+    for r in rows:
+        if r.get("venue") != "poly" or not r.get("wallet") or r.get("level") not in ("MEDIUM", "HIGH"):
+            continue
+        a = auto.setdefault(r["wallet"], dict(name=r.get("name") or "", first_seen=now, flags={}))
+        k = f"{match_key_str(r['match'])}|{r['start']:.0f}|{r['market']}|{r['outcome']}"
+        f = a["flags"].setdefault(k, dict(match=r["match"], market=r["market"], outcome=r["outcome"], start=r["start"]))
+        f.update(level=r["level"], usd=r["usd"], won=r.get("won") if r.get("won") is not None else f.get("won"))
+        a["last_seen"] = now
+    for w in [w for w, a in auto.items() if now - a.get("last_seen", a["first_seen"]) > AUTO_WATCH_DAYS * 86400]:
+        del auto[w]
+    watched = {}
+    for w, a in auto.items():
+        fl = list(a["flags"].values())
+        wins = [f for f in fl if f.get("won")]
+        matches = {f["match"] for f in fl}
+        if wins:
+            f = max(wins, key=lambda f: f["usd"])
+            reason = f"its flagged ${f['usd']:,} bet on {f['outcome']} ({short_match(f['match'])}) won"
+        elif len(matches) >= 2:
+            reason = f"flagged on {len(matches)} different matches"
+        else:
+            continue
+        a["watched_since"] = a.get("watched_since") or now
+        watched[w] = dict(reason=reason, source="auto", name=a.get("name"), since=a["watched_since"],
+                          won=sum(1 for f in fl if f.get("won")), lost=sum(1 for f in fl if f.get("won") is False),
+                          flags=len(fl))
+    if len(watched) > AUTO_WATCH_MAX:
+        keep = sorted(watched, key=lambda w: -watched[w]["since"])[:AUTO_WATCH_MAX]
+        watched = {w: watched[w] for w in keep}
+    return watched
+
+
+def match_key_str(title):
+    return "-".join(sorted(match_key(title)))
+
+
+def short_match(title):
+    return re.sub(r"^Counter-Strike:\s*", "", title).split(" (")[0].split(" - ")[0]
 
 
 def apply_line_moves(led, matches, now):

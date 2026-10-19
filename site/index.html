@@ -161,6 +161,17 @@ tr.row.open .chev { transform: rotate(90deg); }
 .empty { padding: 34px 20px; text-align: center; color: var(--mute); }
 .err { padding: 60px 20px; text-align: center; color: var(--loss); }
 
+.watch-form { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; padding: 12px 20px 4px; }
+.watch-form input { font: 500 14px "Barlow", sans-serif; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; min-width: 0; }
+.watch-form input:focus { outline: 2px solid var(--ct); outline-offset: 0; border-color: transparent; }
+.watch-form button, .rm { font: 600 13px "Barlow", sans-serif; border-radius: 8px; cursor: pointer; }
+.watch-form button { background: var(--t); color: #1b1407; border: 0; padding: 8px 16px; }
+.rm { background: transparent; color: var(--mute); border: 1px solid var(--line); padding: 3px 10px; }
+.rm:hover { color: var(--loss); border-color: var(--loss); }
+.form-msg { padding: 2px 20px 0; font-size: 13px; min-height: 18px; }
+.betting { font-size: 13px; } .betting div { margin-bottom: 3px; }
+.tag.src { color: var(--mute); background: var(--panel-2); }
+@media (max-width: 640px) { .watch-form { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; } .form-msg { padding-left: 16px; } }
 details.plan { margin-top: 16px; }
 details.plan summary { cursor: pointer; list-style: none; padding: 16px 20px; font: 600 15px "Chakra Petch", sans-serif; display: flex; align-items: center; gap: 10px; }
 details.plan summary::-webkit-details-marker { display: none; }
@@ -275,17 +286,35 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
   </section>
 
+  <section class="panel flush" style="margin-top:16px">
+    <header><h2>Watched wallets</h2><span class="cap" id="watch-count"></span></header>
+    <p class="sub">Any CS2 bet from these wallets counts: +5 points, at least MEDIUM from $500, HIGH from $3,000. Wallets join automatically when a MEDIUM/HIGH-flagged bet of theirs wins, or when they're flagged on two different matches. You can add your own.</p>
+    <form class="watch-form" id="watch-form" autocomplete="off">
+      <input id="w-addr" placeholder="Wallet address or Polymarket profile link" aria-label="Wallet address or Polymarket profile link" required>
+      <input id="w-note" placeholder="Why (optional, e.g. 'named by shyux')" aria-label="Why you're watching it" maxlength="200">
+      <button type="submit">Watch wallet</button>
+    </form>
+    <div class="form-msg" id="w-msg" role="status"></div>
+    <div class="body scroll">
+      <table class="stack">
+        <thead><tr><th class="cap">Wallet</th><th class="cap">Why it's watched</th><th class="cap r">Flagged record</th><th class="cap">Betting now</th><th class="cap"></th></tr></thead>
+        <tbody id="t-watch"></tbody>
+      </table>
+    </div>
+  </section>
+
   <details class="panel plan">
     <summary>How the plan works</summary>
     <ul class="rules">
       <li><b>Paper only.</b> Starts at $300. Nothing is ever placed for real.</li>
       <li><b>First flag:</b> $40 on HIGH, $20 on MEDIUM, $10 on LOW, on the side the suspicious money backed.</li>
       <li><b>Escalation</b> (LOW → MEDIUM → HIGH before kickoff) tops up to <span id="esc-x">1.5</span>× the new level's stake. LOW → HIGH is $60 in total.</li>
-      <li><b>LIVE:</b> a bet placed during the match that passes a far stricter test (fresh wallet, $3k+, 25%+ of the match) adds $20 on that side, never against an existing bet.</li>
+      <li><b>LIVE:</b> a bet placed during the match that passes a far stricter test (fresh or watched wallet, $5k+, 25%+ of the match) adds $20 on that side, never against an existing bet.</li>
       <li><b>Every market on its own:</b> match winner, maps, total maps, map handicap, rounds. Side markets are bet only once something in them is flagged.</li>
       <li><b>Real prices:</b> each bet fills against Polymarket's order book at that moment, fee included. If nobody is selling, nothing is bet.</li>
-      <li><b>Also flagged:</b> split bets (3+ fresh wallets, $3k+ together) and line moves (the flagged side up 12c+ in the 6 hours before kickoff raises the level).</li>
+      <li><b>Also flagged:</b> split bets (3+ fresh wallets, $5k+ together) and line moves (the flagged side up 12c+ in the 6 hours before kickoff raises the level).</li>
       <li><b>Bookmaker check:</b> Pinnacle, 1xBet and Stake odds (via OddsPapi). If their chance for the flagged side moves 6+ points the same way in 12 h, the level goes up one step; the opposite way, down one step.</li>
+      <li><b>Size floors:</b> Polymarket stakes are big, so a flag needs real money: LOW from $3k, MEDIUM from $5k (or $3k if it's 30%+ of the match), HIGH from $10k (or $5k at 30%+).</li>
       <li><b>Downgrades</b> keep what's in. If the flagged side flips, no new money goes in. A bet the balance can't cover is skipped.</li>
     </ul>
   </details>
@@ -461,6 +490,49 @@ function history() {
   toggleRows(tb, "h-");
 }
 
+let manualList = null;
+function watchRows() {
+  const fromScan = D.watch || [], seen = new Set(fromScan.map(w => w.wallet.toLowerCase()));
+  const pending = Object.entries(manualList || {}).filter(([w]) => !seen.has(w)).map(([w, v]) =>
+    ({wallet: w, source: "manual", reason: v.note || "added by hand", betting: [], pending: true}));
+  const gone = new Set(fromScan.filter(w => w.source === "manual" && manualList && !manualList[w.wallet.toLowerCase()]).map(w => w.wallet));
+  return pending.concat(fromScan.filter(w => !gone.has(w.wallet)));
+}
+function watch() {
+  const ws = watchRows(), tb = $("t-watch");
+  $("watch-count").textContent = ws.length ? `${ws.length} wallet${ws.length > 1 ? "s" : ""}` : "";
+  if (!ws.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No wallets yet. They appear once a flagged wallet wins, or when you add one above.</td></tr>'; return; }
+  tb.innerHTML = ws.map(w => {
+    const prof = `https://polymarket.com/profile/${w.wallet}`;
+    const rec = w.won == null ? '<span class="split">–</span>' : `<span class="pos">${w.won}</span> – <span class="neg">${w.lost}</span><span class="split">${w.flags} flagged bets</span>`;
+    const bets = w.betting.length ? w.betting.map(b => `<div>${lv(b.level || "LOW")} <b class="num">${usd0(b.usd)}</b> on <b>${esc(b.outcome)}</b> · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
+      : `<span class="split">${w.pending ? "active from the next scan" : "nothing in the next 36 h"}</span>`;
+    return `<tr><td data-label="Wallet"><div><a href="${esc(prof)}" target="_blank" rel="noopener"><b>${esc(w.name || w.wallet.slice(0, 6) + "…" + w.wallet.slice(-4))}</b></a><span class="split"><span class="tag src">${w.source === "auto" ? "auto" : "by hand"}</span></span></div></td>
+      <td data-label="Why">${esc(w.reason)}</td><td class="r num" data-label="Record">${rec}</td>
+      <td class="betting" data-label="Betting">${bets}</td>
+      <td class="r">${w.source === "manual" ? `<button class="rm" data-w="${esc(w.wallet)}">Remove</button>` : ""}</td></tr>`;
+  }).join("");
+  tb.querySelectorAll(".rm").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const r = await fetch("api/watchlist?wallet=" + encodeURIComponent(b.dataset.w), {method: "DELETE"});
+    const d = await r.json(); if (r.ok) { manualList = d; watch(); $("w-msg").textContent = "Removed."; } else { $("w-msg").textContent = d.error; b.disabled = false; }
+  });
+}
+$("watch-form").onsubmit = async e => {
+  e.preventDefault();
+  const msg = $("w-msg"); msg.className = "form-msg"; msg.textContent = "Adding…";
+  const r = await fetch("api/watchlist", {method: "POST", headers: {"content-type": "application/json"},
+    body: JSON.stringify({wallet: $("w-addr").value, note: $("w-note").value})});
+  const d = await r.json().catch(() => ({error: "Couldn't reach the server. Try again."}));
+  if (!r.ok) { msg.className = "form-msg neg"; msg.textContent = d.error; return; }
+  manualList = d; $("w-addr").value = ""; $("w-note").value = "";
+  msg.className = "form-msg pos"; msg.textContent = "Added. Its bets count from the next scan (within 10 minutes).";
+  if (D) watch();
+};
+async function loadWatch() {
+  try { const r = await fetch("api/watchlist", {cache: "no-store"}); if (r.ok) manualList = await r.json(); } catch {}
+}
+
 function group(sel, set) {
   document.querySelectorAll(sel + " button").forEach(b => b.onclick = () => {
     document.querySelectorAll(sel + " button").forEach(x => x.setAttribute("aria-pressed", x === b)); set(b.dataset.v); });
@@ -473,7 +545,8 @@ async function load() {
     const r = await fetch("api/data?t=" + Date.now(), {cache: "no-store"});
     const d = await r.json();
     if (!d.stats) throw new Error("No data yet: the first scan hasn't finished. It runs every 10 minutes.");
-    D = d; board(); chart(); tape(); results(); plan(); history();
+    await loadWatch();
+    D = d; board(); chart(); tape(); results(); plan(); history(); watch();
   } catch (e) {
     if (!D) $("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }

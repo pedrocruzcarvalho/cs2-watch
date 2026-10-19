@@ -28,7 +28,8 @@ import cs2_watch as C
 import oddspapi as O
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
-        "state:meta": "meta.json", "state:oddspapi": "oddspapi.json"}
+        "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
+        "watchlist": "watchlist.json"}
 KEEP_DAYS = 90
 
 
@@ -68,6 +69,23 @@ class Files:
         (self.root / key.replace(":", "_")).write_bytes(data)
 
 
+def watch_view(auto_watched, manual, rows):
+    """Watchlist for the dashboard: every watched wallet, why, its record, and what it is betting on now."""
+    now_bets = {}
+    for r in rows:
+        if r.get("watched") and r.get("wallet"):
+            now_bets.setdefault(r["wallet"].lower(), []).append(dict(match=r["match"], market=r["market"], outcome=r["outcome"],
+                                                                     usd=r["usd"], start=r["start"], level=r["level"]))
+    out = []
+    for w, v in auto_watched.items():
+        out.append(dict(wallet=w, source="auto", reason=v["reason"], name=v.get("name"), since=v["since"],
+                        won=v["won"], lost=v["lost"], flags=v["flags"], betting=now_bets.get(w.lower(), [])))
+    for w, v in manual.items():
+        out.append(dict(wallet=w, source="manual", reason=v.get("note") or "added by hand", name=v.get("name"),
+                        since=v.get("added_at"), won=None, lost=None, flags=None, betting=now_bets.get(w.lower(), [])))
+    return sorted(out, key=lambda x: (not x["betting"], -(x["since"] or 0)))
+
+
 def tick(store, log=print):
     t0 = time.time()
     work = Path(tempfile.mkdtemp(prefix="cs2_"))
@@ -81,7 +99,14 @@ def tick(store, log=print):
     meta.setdefault("opened_at", now.timestamp())
     baseline = json.loads((work / "baseline.json").read_text()) if (work / "baseline.json").exists() else None
 
+    auto = O.load(work / "watch_auto.json")
+    manual = O.load(work / "watchlist.json")                       # edited from the dashboard (functions/api/watchlist.js)
+    auto_watched = C.update_watch(auto, [], now.timestamp())
+    C.WATCH = {w.lower(): v for w, v in auto_watched.items()} | {
+        w.lower(): dict(v, reason=v.get("note") or "added by hand", source="manual") for w, v in manual.items()}
     flags, rows, infos = C.scan(now - timedelta(hours=6), now + timedelta(hours=36), ["poly"], baseline, log=log)
+    auto_watched = C.update_watch(auto, rows, now.timestamp())
+    (work / "watch_auto.json").write_text(json.dumps(auto))
     matches = C.build_matches(infos, rows)
     led = C.load_ledger()
     C.apply_line_moves(led, matches, now.timestamp())
@@ -102,10 +127,11 @@ def tick(store, log=print):
                 stakes=B.STAKES, stats=stats, series=series, bets=bets[:500],
                 planned=B.planned(matches, led, meta["opened_at"], now.timestamp()), scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for m in matches if m["level"]),
-                validation=C.validation(led))
+                validation=C.validation(led),
+                watch=watch_view(auto_watched, manual, rows))
     (work / "meta.json").write_text(json.dumps(meta))
 
-    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi"):
+    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi", "state:watch_auto"):
         store.put(key, (work / KEYS[key]).read_bytes())
     store.put("dashboard", json.dumps(dash, default=str).encode())
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} matches, {dash['flagged']} flagged, "

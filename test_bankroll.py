@@ -201,15 +201,15 @@ def _small(w, usd, created_days, traded, outcome="A", market="Match Winner"):
 
 
 def test_split_bets_across_fresh_wallets_become_one_cluster_flag():
-    small = [_small(f"w{i}", 900, 2, 3) for i in range(4)] + [_small("pro", 900, 400, 3000)]
+    small = [_small(f"w{i}", 1500, 2, 3) for i in range(4)] + [_small("pro", 1500, 400, 3000)]
     rows = C.find_clusters(small, [])
     assert len(rows) == 1
     c = rows[0]
-    assert c["cluster"] == 4 and c["usd"] == 3600 and c["level"] and "pro" not in c["members_wallets"]
+    assert c["cluster"] == 4 and c["usd"] == 6000 and c["level"] and "pro" not in c["members_wallets"]
     assert not C.find_clusters(small[:2], [])                                    # 2 wallets is not a cluster
-    m = C.judge_market([c, dict(_small("w0", 900, 2, 3), level="LOW", pts=4, why=[], venue="poly", wallet="w0")],
+    m = C.judge_market([c, dict(_small("w0", 1500, 2, 3), level="LOW", pts=4, why=[], venue="poly", wallet="w0")],
                        ["A", "B"])
-    assert m["money"]["A"] == 3600                                               # member not counted twice
+    assert m["money"]["A"] == 6000                                               # member not counted twice
 
 
 def test_line_move_raises_the_level_one_step():
@@ -221,3 +221,35 @@ def test_line_move_raises_the_level_one_step():
     m2 = dict(m, level="LOW", prices={"A": 0.52, "B": 0.48}, steam=None)
     C.apply_line_moves(led, [m2], T0)
     assert m2["level"] == "LOW"                                                  # only 3c: no change
+
+
+
+def test_size_floors_reflect_polymarket_stakes():
+    assert C.level(12, 2500, 0.9) == ""                                          # $2.5k is ordinary money now
+    assert C.level(12, 3500, 0.35) == "MEDIUM" and C.level(12, 3500, 0.1) == "LOW"
+    assert C.level(12, 6000, 0.35) == "HIGH" and C.level(12, 6000, 0.1) == "MEDIUM"
+    assert C.level(12, 12000, 0.05) == "HIGH"
+
+
+def test_watched_wallets_get_a_level_floor():
+    assert C.watch_level("", 600) == "MEDIUM" and C.watch_level("", 3500) == "HIGH"
+    assert C.watch_level("HIGH", 600) == "HIGH" and C.watch_level("", 80) == ""
+
+
+def _flag(wallet, match, won, usd=8000, level="HIGH"):
+    return dict(venue="poly", wallet=wallet, name=wallet, level=level, match=match, start=T0, market="Match Winner",
+                outcome="A", usd=usd, won=won)
+
+
+def test_auto_watch_after_a_flagged_win_or_two_flagged_matches():
+    auto = {}
+    w = C.update_watch(auto, [_flag("x", "Counter-Strike: A vs B (BO3) - Cup", None)], T0)
+    assert w == {}                                                               # one unresolved flag: not yet
+    w = C.update_watch(auto, [_flag("x", "Counter-Strike: A vs B (BO3) - Cup", True)], T0 + 9000)
+    assert "x" in w and "won" in w["x"]["reason"] and w["x"]["won"] == 1
+    w = C.update_watch(auto, [_flag("y", "Counter-Strike: A vs B (BO3) - Cup", False),
+                              _flag("y", "Counter-Strike: C vs D (BO3) - Cup", None)], T0)
+    assert "flagged on 2 different matches" == w["y"]["reason"]
+    w = C.update_watch(auto, [_flag("z", "Counter-Strike: E vs F (BO3) - Cup", True, level="LOW")], T0)
+    assert "z" not in w                                                          # LOW flags don't count
+    assert C.update_watch(auto, [], T0 + 61 * 86400) == {}                       # forgotten after 60 quiet days
