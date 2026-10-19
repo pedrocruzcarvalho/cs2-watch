@@ -282,6 +282,7 @@ def poly_positions(event, trades, cutoff=None):
         p["share"] = p["net"] / exp_match if exp_match else 0
         p["mshare"] = p["net"] / exp_market if exp_market else 0
         p["hours_left"], p["expected_flow"] = round(hours_left, 1), round(exp_match)
+        p["tier_median"], p["vtier"] = floor, vtier(event.get("title", ""))
         p["market_flow"] = mflow.get(cid, 0)
         p["x_p90"] = p["net"] / stats["p90"] if stats["p90"] else 0
         p["pre_match"] = p["pre"] >= 0.5 * p["buy"]
@@ -533,10 +534,15 @@ def score(p, tier_, wallet, match_start, baseline=None):
     if s:
         pts += s
         why.append(f"${p['net']:,.0f} position")
-    pct = size_percentile(p["net"], tier_, baseline)
-    if pct is not None and pct >= 99:
-        pts += 1
-        why.append(f"top {100 - pct:.1f}% of {tier_}-tier positions")
+    tm = p.get("tier_median")
+    if tm:
+        x = p["net"] / tm
+        if x >= 5:
+            pts += 2
+            why.append(f"{x:.0f}x the money a whole typical {p.get('vtier', '')} match gets before kickoff (${tm:,})")
+        elif x >= 2:
+            pts += 1
+            why.append(f"{x:.1f}x the money a whole typical {p.get('vtier', '')} match gets before kickoff (${tm:,})")
     early = p.get("hours_left", 0) > 0 and abs(p.get("share_now", p["share"]) - p["share"]) > 0.02
     of = (f" of the ${p.get('expected_flow', 0):,} expected by kickoff ({p.get('share_now', 0):.0%} of what's traded so far, "
           f"kickoff in {p.get('hours_left', 0):.0f} h)") if early else " of all money on the match"
@@ -820,12 +826,20 @@ def build_matches(infos, rows):
     out = []
     for g in groups:
         base_id = f"{'-'.join(sorted(g['key']))}|{datetime.fromtimestamp(g['start'], timezone.utc):%Y-%m-%d}"
+        ev_flow = sum((v.get("poly") or {}).get("flow", 0) for v in g["markets"].values())
+        vol = volume_check(ev_flow, g["start"], vtier(g["match"]))
         mine_all = [r for r in rows if same_match(match_key(r["match"]), g["key"]) and abs(r["start"] - g["start"]) < 6 * 3600]
         for label, venues in g["markets"].items():
             first = next(iter(venues.values()))
             outcomes = (venues.get("poly") or first)["teams"]
             mine = [r for r in mine_all if r.get("market", "Match Winner") == label]
             m = judge_market(mine, outcomes)
+            mflow = (venues.get("poly") or first).get("flow", 0)
+            if vol and m["level"] and m["fix_side"] and m["money"].get(m["fix_side"], 0) >= 0.3 * max(mflow, 1):
+                m["adjust"].append(dict(vol, kind="volume", effect="up"))
+                m["level"] = LEVELS[max(LEVELS.index(m["level"]) - 1, 0)]
+                m["pts"] += 2
+            m["volume"] = vol
             if label != "Match Winner" and not m["level"] and not m["live_side"]:
                 continue
             winner = next((team_for(v["winner"], outcomes) for v in venues.values() if v.get("winner")), None)
@@ -845,6 +859,22 @@ def build_matches(infos, rows):
                             urls={v["venue"]: v["url"] for v in venues.values()},
                             flow=sum(v["flow"] for v in venues.values())))
     return sorted(out, key=lambda m: (m["start"], m["kind"] != "match", m["market"]))
+
+
+VOLUME_RATIO, VOLUME_MIN_X = 5, 2      # 5x what this tier normally has by now, and 2x a whole typical match
+
+
+def volume_check(flow, start, vt, now=None):
+    """Money already on a match vs what a match of its Valve tier normally has at this point before kickoff."""
+    now = time.time() if now is None else now
+    med = TIER_PREKICK_MEDIAN.get(vt, 1176)
+    hours_left = (start - now) / 3600
+    expected = med * max(traded_by_now(hours_left), 0.05)
+    ratio = flow / expected if expected else 0
+    if ratio >= VOLUME_RATIO and flow >= VOLUME_MIN_X * med:
+        return dict(flow=round(flow), expected=round(expected), ratio=round(ratio, 1), median=med, vtier=vt,
+                    hours_left=round(max(hours_left, 0), 1))
+    return None
 
 
 def judge_market(mine, outcomes):
@@ -870,13 +900,10 @@ def judge_market(mine, outcomes):
             adjust.append(dict(kind="conflict", effect="down", other=other, other_money=round(money[other])))
     if side and not {norm_team(o) for o in outcomes} <= {"over", "under", "yes", "no"}:
         thrower = next((o for o in outcomes if o != side), None)
-        r = TM.rank(TEAMS, thrower) if (thrower and TEAMS.get("teams")) else None
-        if r is not None and r <= 50:
+        safe, r = TM.wont_throw(TEAMS, thrower) if (thrower and TEAMS.get("teams")) else (False, None)
+        if safe:
             adjust.append(dict(kind="throw", effect="drop", team=thrower, rank=r, tier=TM.tier_of_rank(r)))
             lvl = ""                                                   # an established team won't throw: no flag, no bet
-        elif r is not None and r <= 100 and lvl:
-            adjust.append(dict(kind="throw", effect="down", team=thrower, rank=r, tier=TM.tier_of_rank(r)))
-            lvl = LEVELS[min(LEVELS.index(lvl) + 1, 2)]
     live, live_money = [], {}
     for r in mine:
         why = live_check(r)
@@ -908,7 +935,7 @@ def save_ledger(led):
 
 
 LEDGER_KEYS = ("match", "tier", "start", "teams", "level", "pts", "conflict", "fix_side", "tracked", "tracked_is",
-               "price", "refs", "urls", "money", "market", "kind", "match_id", "steam", "vtier", "ranks")
+               "price", "refs", "urls", "money", "market", "kind", "match_id", "steam", "vtier", "ranks", "volume")
 
 
 def record(led, matches, mode, now):
@@ -947,6 +974,10 @@ def record(led, matches, mode, now):
                 hist = hist + [entry()]
             if m["level"] and 0 < m["start"] - now <= BET_WINDOW and not any(h.get("window") for h in hist):
                 hist = hist + [entry(window=True)]                     # the bet itself goes in now
+            elif (m["level"] in ("MEDIUM", "HIGH") and m["start"] - now > BET_WINDOW
+                  and any(a.get("kind") == "volume" for a in m.get("adjust") or [])
+                  and not any(h.get("early") or h.get("window") for h in hist)):
+                hist = hist + [entry(early=True)]                      # unusual volume: don't wait for the window
         line = list(led.get(k, {}).get("line", []))
         px0 = m["prices"].get(m["teams"][0]) if m.get("teams") else None
         if mode == "live" and px0 is not None and (not line or abs(line[-1][1] - px0) >= 0.005):

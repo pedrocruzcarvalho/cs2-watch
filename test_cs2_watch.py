@@ -51,7 +51,7 @@ def test_tier_and_kalshi_ticker_time():
 
 def _info(venue, title, start, prices, winner=None):
     return dict(venue=venue, match=title, tier="low", start=start, teams=["Alpha", "Bravo"], prices=prices,
-                winner=winner, flow=10000, ref="x", url="u")
+                winner=winner, flow=500, ref="x", url="u")
 
 
 def _row(outcome, usd, lvl, pts, start):

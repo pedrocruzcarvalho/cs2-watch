@@ -16,7 +16,20 @@ REPO = "ValveSoftware/counter-strike_regional_standings"
 REFRESH = 24 * 3600
 TIER_EDGES = [(20, "T1"), (50, "T2"), (100, "T3"), (200, "T4")]
 ALIASES = {"natusvincere": "navi", "teamspirit": "spirit", "teamvitality": "vitality", "themongolz": "mongolz",
-           "teamliquid": "liquid", "ninjasinpyjamas": "nip", "teamfalcons": "falcons", "virtuspro": "vp"}
+           "teamliquid": "liquid", "ninjasinpyjamas": "nip", "teamfalcons": "falcons", "virtuspro": "vp",
+           "jiejiehao": "jijiehao"}
+
+# Established teams are assumed not to throw (top TRUST_TOP in Valve's ranking), except these, which Pedro's
+# knowledge of the scene says could (normalised names).
+TRUST_TOP = 40
+FIX_PRONE = {"alliance", "hotu", "5star", "tyloo", "lynnvision", "dendele", "eternalfire", "sinners", "jijiehao", "k27",
+             "nucleartigeres", "sangal", "wildcard", "magic", "nemiga", "1win", "betboom", "mibr"}
+
+
+def wont_throw(state, name):
+    """(True, rank) if this team is established enough that it is assumed not to throw a match."""
+    r = rank(state, name)
+    return (r is not None and r <= TRUST_TOP and norm(name) not in FIX_PRONE), r
 
 
 def norm(name):

@@ -312,12 +312,24 @@ def test_new_rule_waits_for_the_last_30_minutes_and_keeps_earlier_bets(monkeypat
 
 def test_flags_that_need_an_established_team_to_throw_are_dropped(monkeypatch):
     monkeypatch.setattr(C, "TEAMS", {"teams": {"big": (25, 1500, "BIG"), "private": (95, 900, "PRIVATE"),
-                                               "nobodies": (250, 500, "Nobodies")}})
+                                               "nobodies": (250, 500, "Nobodies"), "magic": (23, 1500, "magic")}})
     row = lambda out: dict(_mrow("Match Winner", out, 12000, "HIGH", 11), match="Counter-Strike: BIG vs PRIVATE (BO3) - Cup")
     m = C.judge_market([row("PRIVATE")], ["BIG", "PRIVATE"])                   # BIG (#25) would have to throw
     assert m["level"] == "" and m["dropped"]["team"] == "BIG"
-    m = C.judge_market([row("BIG")], ["BIG", "PRIVATE"])                       # PRIVATE (#95, T3) would throw
-    assert m["level"] == "MEDIUM" and m["adjust"][-1]["kind"] == "throw"
+    m = C.judge_market([row("BIG")], ["BIG", "PRIVATE"])                       # PRIVATE (#95) would throw: fine
+    assert m["level"] == "HIGH" and not any(x["kind"] == "throw" for x in m["adjust"])
     m = C.judge_market([row("BIG")], ["BIG", "Nobodies"])                      # #250 would throw: unchanged
     assert m["level"] == "HIGH"
     assert C.vtier("Counter-Strike: BIG vs Nobodies (BO3) - Cup") == "T2" and C.tier("Counter-Strike: Nobodies vs Zed (BO3)") == "low"
+
+    m = C.judge_market([row("PRIVATE")], ["magic", "PRIVATE"])                 # magic is top 40 but on the list
+    assert m["level"] == "HIGH"
+
+
+def test_unusual_volume_for_the_tier_raises_the_flag_and_triggers_an_early_bet():
+    v = C.volume_check(4000, T0 + 6 * 3600, "T5", now=T0)                      # T5 normally has ~$79 at 6 h out
+    assert v and v["ratio"] > 40 and v["median"] == 805
+    assert C.volume_check(150, T0 + 6 * 3600, "T5", now=T0) is None           # ratio high but under 2x a whole match
+    assert C.volume_check(9000, T0 + 6 * 3600, "T2", now=T0) is None          # under 2x a whole T2 match ($16k)
+    assert C.volume_check(20000, T0 + 6 * 3600, "T2", now=T0) is not None
+    assert C.volume_check(3000, T0 - 60, "T2", now=T0) is None                 # at kickoff: under 5x the median

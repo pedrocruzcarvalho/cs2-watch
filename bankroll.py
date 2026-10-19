@@ -83,7 +83,7 @@ def tranches(r, opened_at, now):
         if h["level"] not in STAKES or h.get("price") is None or h["t"] < opened_at:
             continue
         new_rule = h["t"] >= SWITCH_TS
-        if new_rule and not h.get("window") and r["start"] - h["t"] > C.BET_WINDOW:
+        if new_rule and not h.get("window") and not h.get("early") and r["start"] - h["t"] > C.BET_WINDOW:
             continue                                                   # waiting for the last 30 minutes
         if side is None:
             rose = new_rule and RANK[h["level"]] > RANK.get(first, 0)
@@ -91,7 +91,10 @@ def tranches(r, opened_at, now):
             side, top, escalated = h["side"], RANK[h["level"]], escalated or rose
             out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=stake, snap=h.get("snap"),
                             asks=h.get("asks"),
-                            cause=dict(kind="window", rose=rose, first=first, level=h["level"]) if new_rule else None))
+                            cause=dict(kind="early" if h.get("early") else "window", rose=rose, first=first,
+                                       level=h["level"], volume=next((a for a in ((h.get("snap") or {}).get("adjust") or [])
+                                                                       if a.get("kind") == "volume"), None))
+                            if new_rule else None))
             staked = stake
         elif h["side"] != side:
             flipped = True
@@ -292,6 +295,7 @@ def planned(matches, ledger, opened_at, now):
                         level="LIVE" if live_now else m["level"], pts=m["pts"],
                         side=m["live_side"] if live_now else m["fix_side"],
                         price=price, bettable="poly" in m["refs"] and price is not None, steam=m.get("steam"),
+                        volume=m.get("volume"),
                         sharp=m.get("sharp"), books=m.get("books"),
                         in_stake=b["stake"] if b else 0.0, in_shares=b["shares"] if b else 0.0,
                         bet_side=b["side"] if b else None, escalated=bool(b and b["escalated"]),

@@ -91,11 +91,16 @@ def adjust_text(a, side):
                 f"{a['now']:.2f} since {hhmm(a['since'])} ({a['move'] * 100:.0f} cents), more than the 12 cents in "
                 f"6 hours that counts as a strong move. Money spread over many accounts moves the price even when "
                 f"no single wallet stands out.")
+    if a["kind"] == "volume":
+        return (f"+1 level, unusual volume: {money(a['flow'])} is already on this match {a['hours_left']:.0f} h before "
+                f"kickoff, about {a['ratio']:.0f}x what a {a['vtier']} match normally has by then (a whole typical "
+                f"{a['vtier']} match gets {money(a['median'])} before kickoff), and the flagged side holds a big part "
+                f"of it.")
     if a["kind"] == "throw":
         if a["effect"] == "drop":
             return (f"Flag dropped: backing {side} means {a['team']} would have to lose on purpose, and {a['team']} is "
-                    f"#{a['rank']} in Valve's ranking ({a['tier']}). Established teams have salaries, sponsors and "
-                    f"careers at stake and very rarely throw, so no money is bet.")
+                    f"#{a['rank']} in Valve's ranking, inside the top 40 and not on the list of teams that could still "
+                    f"fix. Established teams have salaries, sponsors and careers at stake, so no money is bet.")
         return (f"-1 level: {a['team']} would have to lose on purpose and is #{a['rank']} in Valve's ranking "
                 f"({a['tier']}), a team with something to lose, so the flag counts for less.")
     if a["kind"] == "conflict":
@@ -108,7 +113,7 @@ def cause_text(c, side):
     """Why a step escalated, for the 'Why this stake' bullets."""
     if not c:
         return ""
-    if c["kind"] == "window":
+    if c["kind"] in ("window", "early"):
         return ""
     if c["kind"] == "bets":
         return (f"The flagged bets themselves got stronger: on their own they went from {c.get('prev') or 'nothing'} to "
@@ -229,7 +234,14 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
         else:
             note = ""
         total += t["stake"]
-        if (t.get("cause") or {}).get("kind") == "window":
+        if (t.get("cause") or {}).get("kind") == "early":
+            c, v = t["cause"], t["cause"].get("volume") or {}
+            stake_b.append(f"{hhmm(t['t'])}: bet placed early, without waiting for the last 30 minutes, because this "
+                           f"{c['level']} flag came with unusual volume: {money(v.get('flow', 0))} already traded "
+                           f"{v.get('hours_left', 0):.0f} h before kickoff, about {v.get('ratio', 0):.0f}x what a "
+                           f"{v.get('vtier', '')} match normally has by then. {money(t['stake'])} went on {side} at "
+                           f"{t['price']:.2f} ({implied})." + note)
+        elif (t.get("cause") or {}).get("kind") == "window":
             c = t["cause"]
             why_now = (f"The flag first appeared as {c['first']} and had risen to {c['level']}, so it gets "
                        f"{escalation}x the normal {c['level']} stake ({money(stakes[c['level']])})."
