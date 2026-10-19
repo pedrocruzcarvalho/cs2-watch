@@ -80,7 +80,8 @@ def adjust_text(a, side):
     if a["kind"] == "bookies":
         if a["effect"] == "up":
             return (f"+1 level, bookmakers agree: at {a['book']}, {side}'s chance of winning went from "
-                    f"{a['start'] * 100:.0f}% to {a['now'] * 100:.0f}% since {hhmm(a['since'])} (their margin removed). "
+                    f"{a['start'] * 100:.0f}% to {a['now'] * 100:.0f}% since {hhmm(a['since'])}, a rise of "
+                    f"{a['move'] * 100:.0f} percentage points (bookmaker margin removed). "
                     f"Bookmakers take sharp money; when their price moves the same way as the flagged Polymarket "
                     f"money, the information looks like it is spreading beyond one wallet.")
         return (f"-1 level, bookmakers disagree: at {a['book']}, {side}'s chance went from {a['start'] * 100:.0f}% "
