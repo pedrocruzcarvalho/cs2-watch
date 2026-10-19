@@ -790,12 +790,15 @@ def judge_market(mine, outcomes):
                 money[t] += r["usd"]
             best.setdefault(t, r)                                      # flagged is sorted best-first
     side = max(money, key=money.get) if money and max(money.values()) > 0 else None
-    lvl, pts, conflict = "", 0, False
+    lvl, pts, conflict, base, adjust = "", 0, False, "", []
     if side:
         lvl, pts = best[side]["level"], best[side]["pts"]
+        base = lvl                                                     # what the bets alone are worth
         if sum(v for t, v in money.items() if t != side) >= 0.5 * money[side]:
             conflict = True                                            # flagged money on both sides
             lvl = LEVELS[min(LEVELS.index(lvl) + 1, 3)]
+            other = next((t for t in money if t != side), "the other side")
+            adjust.append(dict(kind="conflict", effect="down", other=other, other_money=round(money[other])))
     live, live_money = [], {}
     for r in mine:
         why = live_check(r)
@@ -806,7 +809,8 @@ def judge_market(mine, outcomes):
     live_side = max(live_money, key=live_money.get) if live_money else None
     if live_side and sum(v for t, v in live_money.items() if t != live_side) >= 0.5 * live_money[live_side]:
         live_side = None                                               # live money on both sides: no signal
-    return dict(level=lvl, pts=pts, conflict=conflict, fix_side=side, money={t: round(v) for t, v in money.items()},
+    return dict(level=lvl, pts=pts, conflict=conflict, base_level=base, base_pts=pts, adjust=adjust,
+                fix_side=side, money={t: round(v) for t, v in money.items()},
                 flags=[{k: r[k] for k in FLAG_KEYS if k in r} for r in flagged],
                 live_side=live_side, live_flags=sorted(live, key=lambda f: -f["usd"]),
                 live_money={t: round(v) for t, v in live_money.items()})
@@ -857,7 +861,9 @@ def record(led, matches, mode, now):
                                     # the evidence as it stood at this moment, so a bet can explain itself later
                                     snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
                                               conflict=m["conflict"], steam=m.get("steam"), sharp=m.get("sharp"),
-                                              books=m.get("books")) if m["level"] else None)]
+                                              books=m.get("books"), base_level=m.get("base_level"),
+                                              base_pts=m.get("base_pts"), adjust=m.get("adjust"))
+                                    if m["level"] else None)]
         line = list(led.get(k, {}).get("line", []))
         px0 = m["prices"].get(m["teams"][0]) if m.get("teams") else None
         if mode == "live" and px0 is not None and (not line or abs(line[-1][1] - px0) >= 0.005):
@@ -991,6 +997,7 @@ def apply_line_moves(led, matches, now):
         if cur - low >= STEAM_MOVE and m["level"]:
             m["steam"] = dict(low=round(low, 3), now=round(cur, 3), since=low_t, move=round(cur - low, 3),
                               raised_from=m["level"])
+            m.setdefault("adjust", []).append(dict(m["steam"], kind="line", effect="up"))
             m["level"] = LEVELS[max(LEVELS.index(m["level"]) - 1, 0)]
             m["pts"] += 2
 

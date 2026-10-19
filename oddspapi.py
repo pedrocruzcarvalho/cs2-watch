@@ -132,10 +132,13 @@ def judge(m, p1_team, books, now):
     best = max(view.values(), key=lambda v: (v["book"] == "Pinnacle", abs(v["move"])))
     if best["move"] >= SHARP_MOVE:
         m["sharp"] = dict(best, agree=True, raised_from=m["level"])
+        m.setdefault("adjust", []).append(dict(best, kind="bookies", effect="up"))
         m["level"] = C.LEVELS[max(C.LEVELS.index(m["level"]) - 1, 0)]
         m["pts"] += 2
     elif best["move"] <= -SHARP_MOVE:
         m["sharp"] = dict(best, agree=False, lowered_from=m["level"])
+        if C.LEVELS.index(m["level"]) < 2:
+            m.setdefault("adjust", []).append(dict(best, kind="bookies", effect="down"))
         m["level"] = C.LEVELS[min(C.LEVELS.index(m["level"]) + 1, 2)]  # never below LOW
         m["pts"] -= 2
 

@@ -75,6 +75,41 @@ def describe_wallet(f, start):
     return who + (f" ({'; '.join(bits)})" if bits else "")
 
 
+def adjust_text(a, side):
+    """One adjustment to the level, in plain words."""
+    if a["kind"] == "bookies":
+        if a["effect"] == "up":
+            return (f"+1 level, bookmakers agree: at {a['book']}, {side}'s chance of winning went from "
+                    f"{a['start'] * 100:.0f}% to {a['now'] * 100:.0f}% since {hhmm(a['since'])} (their margin removed). "
+                    f"Bookmakers take sharp money; when their price moves the same way as the flagged Polymarket "
+                    f"money, the information looks like it is spreading beyond one wallet.")
+        return (f"-1 level, bookmakers disagree: at {a['book']}, {side}'s chance went from {a['start'] * 100:.0f}% "
+                f"to {a['now'] * 100:.0f}% since {hhmm(a['since'])}, the opposite way to the flagged money.")
+    if a["kind"] == "line":
+        return (f"+1 level, line move: on Polymarket the price of {side} climbed from {a['low']:.2f} to "
+                f"{a['now']:.2f} since {hhmm(a['since'])} ({a['move'] * 100:.0f} cents), more than the 12 cents in "
+                f"6 hours that counts as a strong move. Money spread over many accounts moves the price even when "
+                f"no single wallet stands out.")
+    if a["kind"] == "conflict":
+        return (f"-1 level, money on both sides: {money(a['other_money'])} of flagged money also went on "
+                f"{a['other']}, which muddies the signal.")
+    return ""
+
+
+def cause_text(c, side):
+    """Why a step escalated, for the 'Why this stake' bullets."""
+    if not c:
+        return ""
+    if c["kind"] == "bets":
+        return (f"The flagged bets themselves got stronger: on their own they went from {c.get('prev') or 'nothing'} to "
+                f"{c.get('base')}, from new or bigger suspicious positions.")
+    if c["kind"] == "unknown":
+        return "The flagged money got stronger (this step was recorded before the cause was saved with each step)."
+    if c["kind"].startswith("cleared_"):
+        return "A reason that had lowered the level no longer applies (for example the money on the other side faded)."
+    return "It rose because of this: " + adjust_text(c, side)
+
+
 def flag_sentence(f, start):
     share = f.get("share") or 0
     where = "of all the money traded on this match"
@@ -139,6 +174,15 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
         head = f"Flagged: {what}, because {because}."
 
     sections = []
+    if snap.get("base_level"):
+        lvl_b = [f"The bets alone make this {snap['base_level']} ({snap.get('base_pts', '?')} points, from the "
+                 f"strongest flagged position below)."]
+        for a in snap.get("adjust") or []:
+            lvl_b.append(adjust_text(a, side))
+        if len(lvl_b) > 1:
+            final = path[-1][0] if path else snap["base_level"]
+            lvl_b.append(f"Level now: {final}.")
+        sections.append(dict(title="Why this level", bullets=lvl_b))
     why_flagged = [flag_sentence(f, start) for f in mine[:4]] or [
         "The flagged-money details weren't captured for this bet, and the match is no longer in the scan window."]
     if snap.get("backfilled_at"):
@@ -174,10 +218,10 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
             stake_b.append(f"{hhmm(t['t'])}: first flagged {t['level']}, so {money(t['stake'])} went on {side} at "
                            f"{t['price']:.2f} ({implied}). {t['level']} = {money(stakes[t['level']])} in the plan." + note)
         else:
-            stake_b.append(f"{hhmm(t['t'])}: escalated to {t['level']}, so the plan topped up {money(t['stake'])} at "
-                           f"{t['price']:.2f} ({implied}), bringing the total to {money(total)}. Escalations get "
-                           f"{escalation}x the normal {t['level']} stake ({money(stakes[t['level']])}), because a "
-                           f"flag that keeps getting stronger is the signal this plan bets on." + note)
+            stake_b.append(f"{hhmm(t['t'])}: escalated to {t['level']}. {cause_text(t.get('cause'), side)} So the plan "
+                           f"topped up {money(t['stake'])} at {t['price']:.2f} ({implied}), bringing the total to "
+                           f"{money(total)}: an escalated market gets {escalation}x the normal {t['level']} stake "
+                           f"({money(stakes[t['level']])})." + note)
     if not tranches:
         stake_b.append("No money is in yet. It goes in on the next scan if the flag still stands.")
     if len(path) > 1:
@@ -194,7 +238,9 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     if kind in KIND_CONTEXT:
         ctx.append(KIND_CONTEXT[kind])
     sh, books = snap.get("sharp"), snap.get("books") or {}
-    if sh and sh.get("agree"):
+    if snap.get("adjust") is not None and sh:
+        pass                                                           # already explained in "Why this level"
+    elif sh and sh.get("agree"):
         ctx.append(f"Bookmakers agree: at {sh['book']} the chance of {side} rose from {sh['start'] * 100:.0f}% to "
                    f"{sh['now'] * 100:.0f}% since {hhmm(sh['since'])}. Bookmakers moving the same way as the flagged "
                    f"money is strong corroboration, so the level went up one step (from {sh['raised_from']}).")
@@ -211,7 +257,7 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
             ctx.append(f"At {v['book']}, {side} is at {v['now'] * 100:.0f}% and moved {v['move'] * 100:+.0f} points over "
                        f"the last 12 hours, short of the 6-point bar that would change the level.")
     st = snap.get("steam")
-    if st:
+    if st and snap.get("adjust") is None:
         ctx.append(f"Line move: the price of {side} climbed from {st['low']:.2f} to {st['now']:.2f} since "
                    f"{hhmm(st['since'])} ({st['move'] * 100:.0f}c). Money spread over many accounts moves the price "
                    f"even when no single wallet stands out, so the level was raised from {st['raised_from']} one step.")

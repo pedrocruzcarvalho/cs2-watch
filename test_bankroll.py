@@ -253,3 +253,18 @@ def test_auto_watch_after_a_flagged_win_or_two_flagged_matches():
     w = C.update_watch(auto, [_flag("z", "Counter-Strike: E vs F (BO3) - Cup", True, level="LOW")], T0)
     assert "z" not in w                                                          # LOW flags don't count
     assert C.update_watch(auto, [], T0 + 61 * 86400) == {}                       # forgotten after 60 quiet days
+
+
+def test_escalation_names_its_cause_and_level_adds_up():
+    led = {"1": rec(1, [(T0, "LOW", "A", 0.49), (T0 + 600, "MEDIUM", "A", 0.51)])}
+    h0, h1 = led["1"]["history"]
+    h0["snap"] = dict(flags=[], base_level="LOW", base_pts=4, adjust=[], tier="low")
+    bk = dict(kind="bookies", effect="up", book="Stake", start=0.44, now=0.51, since=T0 - 3600, move=0.07)
+    h1["snap"] = dict(flags=[], base_level="LOW", base_pts=4, adjust=[bk], tier="low", sharp=dict(bk, agree=True))
+    bets, _, _ = B.run(led, T0, T0 + 3600)
+    w = bets[0]["why"]
+    lvl = next(s for s in w["sections"] if s["title"] == "Why this level")["bullets"]
+    assert lvl[0].startswith("The bets alone make this LOW (4 points")
+    assert "bookmakers agree: at Stake" in lvl[1] and "44% to 51%" in lvl[1] and lvl[-1] == "Level now: MEDIUM."
+    stake = next(s for s in w["sections"] if s["title"] == "Why this stake")["bullets"]
+    assert "escalated to MEDIUM. It rose because of this: +1 level, bookmakers agree" in stake[1]

@@ -52,8 +52,9 @@ def tranches(r, opened_at, now):
     if r.get("mode") != "live" or "poly" not in r.get("refs", {}):
         return [], [], False, False
     out, side, top, staked, flipped, escalated = [], None, 0, 0.0, False, False
-    path = []
+    path, prev = [], None
     for h in r.get("history", []):
+        before, prev = prev, h
         if h["t"] > now:
             break
         if h["level"] == "LIVE":
@@ -85,11 +86,35 @@ def tranches(r, opened_at, now):
             add = ESCALATION * STAKES[h["level"]] - staked
             if add > 0:
                 out.append(dict(t=h["t"], level=h["level"], price=h["price"], stake=add, snap=h.get("snap"),
-                                asks=h.get("asks")))
+                                asks=h.get("asks"), cause=cause_of(h, before)))
                 staked += add
     for x in out:
         x["side"] = side
     return out, path, escalated, flipped
+
+
+def cause_of(h, before):
+    """What made the level rise at this step: the bets themselves, or an adjustment (line move, bookmakers)."""
+    snap, prev = h.get("snap") or {}, (before or {}).get("snap") or {}
+    rank = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+    if "base_level" not in snap:                                       # recorded before causes were stored
+        sh, st = snap.get("sharp"), snap.get("steam")
+        if sh and sh.get("agree") and not (prev.get("sharp") or {}).get("agree"):
+            return dict(sh, kind="bookies", effect="up")
+        if st and not prev.get("steam"):
+            return dict(st, kind="line", effect="up")
+        return dict(kind="unknown")
+    if rank.get(snap.get("base_level"), 0) > rank.get(prev.get("base_level"), 0):
+        return dict(kind="bets", base=snap.get("base_level"), prev=prev.get("base_level"))
+    old = {a["kind"] for a in prev.get("adjust") or [] if a.get("effect") == "up"}
+    new = [a for a in snap.get("adjust") or [] if a.get("effect") == "up" and a["kind"] not in old]
+    gone = [a for a in prev.get("adjust") or [] if a.get("effect") == "down"
+            and a["kind"] not in {x["kind"] for x in snap.get("adjust") or [] if x.get("effect") == "down"}]
+    if new:
+        return dict(new[0])
+    if gone:
+        return dict(gone[0], kind="cleared_" + gone[0]["kind"])
+    return dict(kind="bets", base=snap.get("base_level"), prev=prev.get("base_level"))
 
 
 def run(ledger, opened_at, now):
@@ -131,6 +156,8 @@ def run(ledger, opened_at, now):
                 tr = dict(t=t, level=x["level"], price=x["price"], stake=x["stake"],
                           shares=round(x["stake"] / cost, 2))
             # (the snapshot stays on the bet, not on each tranche, to keep the stored data small)
+            if x.get("cause"):
+                tr["cause"] = x["cause"]
             if tr.get("skipped"):
                 pass
             elif balance + 1e-9 < x["stake"]:
@@ -234,7 +261,8 @@ def planned(matches, ledger, opened_at, now):
         path = [p for i, p in enumerate(path) if i == 0 or p[0] != path[i - 1][0]]
         price = m["prices"].get(m["live_side"] if live_now else m["fix_side"])
         snap = dict(flags=m["flags"], money=m["money"], flow=m["flow"], tier=m["tier"], conflict=m["conflict"],
-                    steam=m.get("steam"), sharp=m.get("sharp"), books=m.get("books"))
+                    steam=m.get("steam"), sharp=m.get("sharp"), books=m.get("books"), base_level=m.get("base_level"),
+                    base_pts=m.get("base_pts"), adjust=m.get("adjust"))
         if live_now:
             snap = dict(flags=m["live_flags"], money=m["live_money"], flow=m["flow"], tier=m["tier"], conflict=False,
                         live=True)

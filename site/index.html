@@ -161,6 +161,9 @@ tr.row.open .chev { transform: rotate(90deg); }
 .empty { padding: 34px 20px; text-align: center; color: var(--mute); }
 .err { padding: 60px 20px; text-align: center; color: var(--loss); }
 
+.key { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 22px; margin: 12px 20px 2px; }
+.key div { display: grid; gap: 4px; } .key dt { margin: 0; } .key dd { margin: 0; font-size: 13px; color: var(--mute); line-height: 1.45; }
+@media (max-width: 640px) { .key { margin-left: 16px; margin-right: 16px; } }
 .watch-form { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; padding: 12px 20px 4px; }
 .watch-form input { font: 500 14px "Barlow", sans-serif; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; min-width: 0; }
 .watch-form input:focus { outline: 2px solid var(--ct); outline-offset: 0; border-color: transparent; }
@@ -265,6 +268,12 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Flagged right now</h2><span class="cap" id="flag-count"></span></header>
     <p class="sub">Before kickoff and live. Money goes in at the first flag and tops up if it escalates. Click a row for the reasons.</p>
+    <dl class="key">
+      <div><dt><span class="tag esc">escalated</span></dt><dd>The level went up before kickoff (for example LOW → MEDIUM), so the plan added money. The row explains what caused it.</dd></div>
+      <div><dt><span class="tag won">↑ bookmakers agree</span></dt><dd>At 1xBet, Stake or Pinnacle, this side's chance of winning rose 6+ points in 12 hours, the same way as the flagged money. Counts as +1 level.</dd></div>
+      <div><dt><span class="tag lost">↓ bookmakers disagree</span></dt><dd>The bookmakers moved 6+ points the other way. Counts as −1 level.</dd></div>
+      <div><dt><span class="tag won">↑ line move</span></dt><dd>On Polymarket this side's price rose 12+ cents in the 6 hours before kickoff. Counts as +1 level.</dd></div>
+    </dl>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Level path</th><th class="cap">Backing</th><th class="cap r">Price</th><th class="cap r">In</th><th class="cap r hide-sm">Flagged money</th></tr></thead>
@@ -343,7 +352,7 @@ const opened = new Set();
 
 function pathHtml(path, escd) {
   if (!path || !path.length) return '<span class="cap">–</span>';
-  return `<div class="path">${path.map(([l]) => lv(l)).join('<span class="to">→</span>')}${escd ? '<span class="tag esc">escalated</span>' : ""}</div>
+  return `<div class="path">${path.map(([l]) => lv(l)).join('<span class="to">→</span>')}${escd ? '<span class="tag esc" title="The level rose before kickoff, so the plan added money. Open the row to see why.">escalated</span>' : ""}</div>
     <div class="times">${path.length > 1 ? path.map(([, t]) => hm(t)).join(" → ") : "since " + hm(path[0][1])}</div>`;
 }
 function matchCell(b, link) {
@@ -381,7 +390,7 @@ const key = b => esc(b.match + "|" + b.start + "|" + (b.market || ""));
 function bookLine(b) {
   const bs = Object.values(b.books || {});
   if (!bs.length) return "";
-  const v = bs.sort((x, y) => (y.book === "Pinnacle") - (x.book === "Pinnacle"))[0];
+  const v = b.sharp ? b.sharp : bs.sort((x, y) => (y.book === "Pinnacle") - (x.book === "Pinnacle"))[0];
   const mv = Math.round(v.move * 100), cls = b.sharp ? (b.sharp.agree ? "pos" : "neg") : "";
   return `<span class="split ${cls}" title="Bookmaker chance for ${esc(b.side)}, margin removed, change over 12 h">${esc(v.book)} ${Math.round(v.now * 100)}%${mv ? ` (${mv > 0 ? "+" : ""}${mv})` : ""}</span>`;
 }
@@ -459,7 +468,7 @@ function plan() {
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(b.start)}</b><span style="display:block;padding-left:16px">${b.live_now ? '<span class="tag live now">live now</span>' : day(b.start) + " · " + rel(b.start)}</span></td>
       ${matchCell(b)}
-      <td data-label="Level"><div>${pathHtml(b.path, b.escalated)}<div class="times">${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div>${b.sharp ? `<span class="tag ${b.sharp.agree ? "won" : "lost"}" style="margin-top:4px">bookies ${b.sharp.agree ? "agree" : "disagree"}</span>` : ""}</div></td>
+      <td data-label="Level"><div>${pathHtml(b.path, b.escalated)}<div class="times">${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div>${b.sharp ? `<span class="tag ${b.sharp.agree ? "won" : "lost"}" style="margin-top:4px" title="${b.sharp.agree ? "+1 level" : "-1 level"}: ${esc(b.sharp.book)} moved ${Math.round(b.sharp.move * 100)} points ${b.sharp.agree ? "towards" : "against"} this side in 12 h">${b.sharp.agree ? "↑ bookmakers agree" : "↓ bookmakers disagree"}</span>` : ""}${b.steam ? '<span class="tag won" style="margin-top:4px" title="+1 level: the Polymarket price moved 12+ cents towards this side in the 6 h before kickoff">↑ line move</span>' : ""}</div></td>
       <td class="side" data-label="Backing">${esc(b.side)}${b.flipped ? `<span class="split">flipped · bet stays on ${esc(b.bet_side)}</span>` : ""}</td>
       <td class="r num" data-label="Price">${b.price != null ? b.price.toFixed(2) + `<span class="split">${Math.round(b.price * 100)}%</span>` : "–"}${b.steam ? `<span class="split pos">↑ from ${b.steam.low.toFixed(2)}</span>` : ""}${bookLine(b)}</td>
       <td class="r num" data-label="In">${!b.bettable ? '<span class="split">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<span class="split pos">to win ${usd(b.in_shares - b.in_stake, true)}</span>` : '<span class="split">next scan</span>'}</td>
