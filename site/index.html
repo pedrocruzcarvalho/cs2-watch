@@ -270,8 +270,6 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     <p class="sub">Before kickoff and live. The bet goes in during the last 30 minutes before kickoff, at the level the match has then. Click a row for the reasons.</p>
     <dl class="key">
       <div><dt><span class="tag esc">escalated</span></dt><dd>The level went up before kickoff (for example LOW → MEDIUM), so the plan added money. The row explains what caused it.</dd></div>
-      <div><dt><span class="tag won">↑ bookmakers agree</span></dt><dd>At 1xBet, Stake or Pinnacle, this side's chance of winning rose by 6 or more percentage points in 12 hours (for example 44% → 50%, about odds 2.25 → 2.00), the same way as the flagged money. Counts as +1 level.</dd></div>
-      <div><dt><span class="tag lost">↓ bookmakers disagree</span></dt><dd>The bookmakers moved 6+ percentage points the other way (for example 50% → 44%). Counts as −1 level.</dd></div>
       <div><dt><span class="tag open">unusual volume</span></dt><dd>The match already has 5× the money a match of its tier normally has at this point before kickoff. It doesn't change the level (the backtest showed no benefit); at 10× or more a MEDIUM/HIGH flag is bet right away instead of in the last 30 minutes.</dd></div>
       <div><dt><span class="tag won">↑ line move</span></dt><dd>On Polymarket this side's price rose 12+ cents in the 6 hours before kickoff (for example 0.40 → 0.52). Counts as +1 level.</dd></div>
     </dl>
@@ -323,7 +321,6 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <li><b>Every market on its own:</b> match winner, maps, total maps, map handicap, rounds. Side markets are bet only once something in them is flagged.</li>
       <li><b>Real prices:</b> each bet fills against Polymarket's order book at that moment, fee included. If nobody is selling, nothing is bet.</li>
       <li><b>Also flagged:</b> split bets (3+ fresh wallets, $5k+ together) and line moves (the flagged side up 12c+ in the 6 hours before kickoff raises the level).</li>
-      <li><b>Bookmaker check:</b> Pinnacle, 1xBet and Stake odds (via OddsPapi). If their chance for the flagged side moves 6+ points the same way in 12 h, the level goes up one step; the opposite way, down one step.</li>
       <li><b>When bets go in:</b> since Oct 19 21:26 UTC, new bets are placed in the last 30 minutes before kickoff, at the level the match has then (1.5× if the flag rose during the day). Money on these matches mostly arrives in the final hour. Bets placed earlier stay as they were.</li>
       <li><b>Tiers from Valve's own ranking:</b> T1 #1–20, T2 #21–50, T3 #51–100, T4 #101–200, T5 #201+, T6 unranked. Matches where both teams are top 30, or big-stage events, are skipped.</li>
       <li><b>Who would have to throw:</b> backing one side means the other has to lose on purpose. Teams in Valve's top 40 are assumed not to fix (e.g. BIG #25), so those flags are dropped and nothing is bet. Exceptions that can still be flagged: Alliance, HOTU, 5star, TYLOO, Lynn Vision, Dendele, Eternal Fire, SINNERS, JiJieHao, K27, Nuclear TigeRES, Sangal, Wildcard, magic, Nemiga, 1win, BetBoom, MIBR.</li>

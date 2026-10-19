@@ -54,6 +54,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=float, default=30)
     ap.add_argument("--state", default="local_state")
+    ap.add_argument("--dump", help="also save every scored position and market for sweep.py")
     a = ap.parse_args()
     out = lambda *x: print(*x, flush=True)
     st = Path(a.state)
@@ -64,6 +65,13 @@ def main():
     now = datetime.now(timezone.utc)
     flags, rows, infos = C.scan(now - timedelta(days=a.days), now - timedelta(hours=4), ["poly"], baseline, log=out,
                                 prematch_only=True)
+    if a.dump:                                                     # raw material for sweep.py
+        keep = ("venue", "match", "tier", "start", "pts", "level", "wallet", "market", "outcome", "usd", "avg_price",
+                "share", "share_now", "mshare", "x_p90", "pre_match", "move", "first", "won", "wallet_info", "name")
+        Path(a.dump).write_text(json.dumps(dict(
+            rows=[{k: r.get(k) for k in keep} for r in rows],
+            infos=[{k: v for k, v in i.items() if k != "tokens"} for i in infos])))
+        out(f"dumped {len(rows)} positions and {len(infos)} markets to {a.dump}")
     ms = C.build_matches(infos, rows)
     recs = []
     for m in ms:
