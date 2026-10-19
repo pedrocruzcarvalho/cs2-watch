@@ -72,6 +72,27 @@ def qualifying(state, now):
     return out
 
 
+def rising(state, now, qual, limit=25):
+    """Wallets close to the bar (not bet on): luck score 2.0-2.5 with 5+ bets, or a 2.5+ luck score from only 3-4 bets.
+    In the 60-day test, wallets in the 2.0-2.5 band added about break-even bets, so they are watched, not followed;
+    they move to the informed list by themselves once their record crosses the bar."""
+    out = []
+    for w, rows in state.get("records", {}).items():
+        if w in qual:
+            continue
+        r = record_of(rows, now)
+        if r.get("n", 0) < 3 or r["edge"] < MIN_EDGE:
+            continue
+        if r["n"] >= MIN_BETS and 2.0 <= r["z"] < MIN_Z:
+            need = f"luck score {r['z']:.2f}, needs {MIN_Z}"
+        elif r["n"] < MIN_BETS and r["z"] >= MIN_Z:
+            need = f"{MIN_BETS - r['n']} more bet{'s' if MIN_BETS - r['n'] != 1 else ''} with a record like this"
+        else:
+            continue
+        out.append(dict(wallet=w, name=state.get("names", {}).get(w, ""), record=r, needs=need))
+    return sorted(out, key=lambda x: -x["record"]["z"])[:limit]
+
+
 # ------------------------------------------------------------------------------------------------ signals
 
 def signals(infos, qual, vtier_of, now):
@@ -284,5 +305,6 @@ def dashboard(state, sigs, qual, now):
         b = acct.get("bets", {}).get(s["cid"])
         sig_out.append(dict(s, placed=b and {k: b[k] for k in ("status", "stake", "price", "shares")}))
     return dict(stats=stats, series=series, bets=out_bets[:500], signals=sig_out[:60], wallets=wallets,
+                rising=[dict(x, betting=active_bets.get(x["wallet"], [])) for x in rising(state, now, qual)],
                 opened_at=acct.get("opened_at", now), rules=dict(window_days=21, min_bets=MIN_BETS, min_z=MIN_Z,
                                                                  min_edge=MIN_EDGE, min_money=MIN_MONEY, stake=STAKE))

@@ -172,7 +172,7 @@ def tick(store, log=print):
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
                 stats=inf["stats"], series=inf["series"], bets=inf["bets"], signals=inf["signals"],
-                wallets=inf["wallets"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
+                wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles))
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))

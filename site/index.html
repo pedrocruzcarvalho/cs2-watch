@@ -304,6 +304,17 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   </section>
 
   <section class="panel flush" style="margin-top:16px">
+    <header><h2>Rising wallets</h2><span class="cap" id="ris-count"></span></header>
+    <p class="sub">Close to the bar but not there yet: luck score 2.0–2.5 with 5+ bets, or a strong record from only 3–4 bets. These are not bet on (in the 60-day test this band was about break-even), but this is where new informed wallets come from: they move up by themselves once their record crosses the bar.</p>
+    <div class="body scroll">
+      <table class="stack">
+        <thead><tr><th class="cap">Wallet</th><th class="cap r">Bets</th><th class="cap r">Won</th><th class="cap r">Prices predicted</th><th class="cap r">Edge</th><th class="cap r">Luck score</th><th class="cap">Still needs</th><th class="cap">Betting now</th></tr></thead>
+        <tbody id="t-ris"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel flush" style="margin-top:16px">
     <header><h2>Watched wallets</h2><span class="cap" id="watch-count"></span></header>
     <p class="sub">Wallets you're keeping an eye on, plus ones the old big-bet flags picked up. Each is checked against its full Polymarket history (luck score: below 1 = normal luck, above 2.5 = very unlikely to be luck). These are for your information; the paper account bets only on informed wallets above.</p>
     <form class="watch-form" id="watch-form" autocomplete="off">
@@ -494,6 +505,23 @@ function signals() {
   }).join("");
   toggleRows(tb, "s-");
 }
+function risingPanel() {
+  const ws = D.rising || [], tb = $("t-ris");
+  $("ris-count").textContent = ws.length ? `${ws.length} close to the bar` : "";
+  if (!ws.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No wallet is close to the bar right now.</td></tr>'; return; }
+  tb.innerHTML = ws.map(w => {
+    const r = w.record;
+    const bets = w.betting.length ? w.betting.map(b => `<div><b class="num">${usd0(b.usd)}</b> · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("") : '<span class="split">no upcoming bets</span>';
+    return `<tr><td data-label="Wallet"><a href="https://polymarket.com/profile/${esc(w.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(w))}</b></a></td>
+      <td class="r num" data-label="Bets">${r.n}</td>
+      <td class="r num" data-label="Won"><span class="pos">${r.wins}</span>–<span class="neg">${r.losses}</span><span class="split">${Math.round(r.win_rate * 100)}%</span></td>
+      <td class="r num" data-label="Predicted">${Math.round(r.avg_price * 100)}%</td>
+      <td class="r num pos" data-label="Edge">+${Math.round(r.edge * 100)} pts</td>
+      <td class="r num" data-label="Luck">${r.z.toFixed(1)}</td>
+      <td data-label="Needs"><span class="split">${esc(w.needs)}</span></td>
+      <td class="betting" data-label="Betting">${bets}</td></tr>`;
+  }).join("");
+}
 function walletsPanel() {
   const ws = D.wallets || [], tb = $("t-wal");
   $("wal-count").textContent = ws.length ? `${ws.length} right now` : "";
@@ -603,7 +631,7 @@ async function load() {
     const d = await r.json();
     if (!d.stats) throw new Error("No data yet: the first scan hasn't finished. It runs every 10 minutes.");
     await loadWatch();
-    D = d; board(); chart(); tape(); results(); signals(); history(); walletsPanel(); watch();
+    D = d; board(); chart(); tape(); results(); signals(); history(); walletsPanel(); risingPanel(); watch();
   } catch (e) {
     if (!D) $("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }
