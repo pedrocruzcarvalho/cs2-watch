@@ -835,10 +835,10 @@ def build_matches(infos, rows):
             mine = [r for r in mine_all if r.get("market", "Match Winner") == label]
             m = judge_market(mine, outcomes)
             mflow = (venues.get("poly") or first).get("flow", 0)
+            # unusual volume no longer moves the level (30-day backtest: it added nothing and mostly re-counted bet
+            # size); it is shown, and at EARLY_RATIO+ it lets a MEDIUM/HIGH flag be bet before the 30-minute window
             if vol and m["level"] and m["fix_side"] and m["money"].get(m["fix_side"], 0) >= 0.3 * max(mflow, 1):
-                m["adjust"].append(dict(vol, kind="volume", effect="up"))
-                m["level"] = LEVELS[max(LEVELS.index(m["level"]) - 1, 0)]
-                m["pts"] += 2
+                m["adjust"].append(dict(vol, kind="volume", effect="info"))
             m["volume"] = vol
             if label != "Match Winner" and not m["level"] and not m["live_side"]:
                 continue
@@ -862,6 +862,7 @@ def build_matches(infos, rows):
 
 
 VOLUME_RATIO, VOLUME_MIN_X = 5, 2      # 5x what this tier normally has by now, and 2x a whole typical match
+EARLY_RATIO = 10                       # an early (before the 30-minute window) bet needs 10x
 
 
 def volume_check(flow, start, vt, now=None):
@@ -975,7 +976,7 @@ def record(led, matches, mode, now):
             if m["level"] and 0 < m["start"] - now <= BET_WINDOW and not any(h.get("window") for h in hist):
                 hist = hist + [entry(window=True)]                     # the bet itself goes in now
             elif (m["level"] in ("MEDIUM", "HIGH") and m["start"] - now > BET_WINDOW
-                  and any(a.get("kind") == "volume" for a in m.get("adjust") or [])
+                  and any(a.get("kind") == "volume" and a.get("ratio", 0) >= EARLY_RATIO for a in m.get("adjust") or [])
                   and not any(h.get("early") or h.get("window") for h in hist)):
                 hist = hist + [entry(early=True)]                      # unusual volume: don't wait for the window
         line = list(led.get(k, {}).get("line", []))

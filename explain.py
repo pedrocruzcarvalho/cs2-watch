@@ -92,10 +92,11 @@ def adjust_text(a, side):
                 f"6 hours that counts as a strong move. Money spread over many accounts moves the price even when "
                 f"no single wallet stands out.")
     if a["kind"] == "volume":
-        return (f"+1 level, unusual volume: {money(a['flow'])} is already on this match {a['hours_left']:.0f} h before "
-                f"kickoff, about {a['ratio']:.0f}x what a {a['vtier']} match normally has by then (a whole typical "
-                f"{a['vtier']} match gets {money(a['median'])} before kickoff), and the flagged side holds a big part "
-                f"of it.")
+        return (f"Unusual volume (doesn't change the level): {money(a['flow'])} is already on this match "
+                f"{a['hours_left']:.0f} h before kickoff, about {a['ratio']:.0f}x what a {a['vtier']} match normally "
+                f"has by then (a whole typical {a['vtier']} match gets {money(a['median'])} before kickoff). In the "
+                f"30-day backtest this added nothing to the level, so it only decides timing: at 10x or more, a "
+                f"MEDIUM/HIGH flag is bet straight away.")
     if a["kind"] == "throw":
         if a["effect"] == "drop":
             return (f"Flag dropped: backing {side} means {a['team']} would have to lose on purpose, and {a['team']} is "
