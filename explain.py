@@ -67,7 +67,7 @@ def describe_wallet(f, start):
 def flag_sentence(f, start):
     share = f.get("share") or 0
     where = "of all the money traded on this match"
-    timing = " before kickoff" if f.get("pre_match") else ""
+    timing = " before kickoff" if f.get("pre_match") else " during the match"
     if f.get("venue") == "kalshi":
         s = (f"An anonymous order on Kalshi bought {money(f['usd'])} of {f['outcome']} at {f['avg_price']:.2f}{timing}, "
              f"{share:.0%} {where}.")
@@ -132,7 +132,12 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
                            f"({t['level']}) but the balance couldn't cover it, so it was skipped.")
             continue
         total += t["stake"]
-        if i == 0:
+        if t["level"] == "LIVE":
+            stake_b.append(f"{hhmm(t['t'])}: during the match, a bet passed the strict LIVE test, so the plan "
+                           f"{'added' if i else 'placed'} {money(t['stake'])} on {side} at {t['price']:.2f} "
+                           f"({implied}){', bringing the total to ' + money(total) if i else ''}. The price is the "
+                           f"one at that scan; live prices move fast, so it can be up to 10 minutes old.")
+        elif i == 0:
             stake_b.append(f"{hhmm(t['t'])}: first flagged {t['level']}, so {money(t['stake'])} went on {side} at "
                            f"{t['price']:.2f} ({implied}). {t['level']} = {money(stakes[t['level']])} in the plan.")
         else:
@@ -153,6 +158,11 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     sections.append(dict(title="Why this stake", bullets=stake_b))
 
     ctx = []
+    if snap.get("live"):
+        ctx.append("LIVE flags are much stricter than pre-match ones, because big in-play bets on the score are "
+                   "normal. Every one of these had to hold: placed during the match; $3,000+ and 25%+ of all money "
+                   "on the match; a wallet under 7 days old or with 5 or fewer markets ever (Kalshi: one $15,000+ "
+                   "order worth 50%+ of the match); price still open (0.10 to 0.85); not a tier-1 match.")
     tier = snap.get("tier")
     if tier == "low":
         ctx.append("Lower-tier match: thin market where one bettor can dominate, and where most fixing cases happen.")
@@ -170,7 +180,7 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     if m:
         ctx.append(f"Flagged money: {money(m.get(side, 0))} on {side} vs {money(sum(v for k, v in m.items() if k != side))} "
                    f"on {other}, out of {money(snap.get('flow', 0))} traded on the match.")
-    if snap.get("conflict") or against:
+    if (snap.get("conflict") or against) and not snap.get("live"):
         ctx.append(f"There was also suspicious money on {other}, which weakens the signal (the level was lowered "
                    f"one step for that).")
     sections.append(dict(title="Context", bullets=ctx))

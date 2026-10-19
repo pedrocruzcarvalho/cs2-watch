@@ -52,7 +52,7 @@ td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: t
 tr.m { cursor: pointer; } tr.m:hover td { background: var(--surface-2); }
 tr.detail td { background: var(--surface-2); padding: 10px 14px; }
 .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
-.HIGH { color: var(--high); } .MEDIUM { color: var(--med); } .LOW { color: var(--low); }
+.HIGH { color: var(--high); } .MEDIUM { color: var(--med); } .LOW { color: var(--low); } .LIVE { color: #b05ce6; }
 .st-won { color: var(--good); font-weight: 600; } .st-lost { color: var(--bad); font-weight: 600; } .st-open { color: var(--line); } .st-skipped, .st-void { color: var(--muted); }
 .good { color: var(--good); } .bad { color: var(--bad); }
 .small { font-size: 11.5px; color: var(--muted); }
@@ -110,6 +110,7 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
       <ul class="rules" style="margin-top:14px">
         <li>$300 start. First flag: <b>$40</b> HIGH, <b>$20</b> MEDIUM, <b>$10</b> LOW on the flagged side, at the price at that moment.</li>
         <li><b>Escalation</b> (LOW → MEDIUM → HIGH before kickoff) tops up to <b id="esc-x">1.5</b>× the new level's stake at the new price: LOW → HIGH = $60 in total.</li>
+        <li><b class="LIVE">LIVE</b>: a bet placed during the match that passes a much stricter test (fresh wallet, $3k+, 25%+ of the match) adds <b>$20</b> on that side. Never against an existing bet.</li>
         <li>Downgrades keep what's in. If the flagged side flips, no new money goes in. Every tranche pays +1c spread and Polymarket's fee.</li>
         <li>Skipped if the balance can't cover it. Paper only: no real bets are placed.</li>
       </ul>
@@ -117,7 +118,7 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
   </div>
 
   <div class="card" style="margin-top:16px">
-    <h3>Flagged matches before kickoff</h3>
+    <h3>Flagged matches: before kickoff and live now</h3>
     <p class="sub">Level path is every change seen so far (scans every ~10 min). Money goes in when a match is first flagged and tops up if it escalates. <b>Click a row</b> to see why, in plain words.</p>
     <div class="scroll"><table>
       <thead><tr><th>Kickoff</th><th>Match</th><th>Level path</th><th>Bet on</th><th class="r">Price now</th><th class="r">In so far</th><th class="r">Flagged $ (side / other)</th></tr></thead>
@@ -196,7 +197,7 @@ function chart() {
 
 function paths() {
   document.getElementById("esc-x").textContent = D.stats.escalation;
-  document.getElementById("t-path").innerHTML = (D.stats.by_path || []).map(r => `<tr><td>${r.name === "escalated" ? '<span class="esc" style="margin:0">ESCALATED</span>' : esc(r.name)}</td>
+  document.getElementById("t-path").innerHTML = (D.stats.by_path || []).map(r => `<tr><td>${r.name === "escalated" ? '<span class="esc" style="margin:0">ESCALATED</span>' : r.name === "live bet added" ? pill("LIVE") + " added" : esc(r.name)}</td>
     <td class="r">${r.won}–${r.lost}</td><td class="r">${usd0(r.staked)}</td><td class="r ${cls(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td>
     <td class="r ${cls(r.roi)}">${pct(r.roi, true)}</td></tr>`).join("");
 }
@@ -226,7 +227,7 @@ function plan() {
   tb.innerHTML = ps.map((b, i) => {
     const other = Object.entries(b.money).filter(([t]) => t !== b.side).reduce((a, [, v]) => a + v, 0);
     const links = Object.entries(b.urls).map(([v, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${v === "poly" ? "Polymarket" : "Kalshi"}</a>`).join(" · ");
-    return `<tr class="m" data-i="${i}"><td>${when(b.start)}<div class="small">${rel(b.start)}</div></td>
+    return `<tr class="m" data-i="${i}"><td>${when(b.start)}<div class="small">${b.live_now ? '<b class="LIVE">LIVE NOW</b>' : rel(b.start)}</div></td>
       <td>${esc(short(b.match))}<div class="small">${esc(b.tier)} tier · ${links}</div></td>
       <td>${pathHtml(b.path, b.escalated)}<div class="small">now ${b.level} · ${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div></td>
       <td class="side">${esc(b.side)}${b.flipped ? `<div class="small">flipped: bet stays on ${esc(b.bet_side)}</div>` : ""}</td>

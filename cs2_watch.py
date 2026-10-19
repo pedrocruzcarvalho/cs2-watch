@@ -617,6 +617,38 @@ def team_for(outcome, teams):
         next((t for t in teams if o and (norm_team(t).startswith(o) or o.startswith(norm_team(t)))), None)
 
 
+LIVE_MIN_USD, LIVE_MIN_SHARE = 3000, 0.25            # Polymarket, fresh wallet required on top
+KALSHI_LIVE_MIN_USD, KALSHI_LIVE_MIN_SHARE = 15000, 0.50
+LIVE_PRICE = (0.10, 0.85)
+
+
+def live_check(r):
+    """In-play bets are judged far more strictly than pre-match ones: live traders bet big on the score all
+    the time. Every condition must hold. Returns the reasons (a list) or None."""
+    if r.get("pre_match", True) or r.get("tier") == "top" or not LIVE_PRICE[0] <= r["avg_price"] <= LIVE_PRICE[1]:
+        return None
+    if r["venue"] == "kalshi":
+        if r["usd"] >= KALSHI_LIVE_MIN_USD and r["share"] >= KALSHI_LIVE_MIN_SHARE:
+            return [f"${r['usd']:,} single in-play Kalshi order", f"{r['share']:.0%} of all money on the match"]
+        return None
+    w = r.get("wallet_info") or {}
+    age = r["start"] - w["created"] if w.get("created") else None
+    traded = w.get("traded")
+    if traded is not None and traded >= 500:
+        return None
+    fresh = age is not None and age < 7 * 86400
+    few = traded is not None and traded <= 5
+    if not (fresh or few) or r["usd"] < LIVE_MIN_USD or r["share"] < LIVE_MIN_SHARE:
+        return None
+    why = [f"${r['usd']:,} placed during the match", f"{r['share']:.0%} of all money on the match"]
+    if fresh:
+        why.append(f"account {max(age, 0) / 86400:.1f} days old")
+    if few:
+        why.append(f"only {traded} markets ever traded")
+    why.append(f"price still open at {r['avg_price']:.2f}")
+    return why
+
+
 def build_matches(infos, rows):
     """One record per real-world match (Polymarket and Kalshi merged): which side the flagged money backed."""
     groups = []
@@ -647,6 +679,18 @@ def build_matches(infos, rows):
             if sum(v for t, v in money.items() if t != side) >= 0.5 * money[side]:
                 conflict = True                                        # flagged money on both sides
                 lvl = LEVELS[min(LEVELS.index(lvl) + 1, 3)]
+        live = []
+        for r in mine:
+            why = live_check(r)
+            if why and team_for(r["outcome"], g["teams"]):
+                live.append({k: r[k] for k in FLAG_KEYS if k in r} | dict(level="LIVE", why=why))
+        live_money = {}
+        for f in live:
+            t = team_for(f["outcome"], g["teams"])
+            live_money[t] = live_money.get(t, 0) + f["usd"]
+        live_side = max(live_money, key=live_money.get) if live_money else None
+        if live_side and sum(v for t, v in live_money.items() if t != live_side) >= 0.5 * live_money[live_side]:
+            live_side = None                                           # live money on both sides: no signal
         prices = next((v["prices"] for v in g["venues"].values() if v.get("prices")), {})
         fav = max(prices, key=prices.get) if prices else None
         tracked = side or fav
@@ -659,7 +703,9 @@ def build_matches(infos, rows):
             refs={v["venue"]: v["ref"] for v in g["venues"].values()},
             urls={v["venue"]: v["url"] for v in g["venues"].values()},
             flow=sum(v["flow"] for v in g["venues"].values()),
-            flags=[{k: r[k] for k in FLAG_KEYS if k in r} for r in flagged]))
+            flags=[{k: r[k] for k in FLAG_KEYS if k in r} for r in flagged],
+            live_side=live_side, live_flags=sorted(live, key=lambda f: -f["usd"]),
+            live_money={t: round(v) for t, v in live_money.items()}))
     return sorted(out, key=lambda m: m["start"])
 
 
@@ -685,7 +731,17 @@ def record(led, matches, mode, now):
     (LOW -> MEDIUM -> HIGH ...), with the time and the price of the flagged side at that moment."""
     for m in matches:
         k = f"{mode}|{m['id']}"
-        if mode == "live" and (now >= m["start"] or m["price"] is None):
+        if mode == "live" and now >= m["start"]:
+            # after kickoff the record is frozen; only a LIVE flag (one per match) is added to its history
+            old = led.get(k)
+            if old and m.get("live_side") and not m["winner"] and not any(
+                    h["level"] == "LIVE" for h in old.get("history", [])):
+                old["history"] = old.get("history", []) + [dict(
+                    t=now, level="LIVE", pts=0, side=m["live_side"], price=m["prices"].get(m["live_side"]),
+                    snap=dict(flags=m["live_flags"][:5], money=m["live_money"], flow=m["flow"], tier=m["tier"],
+                              conflict=False, live=True))]
+            continue
+        if mode == "live" and m["price"] is None:
             continue
         hist = led.get(k, {}).get("history", [])
         if mode == "live":

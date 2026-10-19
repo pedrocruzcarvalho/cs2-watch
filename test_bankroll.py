@@ -87,3 +87,39 @@ def test_bets_without_saved_evidence_get_it_backfilled_with_a_note():
     bets, _, _ = B.run(led, T0, T0 + 3600)
     text = " ".join(b for s in bets[0]["why"]["sections"] for b in s["bullets"])
     assert "anonymous order on Kalshi bought $26,005" in text and "not at the moment of the bet" in text
+
+
+def _live_row(**kw):
+    r = dict(venue="poly", match="Counter-Strike: A vs B (BO3) - Cup", start=T0, tier="low", outcome="A", usd=5000,
+             avg_price=0.40, share=0.30, level="", pts=3, why=[], name="n", wallet="0x1", first=T0 + 600,
+             pre_match=False, move=0, x_p90=0, wallet_info=dict(created=T0 - 2 * 86400, traded=40, first_trade=T0))
+    r.update(kw)
+    return r
+
+
+def test_live_flag_needs_every_strict_condition():
+    assert C.live_check(_live_row())                                            # fresh wallet, $5k, 30%, open price
+    assert not C.live_check(_live_row(pre_match=True))                          # placed before kickoff
+    assert not C.live_check(_live_row(usd=2500))                                # too small
+    assert not C.live_check(_live_row(share=0.20))                              # not dominant
+    assert not C.live_check(_live_row(avg_price=0.92))                          # result already decided
+    assert not C.live_check(_live_row(wallet_info=dict(created=T0 - 400 * 86400, traded=40)))   # old, active
+    assert C.live_check(_live_row(wallet_info=dict(created=T0 - 400 * 86400, traded=4)))        # old but 4 markets
+    assert not C.live_check(_live_row(wallet_info=dict(created=T0 - 86400, traded=900)))        # busy trader
+    assert not C.live_check(_live_row(venue="kalshi", wallet_info=None))                       # Kalshi needs $15k
+    assert C.live_check(_live_row(venue="kalshi", wallet_info=None, usd=16000, share=0.55))
+
+
+def test_live_flag_adds_20_once_on_the_same_side_never_against():
+    led = {"1": rec(1, [(T0, "MEDIUM", "A", 0.40)], winner="A")}
+    s = led["1"]["start"]
+    led["1"]["history"] += [dict(t=s + 900, level="LIVE", side="A", price=0.30, pts=0, snap=None)]
+    bets, st, _ = B.run(led, T0, s + 86400)
+    assert bets[0]["stake"] == 40 and bets[0]["live"] and [p[0] for p in bets[0]["path"]] == ["MEDIUM", "LIVE"]
+    led["1"]["history"][-1]["side"] = "B"                                        # live money on the other side
+    bets, _, _ = B.run(led, T0, s + 86400)
+    assert bets[0]["stake"] == 20 and not bets[0]["live"]
+    only = {"2": rec(2, [])}
+    only["2"]["history"] = [dict(t=only["2"]["start"] + 600, level="LIVE", side="B", price=0.35, pts=0, snap=None)]
+    bets, _, _ = B.run(only, T0, only["2"]["start"] + 3600)
+    assert bets[0]["level"] == "LIVE" and bets[0]["stake"] == 20 and bets[0]["side"] == "B"
