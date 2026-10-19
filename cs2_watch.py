@@ -700,6 +700,23 @@ def record(led, matches, mode, now):
                                                        winner=m["winner"] if mode == "backtest" else None)
 
 
+def backfill_snapshots(led, matches, now):
+    """Level-history entries recorded before evidence snapshots existed get the evidence the scanner sees now,
+    marked with when it was captured, so older bets can still explain themselves."""
+    by_id = {f"live|{m['id']}": m for m in matches}
+    filled = 0
+    for k, r in led.items():
+        m = by_id.get(k)
+        if not m or not m["flags"]:
+            continue
+        for h in r.get("history", []):
+            if h.get("level") and not h.get("snap"):
+                h["snap"] = dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
+                                 conflict=m["conflict"], backfilled_at=now)
+                filled += 1
+    return filled
+
+
 def resolve(led, now, log=print):
     """Fill in winners for frozen live predictions whose match should be over."""
     todo = [r for r in led.values() if r["mode"] == "live" and not r.get("winner") and r["start"] < now - 1800]

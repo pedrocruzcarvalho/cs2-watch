@@ -76,3 +76,14 @@ def test_explanation_reads_like_the_evidence_and_the_stake_steps():
     assert "escalated to HIGH" in text and "1.5x" in text and "underdog" in text and "A won" in text
     assert [s["title"] for s in w["sections"]] == ["Why it was flagged", "Why this stake", "Context",
                                                    "Why it could be wrong", "Result"]
+
+
+def test_bets_without_saved_evidence_get_it_backfilled_with_a_note():
+    flag = dict(venue="kalshi", outcome="A", usd=26005, avg_price=0.40, share=0.53, level="HIGH", pts=9, why=[],
+                first=T0, pre_match=True)
+    led = {"live|x": rec(1, [(T0, "HIGH", "A", 0.42)])}
+    m = dict(id="x", flags=[flag], money={"A": 26005, "B": 0}, flow=49000, tier="mid", conflict=False)
+    assert C.backfill_snapshots(led, [m], T0 + 3600) == 1
+    bets, _, _ = B.run(led, T0, T0 + 3600)
+    text = " ".join(b for s in bets[0]["why"]["sections"] for b in s["bullets"])
+    assert "anonymous order on Kalshi bought $26,005" in text and "not at the moment of the bet" in text

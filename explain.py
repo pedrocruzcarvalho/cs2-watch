@@ -115,8 +115,13 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
         head = f"Flagged: {side} vs {other}, because {because}."
 
     sections = []
-    sections.append(dict(title="Why it was flagged", bullets=[flag_sentence(f, start) for f in mine[:4]] or [
-        "The flagged-money details weren't captured for this bet."]))
+    why_flagged = [flag_sentence(f, start) for f in mine[:4]] or [
+        "The flagged-money details weren't captured for this bet, and the match is no longer in the scan window."]
+    if snap.get("backfilled_at"):
+        why_flagged.append(f"Note: this bet was placed before evidence was saved with each bet, so this is the "
+                           f"evidence as the scanner saw it at {hhmm(snap['backfilled_at'])}, not at the moment "
+                           f"of the bet.")
+    sections.append(dict(title="Why it was flagged", bullets=why_flagged))
 
     stake_b = []
     total = 0.0

@@ -85,6 +85,7 @@ def tick(store, log=print):
     matches = C.build_matches(infos, rows)
     led = C.load_ledger()
     C.record(led, matches, "live", now.timestamp())
+    C.backfill_snapshots(led, matches, now.timestamp())
     C.resolve(led, now.timestamp(), log=log)
     old = now.timestamp() - KEEP_DAYS * 86400
     led = {k: r for k, r in led.items() if r["mode"] == "live" and r["start"] >= old}
