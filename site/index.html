@@ -67,6 +67,13 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
 .rules { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 12.5px; } .rules li { margin: 0 0 6px; }
 .err { color: var(--bad); padding: 40px; text-align: center; }
 .path { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; } .path .arr { color: var(--muted); font-size: 11px; }
+.why { max-width: 920px; }
+.why .head { font-size: 14px; font-weight: 600; margin: 2px 0 10px; color: var(--ink); }
+.why h4 { margin: 12px 0 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.why ul { margin: 0; padding-left: 18px; } .why li { margin: 0 0 5px; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+.why .res-won li { color: var(--good); font-weight: 600; } .why .res-lost li { color: var(--bad); font-weight: 600; }
+.evidence { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.hint { color: var(--muted); font-size: 11px; margin-left: 4px; }
 .esc { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--high); color: #fff; }
 </style>
 </head>
@@ -111,7 +118,7 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
 
   <div class="card" style="margin-top:16px">
     <h3>Flagged matches before kickoff</h3>
-    <p class="sub">Level path is every change seen so far (scans every ~10 min). Money goes in when a match is first flagged and tops up if it escalates. Click a row for the wallets and reasons.</p>
+    <p class="sub">Level path is every change seen so far (scans every ~10 min). Money goes in when a match is first flagged and tops up if it escalates. <b>Click a row</b> to see why, in plain words.</p>
     <div class="scroll"><table>
       <thead><tr><th>Kickoff</th><th>Match</th><th>Level path</th><th>Bet on</th><th class="r">Price now</th><th class="r">In so far</th><th class="r">Flagged $ (side / other)</th></tr></thead>
       <tbody id="t-plan"></tbody>
@@ -120,7 +127,7 @@ tr.detail td { background: var(--surface-2); padding: 10px 14px; }
 
   <div class="card" style="margin-top:16px">
     <h3>Betting history</h3>
-    <p class="sub" id="hist-sub"></p>
+    <p class="sub"><span id="hist-sub"></span> <b>Click a bet</b> to see why it was made.</p>
     <div class="tools" id="f-hist"><button data-v="all" class="on">All</button><button data-v="open">Open</button><button data-v="won">Won</button><button data-v="lost">Lost</button></div>
     <div class="scroll"><table>
       <thead><tr><th>Kickoff</th><th>Match</th><th>Level path</th><th>Bet on</th><th class="r">Avg price</th><th class="r">Staked</th><th>Result</th><th class="r">P&amp;L</th><th class="r">Balance</th></tr></thead>
@@ -200,6 +207,12 @@ function levels() {
     <td class="r ${cls(r.roi)}">${pct(r.roi, true)}</td><td class="r">${r.open || ""}</td></tr>`).join("");
 }
 
+function whyHtml(w, status) {
+  if (!w) return `<span class="small">No explanation stored for this bet.</span>`;
+  return `<div class="why"><div class="head">${esc(w.headline)}</div>` + w.sections.map(sec =>
+    `<h4>${esc(sec.title)}</h4><ul class="${sec.title === "Result" ? "res-" + status : ""}">${sec.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul>`).join("") + `</div>`;
+}
+
 function detail(b) {
   return b.flags.map(f => `<div class="flag">${pill(f.level)} <b>${usd0(f.usd)}</b> on <b>${esc(f.outcome)}</b> @ ${(+f.avg_price).toFixed(2)}
     · ${esc(f.market)} · ${esc(f.venue)} · ${(f.share * 100).toFixed(0)}% of match money
@@ -220,9 +233,12 @@ function plan() {
       <td class="r">${b.price != null ? b.price.toFixed(2) + `<div class="small">${Math.round(b.price * 100)}% implied</div>` : "–"}</td>
       <td class="r">${!b.bettable ? '<span class="small">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<div class="small good">to win ${usd(b.in_shares - b.in_stake, true)}</div>` : '<span class="small">next scan</span>'}</td>
       <td class="r">${usd0(b.money[b.side])} / ${usd0(other)}<div class="small">match ${usd0(b.flow)}</div></td></tr>
-      <tr class="detail" id="p-${i}" hidden><td colspan="7">${detail(b)}</td></tr>`;
+      <tr class="detail" id="p-${i}" hidden><td colspan="7">${whyHtml(b.why, "open")}
+        <div class="evidence"><h4 style="margin:0 0 6px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Raw evidence</h4>${detail(b)}</div></td></tr>`;
   }).join("");
-  tb.querySelectorAll("tr.m").forEach(tr => tr.onclick = () => { const d = document.getElementById("p-" + tr.dataset.i); d.hidden = !d.hidden; });
+  tb.querySelectorAll("tr.m").forEach(tr => tr.onclick = e => {
+    if (e.target.closest("a")) return;
+    const d = document.getElementById("p-" + tr.dataset.i); d.hidden = !d.hidden; });
 }
 
 function history() {
@@ -234,14 +250,18 @@ function history() {
   const tb = document.getElementById("t-hist");
   if (!bs.length) { tb.innerHTML = `<tr><td colspan="9" class="empty">Nothing here yet.</td></tr>`; return; }
   const label = {won: "Won", lost: "Lost", open: "Open", skipped: "Skipped", void: "Void"};
-  tb.innerHTML = bs.map(b => `<tr><td>${when(b.start)}</td>
+  tb.innerHTML = bs.map((b, i) => `<tr class="m" data-i="${i}"><td>${when(b.start)}<span class="hint">▸ why</span></td>
     <td>${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(short(b.match))}</a>` : esc(short(b.match))}</td>
     <td>${pathHtml(b.path, b.escalated)}</td><td class="side">${esc(b.side)}${b.flipped ? '<div class="small">side flipped later</div>' : ""}</td>
     <td class="r">${b.price.toFixed(2)}</td>
     <td class="r">${b.stake ? usd(b.stake) : "–"}${b.tranches.length > 1 ? `<div class="small">${b.tranches.filter(t => t.stake).map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</div>` : ""}</td>
     <td class="st-${b.status}">${label[b.status]}${b.status === "lost" && b.winner ? `<div class="small">${esc(b.winner)} won</div>` : ""}${b.status === "open" ? `<div class="small">to win ${usd(b.shares - b.stake, true)}</div>` : ""}</td>
     <td class="r ${cls(b.pnl)}">${b.status === "won" || b.status === "lost" ? usd(b.pnl, true) : "–"}</td>
-    <td class="r">${b.balance_after != null ? usd(b.balance_after) : "–"}</td></tr>`).join("");
+    <td class="r">${b.balance_after != null ? usd(b.balance_after) : "–"}</td></tr>
+    <tr class="detail" id="h-${i}" hidden><td colspan="9">${whyHtml(b.why, b.status)}</td></tr>`).join("");
+  tb.querySelectorAll("tr.m").forEach(tr => tr.onclick = e => {
+    if (e.target.closest("a")) return;
+    const d = document.getElementById("h-" + tr.dataset.i); d.hidden = !d.hidden; });
 }
 
 document.querySelectorAll("#f-hist button").forEach(b => b.onclick = () => {

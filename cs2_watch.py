@@ -608,7 +608,7 @@ def corroborate(rows):
 
 LEVELS = ["HIGH", "MEDIUM", "LOW", ""]
 FLAG_KEYS = ("venue", "market", "outcome", "usd", "avg_price", "share", "level", "pts", "why", "name", "wallet",
-             "first", "profile")
+             "first", "profile", "pre_match", "move", "x_p90", "wallet_info")
 
 
 def team_for(outcome, teams):
@@ -692,7 +692,10 @@ def record(led, matches, mode, now):
             last = hist[-1] if hist else None
             if not last or (last["level"], last["side"]) != (m["level"], m["fix_side"]):
                 hist = hist + [dict(t=now, level=m["level"], pts=m["pts"], side=m["fix_side"],
-                                    price=m["prices"].get(m["fix_side"]) if m["fix_side"] else None)]
+                                    price=m["prices"].get(m["fix_side"]) if m["fix_side"] else None,
+                                    # the evidence as it stood at this moment, so a bet can explain itself later
+                                    snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
+                                              conflict=m["conflict"]) if m["level"] else None)]
         led[k] = {f: m[f] for f in LEDGER_KEYS} | dict(mode=mode, made=now, history=hist,
                                                        winner=m["winner"] if mode == "backtest" else None)
 

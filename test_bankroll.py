@@ -51,10 +51,28 @@ def test_cannot_afford_is_skipped_and_only_polymarket_after_opening_before_kicko
 def test_ledger_history_records_only_changes():
     m = dict(id="x", match="Counter-Strike: A vs B", tier="low", start=T0 + 9999, teams=["A", "B"], level="LOW",
              pts=4, conflict=False, fix_side="A", tracked="A", tracked_is="flagged", price=0.4,
-             prices={"A": 0.4, "B": 0.6}, refs={"poly": "s"}, urls={}, money={}, winner=None)
+             prices={"A": 0.4, "B": 0.6}, refs={"poly": "s"}, urls={}, money={}, winner=None, flags=[], flow=0)
     led = {}
     C.record(led, [m], "live", T0)
     C.record(led, [dict(m, price=0.41, prices={"A": 0.41, "B": 0.59})], "live", T0 + 600)
     C.record(led, [dict(m, level="HIGH", pts=10, prices={"A": 0.45, "B": 0.55})], "live", T0 + 1200)
     h = led["live|x"]["history"]
     assert [(x["level"], x["price"]) for x in h] == [("LOW", 0.4), ("HIGH", 0.45)]
+
+
+def test_explanation_reads_like_the_evidence_and_the_stake_steps():
+    flag = dict(venue="poly", outcome="A", usd=18000, avg_price=0.35, share=0.69, level="HIGH", pts=11, why=[],
+                name="fresh1", first=T0 - 3600, pre_match=True, move=0.12, x_p90=40,
+                wallet_info=dict(created=T0 - 2 * 86400, traded=3, first_trade=T0 - 7200))
+    snap = dict(flags=[flag], money={"A": 18000, "B": 0}, flow=26000, tier="low", conflict=False)
+    led = {"1": rec(1, [(T0, "LOW", "A", 0.30), (T0 + 600, "HIGH", "A", 0.35)], winner="A")}
+    for h in led["1"]["history"]:
+        h["snap"] = snap
+    bets, _, _ = B.run(led, T0, T0 + 10 * 86400)
+    w = bets[0]["why"]
+    text = w["headline"] + " ".join(b for s in w["sections"] for b in s["bullets"])
+    assert w["headline"].startswith("$60 on A to beat B")
+    assert "brand-new" in text and "only 3 markets" in text and "69%" in text
+    assert "escalated to HIGH" in text and "1.5x" in text and "underdog" in text and "A won" in text
+    assert [s["title"] for s in w["sections"]] == ["Why it was flagged", "Why this stake", "Context",
+                                                   "Why it could be wrong", "Result"]
