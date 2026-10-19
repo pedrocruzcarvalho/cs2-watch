@@ -127,6 +127,9 @@ tr.row.open .chev { transform: rotate(90deg); }
 .lv { display: inline-flex; align-items: center; gap: 5px; font: 700 11.5px/1 "Chakra Petch", sans-serif; letter-spacing: .06em; white-space: nowrap; }
 .lv::before { content: ""; width: 7px; height: 7px; transform: rotate(45deg); background: currentColor; }
 .lv.HIGH { color: var(--high); } .lv.MEDIUM { color: var(--med); } .lv.LOW { color: var(--low); } .lv.LIVE { color: var(--live); }
+.lv.INFORMED { color: var(--ct); }
+.why-not { font-size: 12.5px; color: var(--mute); }
+.wl { display: grid; gap: 6px; } .wl div { font-size: 13.5px; color: var(--ink-2); }
 .path { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .path .to { color: var(--mute); font-size: 12px; }
 .times { font-size: 12px; color: var(--mute); margin-top: 3px; }
@@ -252,13 +255,13 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <header>
         <h2>Results</h2>
         <div class="tabs" role="group" aria-label="Group results by">
-          <button aria-pressed="true" data-v="level">Level</button><button aria-pressed="false" data-v="path">Path</button><button aria-pressed="false" data-v="market">Market</button>
+          <button aria-pressed="true" data-v="market">Market</button><button aria-pressed="false" data-v="tier">Tier</button><button aria-pressed="false" data-v="wallets">Wallets</button>
         </div>
       </header>
-      <p class="sub">Settled bets. Higher levels should earn more if the flags mean anything.</p>
+      <p class="sub">Settled bets of the informed-wallets account, grouped three ways.</p>
       <div class="body scroll">
         <table class="mini">
-          <thead><tr><th class="cap" id="res-col">Level</th><th class="cap r">W–L</th><th class="cap r">Staked</th><th class="cap r">P&amp;L</th><th class="cap r">ROI</th></tr></thead>
+          <thead><tr><th class="cap" id="res-col">Market</th><th class="cap r">W–L</th><th class="cap r">Staked</th><th class="cap r">P&amp;L</th><th class="cap r">ROI</th></tr></thead>
           <tbody id="t-res"></tbody>
         </table>
       </div>
@@ -266,17 +269,12 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   </div>
 
   <section class="panel flush" style="margin-top:16px">
-    <header><h2>Flagged right now</h2><span class="cap" id="flag-count"></span></header>
-    <p class="sub">Before kickoff and live. The bet goes in during the last 30 minutes before kickoff, at the level the match has then. Click a row for the reasons.</p>
-    <dl class="key">
-      <div><dt><span class="tag esc">escalated</span></dt><dd>The level went up before kickoff (for example LOW → MEDIUM), so the plan added money. The row explains what caused it.</dd></div>
-      <div><dt><span class="tag open">unusual volume</span></dt><dd>The match already has 5× the money a match of its tier normally has at this point before kickoff. It doesn't change the level (the backtest showed no benefit); at 10× or more a MEDIUM/HIGH flag is bet right away instead of in the last 30 minutes.</dd></div>
-      <div><dt><span class="tag won">↑ line move</span></dt><dd>On Polymarket this side's price rose 12+ cents in the 6 hours before kickoff (for example 0.40 → 0.52). Counts as +1 level.</dd></div>
-    </dl>
+    <header><h2>Informed money right now</h2><span class="cap" id="sig-count"></span></header>
+    <p class="sub">Upcoming matches where informed wallets have bet. A bet goes in during the last 30 minutes before kickoff when the money is $200+, one-sided, on a T3–T6 match. Click a row for the wallets and their records.</p>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Level path</th><th class="cap">Backing</th><th class="cap r">Price</th><th class="cap r">In</th><th class="cap r hide-sm">Flagged money</th></tr></thead>
-        <tbody id="t-plan"></tbody>
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Informed money</th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
+        <tbody id="t-sig"></tbody>
       </table>
     </div>
   </section>
@@ -288,15 +286,26 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Level path</th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Informed money</th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
         <tbody id="t-hist"></tbody>
       </table>
     </div>
   </section>
 
   <section class="panel flush" style="margin-top:16px">
+    <header><h2>Informed wallets</h2><span class="cap" id="wal-count"></span></header>
+    <p class="sub">Wallets whose last 21 days of CS2 bets (5+ bets of $20+, placed before kickoff, on finished matches) won far more often than their prices predicted: luck score 2.5+ and an edge of 10+ points. The list updates every 10 minutes as matches finish; wallets join and drop out on their own.</p>
+    <div class="body scroll">
+      <table class="stack">
+        <thead><tr><th class="cap">Wallet</th><th class="cap r">Bets</th><th class="cap r">Won</th><th class="cap r">Prices predicted</th><th class="cap r">Edge</th><th class="cap r">Luck score</th><th class="cap r">Money bet</th><th class="cap">Betting now</th></tr></thead>
+        <tbody id="t-wal"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel flush" style="margin-top:16px">
     <header><h2>Watched wallets</h2><span class="cap" id="watch-count"></span></header>
-    <p class="sub">Wallets join automatically when a MEDIUM/HIGH-flagged bet of theirs wins, or when they're flagged on two different matches. You can add your own. Each one is checked against its full Polymarket history: someone who keeps buying at 0.40 should win about 40% of the time, and the <b>luck score</b> says how far above that they are (below 1 = normal luck, above 2.5 = very unlikely to be luck). <b>Suspect</b> wallets add +5 points and lift their bets to MEDIUM from $500 and HIGH from $3,000; sharp bettors add +3, unclear +2, lucky whales +1. Wallets you add count as suspect.</p>
+    <p class="sub">Wallets you're keeping an eye on, plus ones the old big-bet flags picked up. Each is checked against its full Polymarket history (luck score: below 1 = normal luck, above 2.5 = very unlikely to be luck). These are for your information; the paper account bets only on informed wallets above.</p>
     <form class="watch-form" id="watch-form" autocomplete="off">
       <input id="w-addr" placeholder="Wallet address or Polymarket profile link" aria-label="Wallet address or Polymarket profile link" required>
       <input id="w-note" placeholder="Why (optional, e.g. 'named by shyux')" aria-label="Why you're watching it" maxlength="200">
@@ -314,20 +323,13 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   <details class="panel plan">
     <summary>How the plan works</summary>
     <ul class="rules">
-      <li><b>Paper only.</b> Starts at $300. Nothing is ever placed for real.</li>
-      <li><b>First flag:</b> $40 on HIGH, $20 on MEDIUM, $10 on LOW, on the side the suspicious money backed.</li>
-      <li><b>Escalation</b> (LOW → MEDIUM → HIGH before kickoff) tops up to <span id="esc-x">1.5</span>× the new level's stake. LOW → HIGH is $60 in total.</li>
-      <li><b>LIVE:</b> a bet placed during the match that passes a far stricter test (fresh or watched wallet, $5k+, 25%+ of the match) adds $20 on that side, never against an existing bet.</li>
-      <li><b>Every market on its own:</b> match winner, maps, total maps, map handicap, rounds. Side markets are bet only once something in them is flagged.</li>
-      <li><b>Real prices:</b> each bet fills against Polymarket's order book at that moment, fee included. If nobody is selling, nothing is bet.</li>
-      <li><b>Also flagged:</b> split bets (3+ fresh wallets, $5k+ together) and line moves (the flagged side up 12c+ in the 6 hours before kickoff raises the level).</li>
-      <li><b>When bets go in:</b> since Oct 19 21:26 UTC, new bets are placed in the last 30 minutes before kickoff, at the level the match has then (1.5× if the flag rose during the day). Money on these matches mostly arrives in the final hour. Bets placed earlier stay as they were.</li>
-      <li><b>Tiers from Valve's own ranking:</b> T1 #1–20, T2 #21–50, T3 #51–100, T4 #101–200, T5 #201+, T6 unranked. Matches where both teams are top 30, or big-stage events, are skipped.</li>
-      <li><b>Who would have to throw:</b> backing one side means the other has to lose on purpose. Teams in Valve's top 40 are assumed not to fix (e.g. BIG #25), so those flags are dropped and nothing is bet. Exceptions that can still be flagged: Alliance, HOTU, 5star, TYLOO, Lynn Vision, Dendele, Eternal Fire, SINNERS, JiJieHao, K27, Nuclear TigeRES, Sangal, Wildcard, magic, Nemiga, 1win, BetBoom, MIBR.</li>
-      <li><b>Unusual volume:</b> a match with 5× the money its tier normally has at that point before kickoff (and at least 2× a whole typical match) is marked. It no longer changes the level: the 30-day backtest showed it added nothing. At 10× or more, a MEDIUM or HIGH flag is bet straight away instead of waiting for the last 30 minutes.</li>
-      <li><b>Share of the match is judged against kickoff:</b> money on these matches arrives late (about 10% is in 6 hours before kickoff, half in the last hour), so a bet's share is measured against the money the match is expected to have by kickoff, never less than a typical match of its tier. An early $6,000 that is 86% of the market 12 hours out counts as about 25%.</li>
-      <li><b>Size floors:</b> Polymarket stakes are big, so a flag needs real money: LOW from $3k, MEDIUM from $5k (or $3k if it's 30%+ of the match), HIGH from $10k (or $5k at 30%+).</li>
-      <li><b>Downgrades</b> keep what's in. If the flagged side flips, no new money goes in. A bet the balance can't cover is skipped.</li>
+      <li><b>Paper only.</b> A fresh $300 account, started Oct 20 2026. Nothing is ever placed for real.</li>
+      <li><b>Informed wallet:</b> in its last 21 days, 5+ CS2 bets of $20+ placed before kickoff on matches that have finished, with a luck score of 2.5+ (pure luck gets there about 0.6% of the time) and wins at least 10 points above what its prices predicted.</li>
+      <li><b>Luck score:</b> how many standard deviations a wallet's wins are above what the prices it paid predicted. Buying at 0.50 on 30 bets should win about 15; winning 25 is a luck score of about 3.7.</li>
+      <li><b>Signal:</b> on a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), informed wallets have $200+ net on one side of a market, and less than half of that on the other side. Any market counts: match, maps, totals, rounds.</li>
+      <li><b>Bet:</b> $20 on that side, once per market, placed in the last 30 minutes before kickoff, filled against Polymarket's real order book with the fee. No sellers, no bet.</li>
+      <li><b>Why these rules:</b> in a 60-day walk-forward test (2,767 matches, 58,458 positions, no hindsight), following these wallets returned +17.5% over 55 bets and was positive in both halves. Without the $200 condition the edge disappeared. These settings were fixed before any live bet, so the live results are a fair test.</li>
+      <li><b>Data:</b> Polymarket only. Tiers come from Valve's Regional Standings, refreshed daily.</li>
     </ul>
   </details>
 </main>
@@ -349,8 +351,8 @@ const rel = ts => { const m = (ts - nowS()) / 60, a = Math.abs(m);
 const short = t => String(t).replace(/^Counter-Strike:\s*/, "");
 const split = t => { const s = short(t); const i = s.indexOf(" - "); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 3)]; };
 const lv = l => `<span class="lv ${l}">${l}</span>`;
-const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)"};
-let D = null, resMode = "level", histFilter = "all";
+const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
+let D = null, resMode = "market", histFilter = "all";
 const opened = new Set();
 
 function pathHtml(path, escd) {
@@ -414,9 +416,8 @@ function board() {
   $("k-dd-d").textContent = `best ${usd(s.best, true)} · worst ${usd(s.worst, true)}`;
   const age = (nowS() - D.at) / 60, stale = age > 25;
   $("status").innerHTML = `<span class="dot ${stale ? "stale" : ""}"></span><span>${stale ? "<b>stale</b> · " : ""}scanned ${age < 1 ? "just now" : Math.round(age) + " min ago"}</span>
-    <span class="long">· ${D.scanned} matches · ${D.flagged} flagged</span>`;
+    <span class="long">· ${D.scanned} markets · ${(D.wallets || []).length} informed wallets · ${D.flagged} signals</span>`;
   $("since").textContent = "since " + new Date(D.opened_at * 1000).toLocaleDateString([], {day: "numeric", month: "short"});
-  $("esc-x").textContent = s.escalation;
 }
 
 function chart() {
@@ -454,46 +455,75 @@ function tape() {
 
 function results() {
   const s = D.stats;
-  const rows = resMode === "level" ? s.by_level.map(r => ({...r, label: lv(r.level) + ` <span class="cap">${usd0(r.stake)}</span>`}))
-    : resMode === "path" ? (s.by_path || []).map(r => ({...r, label: r.name === "escalated" ? '<span class="tag esc">escalated</span>' : r.name === "live bet added" ? lv("LIVE") + ' <span class="cap">added</span>' : esc(r.name)}))
-    : (s.by_market || []).map(r => ({...r, label: esc(r.name)}));
-  $("res-col").textContent = {level: "Level", path: "Path", market: "Market"}[resMode];
+  const rows = (resMode === "tier" ? s.by_tier : resMode === "wallets" ? s.by_wallets : s.by_market || []).map(r => ({...r, label: esc(r.name)}));
+  $("res-col").textContent = {market: "Market", tier: "Tier", wallets: "Wallets"}[resMode];
   $("t-res").innerHTML = rows.map(r => `<tr><td>${r.label}</td><td class="r num">${r.won}–${r.lost}</td><td class="r num">${usd0(r.staked)}</td>
     <td class="r num ${tone(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td><td class="r num ${tone(r.roi)}">${pct(r.roi, true)}</td></tr>`).join("");
 }
 
-function plan() {
-  const ps = D.planned, tb = $("t-plan");
-  $("flag-count").textContent = ps.length ? `${ps.length} market${ps.length > 1 ? "s" : ""}` : "";
-  if (!ps.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">Nothing flagged in the next 36 hours. The scan runs every 10 minutes.</td></tr>'; return; }
-  tb.innerHTML = ps.map((b, i) => {
-    const other = Object.entries(b.money || {}).filter(([t]) => t !== b.side).reduce((a, [, v]) => a + v, 0);
-    const k = key(b), isOpen = opened.has("p-" + k);
-    const links = Object.entries(b.urls || {}).map(([v, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${v === "poly" ? "Polymarket" : "Kalshi"}</a>`).join(" · ");
+function wname(x) {
+  return x.name && !x.name.startsWith("0x") ? x.name : x.wallet.slice(0, 6) + "…" + x.wallet.slice(-4);
+}
+function walletRecord(x) {
+  const r = x.record;
+  return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
+    put <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)} · last 21 days: <b class="num">${r.wins}–${r.losses}</b>,
+    won ${Math.round(r.win_rate * 100)}% at prices that predicted ${Math.round(r.avg_price * 100)}% · edge ${r.edge >= 0 ? "+" : ""}${Math.round(r.edge * 100)} pts · luck score ${r.z.toFixed(1)}</div>`;
+}
+function signals() {
+  const ss = D.signals || [], tb = $("t-sig");
+  const act = ss.filter(x => x.active).length;
+  $("sig-count").textContent = ss.length ? `${act} signal${act === 1 ? "" : "s"} · ${ss.length} with informed money` : "";
+  if (!ss.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No informed wallet has bet on an upcoming match yet. The scan runs every 10 minutes.</td></tr>'; return; }
+  tb.innerHTML = ss.map((x, i) => {
+    const k = esc(x.cid), isOpen = opened.has("s-" + k), px = x.prices[x.side];
+    const status = x.placed ? (x.placed.status === "open" ? `<span class="tag open">bet ${usd(x.placed.stake)}</span><span class="split">at ${x.placed.price.toFixed(3)}</span>`
+        : `<span class="tag skipped">${esc(x.placed.status)}</span>`)
+      : x.active ? (x.start - nowS() <= 1800 ? '<span class="tag open">betting now</span>' : `<span class="tag won">signal</span><span class="split">bets ${rel(x.start - 1800)}</span>`)
+      : `<span class="tag skipped">no bet</span><span class="split">${esc(x.why_not.join("; "))}</span>`;
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
-      <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(b.start)}</b><span style="display:block;padding-left:16px">${b.live_now ? '<span class="tag live now">live now</span>' : day(b.start) + " · " + rel(b.start)}</span></td>
-      ${matchCell(b)}
-      <td data-label="Level"><div>${pathHtml(b.path, b.escalated)}<div class="times">${b.pts} pts${b.conflict ? " · money on both sides" : ""}</div>${b.sharp ? `<span class="tag ${b.sharp.agree ? "won" : "lost"}" style="margin-top:4px" title="${b.sharp.agree ? "+1 level" : "-1 level"}: ${esc(b.sharp.book)} moved ${Math.round(b.sharp.move * 100)} points ${b.sharp.agree ? "towards" : "against"} this side in 12 h">${b.sharp.agree ? "↑ bookmakers agree" : "↓ bookmakers disagree"}</span>` : ""}${b.steam ? '<span class="tag won" style="margin-top:4px" title="+1 level: the Polymarket price moved 12+ cents towards this side in the 6 h before kickoff">↑ line move</span>' : ""}${b.volume ? `<span class="tag open" style="margin-top:4px" title="${esc(b.volume.vtier)} match with ${usd0(b.volume.flow)} already traded, about ${Math.round(b.volume.ratio)}x normal for this point before kickoff">unusual volume</span>` : ""}</div></td>
-      <td class="side" data-label="Backing">${esc(b.side)}${b.flipped ? `<span class="split">flipped · bet stays on ${esc(b.bet_side)}</span>` : ""}</td>
-      <td class="r num" data-label="Price">${b.price != null ? b.price.toFixed(2) + `<span class="split">${Math.round(b.price * 100)}%</span>` : "–"}${b.steam ? `<span class="split pos">↑ from ${b.steam.low.toFixed(2)}</span>` : ""}${bookLine(b)}</td>
-      <td class="r num" data-label="In">${!b.bettable ? '<span class="split">not on Polymarket</span>' : b.in_stake ? usd(b.in_stake) + `<span class="split pos">to win ${usd(b.in_shares - b.in_stake, true)}</span>` : '<span class="split">bets 30 min before kickoff</span>'}</td>
-      <td class="r num hide-sm">${usd0((b.money || {})[b.side])} <span style="color:var(--mute)">/ ${usd0(other)}</span><span class="split">of ${usd0(b.flow)} · ${links}</span></td></tr>
-      <tr class="more" id="p-${i}" ${isOpen ? "" : "hidden"}><td colspan="7">${whyHtml(b.why, "open")}${evidence(b)}</td></tr>`;
+      <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(x.start)}</b><span style="display:block;padding-left:16px">${day(x.start)} · ${rel(x.start)}</span></td>
+      ${matchCell({match: x.match, url: x.url, vtier: x.vtier, kind: x.market === "Match Winner" ? "match" : "side", market: x.market}, true)}
+      <td data-label="Informed"><b class="num">${usd0(x.money)}</b> <span style="color:var(--mute)">/ ${usd0(x.other_money)}</span><span class="split">${x.wallets.length} wallet${x.wallets.length === 1 ? "" : "s"}: ${x.wallets.slice(0, 3).map(w => esc(wname(w))).join(", ")}</span></td>
+      <td class="side" data-label="Bet on">${esc(x.side)}</td>
+      <td class="r num" data-label="Price">${px != null ? px.toFixed(2) + `<span class="split">${Math.round(px * 100)}%</span>` : "–"}</td>
+      <td data-label="Status">${status}</td></tr>
+      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">Informed wallets on ${esc(x.side)}</p><div class="wl">${x.wallets.map(walletRecord).join("")}</div>
+        ${x.against.length ? `<p class="head" style="margin-top:14px">On the other side</p><div class="wl">${x.against.map(walletRecord).join("")}</div>` : ""}
+        ${x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
   }).join("");
-  toggleRows(tb, "p-");
+  toggleRows(tb, "s-");
+}
+function walletsPanel() {
+  const ws = D.wallets || [], tb = $("t-wal");
+  $("wal-count").textContent = ws.length ? `${ws.length} right now` : "";
+  if (!ws.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No wallet meets the bar right now.</td></tr>'; return; }
+  tb.innerHTML = ws.map(w => {
+    const r = w.record;
+    const bets = w.betting.length ? w.betting.map(b => `<div>${b.side === "other" ? "against the signal · " : ""}<b class="num">${usd0(b.usd)}</b> · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
+      : '<span class="split">no upcoming bets</span>';
+    return `<tr><td data-label="Wallet"><a href="https://polymarket.com/profile/${esc(w.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(w))}</b></a><span class="split">${esc(w.wallet.slice(0, 10))}…</span></td>
+      <td class="r num" data-label="Bets">${r.n}</td>
+      <td class="r num" data-label="Won"><span class="pos">${r.wins}</span>–<span class="neg">${r.losses}</span><span class="split">${Math.round(r.win_rate * 100)}%</span></td>
+      <td class="r num" data-label="Predicted">${Math.round(r.avg_price * 100)}%</td>
+      <td class="r num pos" data-label="Edge">+${Math.round(r.edge * 100)} pts</td>
+      <td class="r num" data-label="Luck">${r.z.toFixed(1)}</td>
+      <td class="r num" data-label="Money">${usd0(r.usd)}</td>
+      <td class="betting" data-label="Betting">${bets}</td></tr>`;
+  }).join("");
 }
 
 function history() {
   const all = D.bets, bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
   $("hist-count").textContent = all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "";
-  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : "No bets yet. The first goes in when a match is flagged."}</td></tr>`; return; }
+  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : "No bets yet. The first goes in 30 minutes before the first match with an informed signal."}</td></tr>`; return; }
   const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded"};
   tb.innerHTML = bs.map((b, i) => {
     const k = key(b), isOpen = opened.has("h-" + k), tr = (b.tranches || []).filter(t => t.stake);
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(b.start)}</b><span style="display:block;padding-left:16px">${day(b.start)}</span></td>
       ${matchCell(b, true)}
-      <td data-label="Level"><div>${pathHtml(b.path, b.escalated)}</div></td>
+      <td data-label="Informed">${b.wallets ? `<b class="num">${usd0(b.money)}</b><span class="split">${b.wallets.length} wallet${b.wallets.length === 1 ? "" : "s"}</span>` : `<div>${pathHtml(b.path, b.escalated)}</div>`}</td>
       <td class="side" data-label="Bet on">${esc(b.side)}${b.flipped ? '<span class="split">side flipped later</span>' : ""}</td>
       <td class="r num" data-label="Avg price">${b.price.toFixed(2)}</td>
       <td class="r num" data-label="Staked">${b.stake ? usd(b.stake) : "–"}${tr.length > 1 ? `<span class="split">${tr.map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</span>` : ""}</td>
@@ -573,7 +603,7 @@ async function load() {
     const d = await r.json();
     if (!d.stats) throw new Error("No data yet: the first scan hasn't finished. It runs every 10 minutes.");
     await loadWatch();
-    D = d; board(); chart(); tape(); results(); plan(); history(); watch();
+    D = d; board(); chart(); tape(); results(); signals(); history(); walletsPanel(); watch();
   } catch (e) {
     if (!D) $("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }

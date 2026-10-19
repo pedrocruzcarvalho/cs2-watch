@@ -27,11 +27,13 @@ import bankroll as B
 import cs2_watch as C
 import oddspapi as O
 import teams as TM
+import informed as I
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
-        "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json"}
+        "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
+        "state:informed": "informed.json"}
 KEEP_DAYS = 90
 
 
@@ -69,6 +71,12 @@ class Files:
 
     def put(self, key, data):
         (self.root / key.replace(":", "_")).write_bytes(data)
+
+
+def fetch_winner(slug, cid):
+    e = C.get(f"{C.GAMMA}/events?slug={slug}")[0]
+    mk = next((m for m in e["markets"] if m["conditionId"] == cid), None)
+    return C.winner_of(mk, e.get("ended")) if mk else None
 
 
 def watch_weights(auto_watched, manual, profiles):
@@ -147,23 +155,34 @@ def tick(store, log=print):
     led = {k: r for k, r in led.items() if r["mode"] == "live" and r["start"] >= old}
     C.save_ledger(led)
 
-    bets, stats, series = B.run(led, meta["opened_at"], now.timestamp())
+    # ---- informed wallets: the paper account the dashboard shows (informed.py) ----
+    ist = O.load(work / "informed.json")
+    ts = now.timestamp()
+    added = I.add_resolved(ist, infos, ts)
+    qual = I.qualifying(ist, ts)
+    sigs = I.signals(infos, qual, C.vtier, ts)
+    I.settle(ist, infos, ts, fetch_winner, log=log)
+    I.place_bets(ist, sigs, ts, C.book_asks, B.fill, log=log)
+    (work / "informed.json").write_text(json.dumps(ist))
+    inf = I.dashboard(ist, sigs, qual, ts)
+    log(f"informed: +{added} resolved positions, {len(qual)} informed wallets, "
+        f"{sum(s['active'] for s in sigs)} active signals")
+
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
-    dash = dict(at=now.timestamp(), opened_at=meta["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
-                stakes=B.STAKES, stats=stats, series=series, bets=bets[:500],
-                planned=B.planned(matches, led, meta["opened_at"], now.timestamp()), scanned=len({m["match_id"] for m in matches}),
-                flagged=sum(1 for m in matches if m["level"]),
-                validation=C.validation(led),
-                watch=watch_view(auto_watched, manual, rows, profiles))
+    dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
+                stats=inf["stats"], series=inf["series"], bets=inf["bets"], signals=inf["signals"],
+                wallets=inf["wallets"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
+                flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles))
+    stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 
-    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi", "state:watch_auto", "state:profiles",
-                "state:vrs"):
+    for key in ("state:ledger", "state:wallets", "state:meta", "state:watch_auto", "state:profiles", "state:vrs",
+                "state:informed"):
         store.put(key, (work / KEYS[key]).read_bytes())
     store.put("dashboard", json.dumps(dash, default=str).encode())
-    log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} matches, {dash['flagged']} flagged, "
-        f"{len(dash['planned'])} planned bets, balance ${stats['balance']:.2f} "
+    log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} markets, {dash['flagged']} informed signals, "
+        f"balance ${stats['balance']:.2f} "
         f"({stats['wins']}W/{stats['losses']}L, {stats['open']} open)")
     return dash
 

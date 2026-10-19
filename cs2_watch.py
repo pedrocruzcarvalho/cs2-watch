@@ -290,7 +290,31 @@ def poly_positions(event, trades, cutoff=None):
         w = winner_of(markets[cid], event.get("ended"))
         p["won"] = None if w is None else w == outcome
         res.append(p)
+    stats["allpos"] = all_positions(real, start)
     return res, stats
+
+
+def all_positions(real, start, min_usd=20):
+    """Every wallet's net pre-kickoff position per market, small ones included, for wallet track records
+    (informed.py): [wallet, conditionId, outcome, net usd, average price paid, display name]."""
+    pos, names = {}, {}
+    for t in real:
+        if t["timestamp"] >= start:
+            continue
+        k = (t["proxyWallet"].lower(), t["conditionId"], t["outcome"])
+        p = pos.setdefault(k, [0.0, 0.0, 0.0])                      # shares bought, usd bought, usd sold
+        if t["side"] == "BUY":
+            p[0] += t["size"]
+            p[1] += t["size"] * t["price"]
+        else:
+            p[2] += t["size"] * t["price"]
+        names[k[0]] = t.get("name") or t.get("pseudonym") or ""
+    out = []
+    for (w, cid, o), (sb, ub, us) in pos.items():
+        net = ub - us
+        if net >= min_usd and sb > 0 and 0.03 < ub / sb < 0.97:
+            out.append([w, cid, o, round(net, 2), round(ub / sb, 4), names.get(w, "")])
+    return out
 
 
 def match_winner_market(event):
@@ -679,6 +703,7 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
             infos.append(dict(venue=venue, match=title, tier=t, start=start, market=mk["market"],
                               teams=mk["outcomes"], prices=mk["prices"], winner=mk["winner"], flow=mk["flow"],
                               cid=mk["cid"], tokens=mk.get("tokens", {}),
+                              allpos=[x for x in stats.get("allpos", []) if x[1] == mk["cid"]],
                               ref=e["slug"] if venue == "poly" else e["event_ticker"],
                               url=(f"https://polymarket.com/event/{e['slug']}" if venue == "poly"
                                    else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}")))
