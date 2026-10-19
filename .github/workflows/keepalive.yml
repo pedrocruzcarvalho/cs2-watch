@@ -1,0 +1,15 @@
+# GitHub switches off scheduled workflows after 60 days without repo activity; re-enabling resets that.
+name: keepalive
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+permissions:
+  actions: write
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/scan.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,7 @@
+name = "cs2-watch"
+pages_build_output_dir = "site"
+compatibility_date = "2026-10-01"
+
+[[kv_namespaces]]
+binding = "CS2"
+id = "KV_ID_PLACEHOLDER"

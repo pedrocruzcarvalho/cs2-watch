@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 Fix Watch</title>
+<style>
+:root {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422; --bar: rgba(13,13,13,0.92);
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --border: rgba(255,255,255,0.10); --grid: #2c2c2a;
+  --good: #19b319; --bad: #e66767; --line: #3987e5;
+  --high: #e66767; --med: #e0a23a; --low: #8c8a83;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f0efec; --bar: rgba(249,249,247,0.92);
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781; --border: rgba(11,11,11,0.10); --grid: #e1e0d9;
+    --good: #006300; --bad: #d03b3b; --line: #2a78d6;
+    --high: #c62f2f; --med: #a86a00; --low: #77756f;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f0efec; --bar: rgba(249,249,247,0.92);
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781; --border: rgba(11,11,11,0.10); --grid: #e1e0d9;
+  --good: #006300; --bad: #d03b3b; --line: #2a78d6;
+  --high: #c62f2f; --med: #a86a00; --low: #77756f;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--line); text-decoration: none; } a:hover { text-decoration: underline; }
+.bar { position: sticky; top: 0; z-index: 5; background: var(--bar); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.bar-in { max-width: 1280px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.brand { font-weight: 700; font-size: 15px; }
+.kpi { display: flex; flex-direction: column; min-width: 90px; }
+.kpi .k { font-size: 11px; color: var(--muted); }
+.kpi .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.spacer { flex: 1; } .meta { font-size: 12px; color: var(--muted); text-align: right; }
+.stale { color: var(--med); font-weight: 600; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 20px 24px 48px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.card h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; } .sub { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+.grid { display: grid; gap: 16px; margin-top: 16px; } .g-main { grid-template-columns: 1.7fr 1fr; }
+@media (max-width: 900px) { .g-main { grid-template-columns: 1fr; } .bar-in, .wrap { padding-left: 16px; padding-right: 16px; } .bar-in { gap: 14px; } }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; } td.r, th.r { text-align: right; }
+tr.m { cursor: pointer; } tr.m:hover td { background: var(--surface-2); }
+tr.detail td { background: var(--surface-2); padding: 10px 14px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.HIGH { color: var(--high); } .MEDIUM { color: var(--med); } .LOW { color: var(--low); }
+.st-won { color: var(--good); font-weight: 600; } .st-lost { color: var(--bad); font-weight: 600; } .st-open { color: var(--line); } .st-skipped, .st-void { color: var(--muted); }
+.good { color: var(--good); } .bad { color: var(--bad); }
+.small { font-size: 11.5px; color: var(--muted); }
+.side { font-weight: 600; }
+.flag { margin: 0 0 9px; } .flag:last-child { margin: 0; } .flag .why { color: var(--ink-2); font-size: 12px; }
+.tools { display: flex; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
+.tools button { font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--ink-2); cursor: pointer; }
+.tools button.on { background: var(--surface-2); color: var(--ink); border-color: var(--muted); }
+.empty { color: var(--muted); padding: 22px 8px; text-align: center; }
+.chart svg { display: block; width: 100%; height: 240px; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.rules { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 12.5px; } .rules li { margin: 0 0 6px; }
+.err { color: var(--bad); padding: 40px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <div class="brand">CS2 Fix Watch</div>
+  <div class="kpi"><span class="k">Balance</span><span class="v" id="k-bal">–</span><span class="d" id="k-bal-d"></span></div>
+  <div class="kpi"><span class="k">Profit</span><span class="v" id="k-pnl">–</span><span class="d" id="k-pnl-d"></span></div>
+  <div class="kpi"><span class="k">Record</span><span class="v" id="k-rec">–</span><span class="d" id="k-rec-d"></span></div>
+  <div class="kpi"><span class="k">Open bets</span><span class="v" id="k-open">–</span><span class="d" id="k-open-d"></span></div>
+  <div class="kpi"><span class="k">Max drawdown</span><span class="v" id="k-dd">–</span><span class="d" id="k-dd-d"></span></div>
+  <div class="spacer"></div>
+  <div class="meta" id="meta">loading…</div>
+</div></div>
+
+<div class="wrap" id="app">
+  <div class="grid g-main" style="margin-top:0">
+    <div class="card">
+      <h3>Balance</h3>
+      <p class="sub" id="chart-sub">Paper account, open bets counted at their stake. The dashed line is the $300 start.</p>
+      <div class="chart" id="chart"></div>
+    </div>
+    <div class="card">
+      <h3>By flag level</h3>
+      <p class="sub">Settled bets only. This is the real test: higher levels should do better.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Level</th><th class="r">Stake</th><th class="r">W–L</th><th class="r">P&amp;L</th><th class="r">ROI</th><th class="r">Open</th></tr></thead>
+        <tbody id="t-lvl"></tbody>
+      </table></div>
+      <ul class="rules" style="margin-top:14px">
+        <li>$300 start. <b>$40</b> on HIGH, <b>$20</b> on MEDIUM, <b>$10</b> on LOW, always on the side the flagged money backed.</li>
+        <li>Placed at kickoff at the last price seen before it (scans every ~10 min), +1c spread and Polymarket's fee.</li>
+        <li>Skipped if the balance can't cover it. Paper only: no real bets are placed.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>Flagged matches: upcoming bets</h3>
+    <p class="sub">What the plan will bet at kickoff if the flag still stands then. Flags can change until kickoff. Click a row for the wallets and reasons.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Kickoff</th><th>Match</th><th>Level</th><th>Bet on</th><th class="r">Price</th><th class="r">Stake</th><th class="r">To win</th><th class="r">Flagged $ (side / other)</th></tr></thead>
+      <tbody id="t-plan"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>Betting history</h3>
+    <p class="sub" id="hist-sub"></p>
+    <div class="tools" id="f-hist"><button data-v="all" class="on">All</button><button data-v="open">Open</button><button data-v="won">Won</button><button data-v="lost">Lost</button></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Kickoff</th><th>Match</th><th>Level</th><th>Bet on</th><th class="r">Price</th><th class="r">Stake</th><th>Result</th><th class="r">P&amp;L</th><th class="r">Balance</th></tr></thead>
+      <tbody id="t-hist"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const usd = (v, sign) => (sign && v > 0 ? "+" : v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const usd0 = v => "$" + Math.round(v || 0).toLocaleString();
+const pct = (v, sign) => v == null ? "–" : (sign && v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+const nowS = () => Date.now() / 1000;
+const when = ts => new Date(ts * 1000).toLocaleString([], {weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
+const rel = ts => { const m = (ts - nowS()) / 60, a = Math.abs(m);
+  const s = a < 60 ? Math.round(a) + " min" : a < 2880 ? (a / 60).toFixed(a < 600 ? 1 : 0) + " h" : Math.round(a / 1440) + " d";
+  return m >= 0 ? "in " + s : s + " ago"; };
+const short = t => String(t).replace(/^Counter-Strike:\s*/, "");
+const pill = l => `<span class="pill ${l}">${l}</span>`;
+const cls = v => v > 0 ? "good" : v < 0 ? "bad" : "";
+let D = null, histFilter = "all";
+
+function kpis() {
+  const s = D.stats;
+  document.getElementById("k-bal").textContent = usd(s.balance);
+  document.getElementById("k-bal-d").textContent = `cash · equity ${usd(s.equity)}`;
+  const p = document.getElementById("k-pnl"); p.textContent = usd(s.profit, true); p.className = "v " + cls(s.profit);
+  document.getElementById("k-pnl-d").textContent = `ROI on settled ${pct(s.roi, true)} · from ${usd0(s.start)}`;
+  document.getElementById("k-rec").textContent = `${s.wins}–${s.losses}`;
+  document.getElementById("k-rec-d").textContent = s.bets ? `win rate ${pct(s.win_rate)} · ${s.streak} streak` : "no settled bets yet";
+  document.getElementById("k-open").textContent = s.open;
+  document.getElementById("k-open-d").textContent = `${usd(s.at_risk)} at risk${s.skipped ? ` · ${s.skipped} skipped` : ""}`;
+  document.getElementById("k-dd").textContent = usd(-s.max_drawdown);
+  document.getElementById("k-dd-d").textContent = `best ${usd(s.best, true)} · worst ${usd(s.worst, true)}`;
+  const age = (nowS() - D.at) / 60;
+  document.getElementById("meta").innerHTML = `last scan ${age < 1 ? "just now" : Math.round(age) + " min ago"}${age > 30 ? ' <span class="stale">· stale</span>' : ""}<br>` +
+    `${D.scanned} matches · ${D.flagged} flagged · account opened ${new Date(D.opened_at * 1000).toLocaleDateString()}`;
+}
+
+function chart() {
+  const pts = D.series, box = document.getElementById("chart");
+  if (pts.length < 2) { box.innerHTML = `<div class="empty">The line starts with the first bet.</div>`; return; }
+  const W = 760, H = 240, L = 54, R = 12, T = 12, B = 26;
+  const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], nowS());
+  const vs = pts.map(p => p[1]).concat([D.stats.start]);
+  let lo = Math.min(...vs), hi = Math.max(...vs); const pad = Math.max(10, (hi - lo) * 0.12); lo -= pad; hi += pad;
+  const x = t => L + (t - t0) / Math.max(t1 - t0, 1) * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Balance over time">`;
+  for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">$${Math.round(v)}</text>`; }
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(D.stats.start)}" y2="${y(D.stats.start)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+  let d = `M${x(pts[0][0])},${y(pts[0][1])}`;                     // step line: balance only moves on bets
+  for (const [t, v] of pts.slice(1)) d += ` H${x(t)} V${y(v)}`;
+  d += ` H${x(t1)}`;
+  const last = pts[pts.length - 1][1];
+  s += `<path d="${d}" fill="none" stroke="${last >= D.stats.start ? "var(--good)" : "var(--bad)"}" stroke-width="2"/>`;
+  s += `<text x="${L}" y="${H - 6}">${new Date(t0 * 1000).toLocaleDateString([], {day: "numeric", month: "short"})}</text>
+        <text x="${W - R}" y="${H - 6}" text-anchor="end">now</text></svg>`;
+  box.innerHTML = s;
+}
+
+function levels() {
+  document.getElementById("t-lvl").innerHTML = D.stats.by_level.map(r => `<tr><td>${pill(r.level)}</td><td class="r">${usd0(r.stake)}</td>
+    <td class="r">${r.won}–${r.lost}</td><td class="r ${cls(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td>
+    <td class="r ${cls(r.roi)}">${pct(r.roi, true)}</td><td class="r">${r.open || ""}</td></tr>`).join("");
+}
+
+function detail(b) {
+  return b.flags.map(f => `<div class="flag">${pill(f.level)} <b>${usd0(f.usd)}</b> on <b>${esc(f.outcome)}</b> @ ${(+f.avg_price).toFixed(2)}
+    · ${esc(f.market)} · ${esc(f.venue)} · ${(f.share * 100).toFixed(0)}% of match money
+    ${f.profile ? ` · <a href="${esc(f.profile)}" target="_blank" rel="noopener">${esc(f.name || f.wallet.slice(0, 10))}</a>` : " · anonymous (Kalshi)"}
+    <div class="why">${(f.why || []).map(esc).join(" · ")}</div></div>`).join("") || `<span class="small">No details.</span>`;
+}
+
+function plan() {
+  const tb = document.getElementById("t-plan"), ps = D.planned;
+  if (!ps.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">No flagged matches in the next 36 hours.</td></tr>`; return; }
+  tb.innerHTML = ps.map((b, i) => {
+    const other = Object.entries(b.money).filter(([t]) => t !== b.side).reduce((a, [, v]) => a + v, 0);
+    const links = Object.entries(b.urls).map(([v, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${v === "poly" ? "Polymarket" : "Kalshi"}</a>`).join(" · ");
+    return `<tr class="m" data-i="${i}"><td>${when(b.start)}<div class="small">${rel(b.start)}</div></td>
+      <td>${esc(short(b.match))}<div class="small">${esc(b.tier)} tier · ${links}</div></td>
+      <td>${pill(b.level)} <span class="small">${b.pts} pts</span>${b.conflict ? '<div class="small">money on both sides</div>' : ""}</td>
+      <td class="side">${esc(b.side)}</td>
+      <td class="r">${b.price != null ? b.price.toFixed(2) + `<div class="small">${Math.round(b.price * 100)}% implied</div>` : "–"}</td>
+      <td class="r">${b.bettable ? usd0(b.stake) : '<span class="small">not on Polymarket</span>'}</td>
+      <td class="r ${b.to_win ? "good" : ""}">${b.to_win != null ? usd(b.to_win, true) : "–"}</td>
+      <td class="r">${usd0(b.money[b.side])} / ${usd0(other)}<div class="small">match ${usd0(b.flow)}</div></td></tr>
+      <tr class="detail" id="p-${i}" hidden><td colspan="8">${detail(b)}</td></tr>`;
+  }).join("");
+  tb.querySelectorAll("tr.m").forEach(tr => tr.onclick = () => { const d = document.getElementById("p-" + tr.dataset.i); d.hidden = !d.hidden; });
+}
+
+function history() {
+  const all = D.bets, bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter);
+  const s = D.stats;
+  document.getElementById("hist-sub").textContent = all.length
+    ? `${all.length} bets since the account opened · ${s.wins} won · ${s.losses} lost · ${s.open} open${s.skipped ? ` · ${s.skipped} skipped (balance too low)` : ""}`
+    : "No bets yet. The first one is placed when a flagged match kicks off.";
+  const tb = document.getElementById("t-hist");
+  if (!bs.length) { tb.innerHTML = `<tr><td colspan="9" class="empty">Nothing here yet.</td></tr>`; return; }
+  const label = {won: "Won", lost: "Lost", open: "Open", skipped: "Skipped", void: "Void"};
+  tb.innerHTML = bs.map(b => `<tr><td>${when(b.start)}</td>
+    <td>${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(short(b.match))}</a>` : esc(short(b.match))}</td>
+    <td>${pill(b.level)}</td><td class="side">${esc(b.side)}</td><td class="r">${b.price.toFixed(2)}</td>
+    <td class="r">${b.stake ? usd0(b.stake) : "–"}</td>
+    <td class="st-${b.status}">${label[b.status]}${b.status === "lost" && b.winner ? `<div class="small">${esc(b.winner)} won</div>` : ""}${b.status === "open" ? `<div class="small">to win ${usd(b.shares - b.stake, true)}</div>` : ""}</td>
+    <td class="r ${cls(b.pnl)}">${b.status === "won" || b.status === "lost" ? usd(b.pnl, true) : "–"}</td>
+    <td class="r">${b.balance_after != null ? usd(b.balance_after) : "–"}</td></tr>`).join("");
+}
+
+document.querySelectorAll("#f-hist button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#f-hist button").forEach(x => x.classList.toggle("on", x === b));
+  histFilter = b.dataset.v; history(); });
+
+async function load() {
+  try {
+    const r = await fetch("api/data?t=" + Date.now(), {cache: "no-store"});
+    const d = await r.json();
+    if (!d.stats) throw new Error("no data yet: the scanner hasn't run");
+    D = d; kpis(); chart(); levels(); plan(); history();
+  } catch (e) {
+    if (!D) document.getElementById("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>
