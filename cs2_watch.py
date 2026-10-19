@@ -838,7 +838,8 @@ def record(led, matches, mode, now):
                                     asks=book_asks(m.get("tokens", {}).get(m["fix_side"])) if m["level"] else None,
                                     # the evidence as it stood at this moment, so a bet can explain itself later
                                     snap=dict(flags=m["flags"][:5], money=m["money"], flow=m["flow"], tier=m["tier"],
-                                              conflict=m["conflict"], steam=m.get("steam")) if m["level"] else None)]
+                                              conflict=m["conflict"], steam=m.get("steam"), sharp=m.get("sharp"),
+                                              books=m.get("books")) if m["level"] else None)]
         line = list(led.get(k, {}).get("line", []))
         px0 = m["prices"].get(m["teams"][0]) if m.get("teams") else None
         if mode == "live" and px0 is not None and (not line or abs(line[-1][1] - px0) >= 0.005):

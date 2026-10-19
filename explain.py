@@ -189,6 +189,23 @@ def explain(side, teams, start, path, tranches, snap, *, escalation, stakes, sta
     ctx = []
     if kind in KIND_CONTEXT:
         ctx.append(KIND_CONTEXT[kind])
+    sh, books = snap.get("sharp"), snap.get("books") or {}
+    if sh and sh.get("agree"):
+        ctx.append(f"Bookmakers agree: at {sh['book']} the chance of {side} rose from {sh['start'] * 100:.0f}% to "
+                   f"{sh['now'] * 100:.0f}% since {hhmm(sh['since'])}. Bookmakers moving the same way as the flagged "
+                   f"money is strong corroboration, so the level went up one step (from {sh['raised_from']}).")
+    elif sh:
+        ctx.append(f"Bookmakers disagree: at {sh['book']} the chance of {side} fell from {sh['start'] * 100:.0f}% to "
+                   f"{sh['now'] * 100:.0f}% since {hhmm(sh['since'])}, against the flagged money, so the level went "
+                   f"down one step (from {sh['lowered_from']}).")
+    elif books:
+        v = next(iter(sorted(books.values(), key=lambda v: v["book"] != "Pinnacle")))
+        if abs(v["move"]) < 0.02:
+            ctx.append(f"At {v['book']}, {side} is at {v['now'] * 100:.0f}% and has barely moved over the last 12 "
+                       f"hours: the wider betting market isn't reacting to this money.")
+        else:
+            ctx.append(f"At {v['book']}, {side} is at {v['now'] * 100:.0f}% and moved {v['move'] * 100:+.0f} points over "
+                       f"the last 12 hours, short of the 6-point bar that would change the level.")
     st = snap.get("steam")
     if st:
         ctx.append(f"Line move: the price of {side} climbed from {st['low']:.2f} to {st['now']:.2f} since "

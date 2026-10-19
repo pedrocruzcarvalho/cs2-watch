@@ -25,9 +25,10 @@ from pathlib import Path
 
 import bankroll as B
 import cs2_watch as C
+import oddspapi as O
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
-        "state:meta": "meta.json"}
+        "state:meta": "meta.json", "state:oddspapi": "oddspapi.json"}
 KEEP_DAYS = 90
 
 
@@ -84,6 +85,9 @@ def tick(store, log=print):
     matches = C.build_matches(infos, rows)
     led = C.load_ledger()
     C.apply_line_moves(led, matches, now.timestamp())
+    odds = O.load(work / "oddspapi.json")
+    O.tick(odds, matches, now.timestamp(), log=log)                # bookmaker second opinion (budgeted)
+    (work / "oddspapi.json").write_text(json.dumps(odds))
     C.record(led, matches, "live", now.timestamp())
     C.backfill_snapshots(led, matches, now.timestamp())
     C.resolve(led, now.timestamp(), log=log)
@@ -101,7 +105,7 @@ def tick(store, log=print):
                 validation=C.validation(led))
     (work / "meta.json").write_text(json.dumps(meta))
 
-    for key in ("state:ledger", "state:wallets", "state:meta"):
+    for key in ("state:ledger", "state:wallets", "state:meta", "state:oddspapi"):
         store.put(key, (work / KEYS[key]).read_bytes())
     store.put("dashboard", json.dumps(dash, default=str).encode())
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} matches, {dash['flagged']} flagged, "

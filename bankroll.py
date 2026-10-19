@@ -233,7 +233,8 @@ def planned(matches, ledger, opened_at, now):
         path = [(h["level"], h["t"]) for h in hist.get((m["match"], m["start"], m["market"]), []) if h["level"] in STAKES]
         path = [p for i, p in enumerate(path) if i == 0 or p[0] != path[i - 1][0]]
         price = m["prices"].get(m["live_side"] if live_now else m["fix_side"])
-        snap = dict(flags=m["flags"], money=m["money"], flow=m["flow"], tier=m["tier"], conflict=m["conflict"])
+        snap = dict(flags=m["flags"], money=m["money"], flow=m["flow"], tier=m["tier"], conflict=m["conflict"],
+                    steam=m.get("steam"), sharp=m.get("sharp"), books=m.get("books"))
         if live_now:
             snap = dict(flags=m["live_flags"], money=m["live_money"], flow=m["flow"], tier=m["tier"], conflict=False,
                         live=True)
@@ -247,6 +248,7 @@ def planned(matches, ledger, opened_at, now):
                         level="LIVE" if live_now else m["level"], pts=m["pts"],
                         side=m["live_side"] if live_now else m["fix_side"],
                         price=price, bettable="poly" in m["refs"] and price is not None, steam=m.get("steam"),
+                        sharp=m.get("sharp"), books=m.get("books"),
                         in_stake=b["stake"] if b else 0.0, in_shares=b["shares"] if b else 0.0,
                         bet_side=b["side"] if b else None, escalated=bool(b and b["escalated"]),
                         flipped=bool(b and b["flipped"]), path=path, conflict=m["conflict"], tier=m["tier"],

@@ -10,6 +10,7 @@ against the real order book. Kalshi support remains in cs2_watch.py but is off i
 - `bankroll.py`   paper staking plan
 - `cloud_run.py`  one tick: scan, ledger, bankroll, publish (state in Cloudflare KV, not in this repo)
 - `explain.py`    plain-English explanation of every bet
+- `oddspapi.py`   bookmaker odds (1xBet/Stake/Pinnacle) as a second opinion; free key, 250 req/month, budgeted to <=200
 - `cron/`         Cloudflare worker that triggers the scan every 10 minutes
 - `site/` + `functions/`  dashboard on Cloudflare Pages (behind Cloudflare Access)
 
