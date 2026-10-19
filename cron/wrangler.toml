@@ -1,0 +1,9 @@
+# Cloudflare's cron is punctual; GitHub's schedule trigger is best-effort and was not firing.
+# This worker just asks GitHub to start the scan workflow every 10 minutes.
+name = "cs2-watch-cron"
+main = "index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[triggers]
+crons = ["*/10 * * * *"]
