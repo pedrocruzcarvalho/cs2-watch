@@ -183,8 +183,10 @@ def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_pri
 
 
 def sig_summary(s):
-    return {k: s[k] for k in ("match", "start", "market", "cid", "slug", "url", "teams", "side", "money", "other_money",
-                              "wallets", "vtier")}
+    out = {k: s[k] for k in ("match", "start", "market", "cid", "slug", "url", "teams", "side", "money", "other_money",
+                             "wallets", "vtier")}
+    out.update({k: s[k] for k in ("score", "leader", "leader_price", "leader_model", "gap") if k in s})   # oddshift.py
+    return out
 
 
 def settle(state, infos, now, fetch_winner, log=print):

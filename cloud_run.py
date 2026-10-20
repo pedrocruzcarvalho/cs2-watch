@@ -33,13 +33,14 @@ import oddspapi as O
 import teams as TM
 import informed as I
 import live_money as LM
+import oddshift as OS
 import wallet_history as WH
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
-        "state:informed": "informed.json", "state:livemoney": "livemoney.json"}
+        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json"}
 BUNDLE = "state:bundle"
 KEEP_DAYS = 90
 
@@ -193,13 +194,23 @@ def tick(store, log=print):
     log(f"live money: {len(lsigs)} markets with in-play money, {sum(s['active'] for s in lsigs)} active signals, "
         f"balance ${live['stats']['balance']:.2f}")
 
+    # ---- odd shifts: price vs scoreboard (oddshift.py) ----
+    ost = O.load(work / "oddshift.json")
+    osigs = OS.signals(ost, infos, C.vtier, ts)
+    I.settle(ost, infos, ts, fetch_winner, log=log)
+    I.place_bets(ost, osigs, ts, C.book_asks, B.fill, log=log, live=True, tag="odd shift")
+    (work / "oddshift.json").write_text(json.dumps(ost))
+    shift = OS.dashboard(ost, osigs, ts)
+    log(f"odd shifts: {len(osigs)} live matches with a score, {sum(s['active'] for s in osigs)} active signals, "
+        f"{shift['snaps']} snapshots kept, balance ${shift['stats']['balance']:.2f}")
+
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
                 stats=inf["stats"], series=inf["series"], bets=inf["bets"], signals=inf["signals"],
                 wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
-                live=live)
+                live=live, shift=shift)
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 

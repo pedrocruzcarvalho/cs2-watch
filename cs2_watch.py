@@ -730,6 +730,8 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
                               cid=mk["cid"], tokens=mk.get("tokens", {}),
                               allpos=[x for x in stats.get("allpos", []) if x[1] == mk["cid"]],
                               livepos=[x for x in stats.get("livepos", []) if x[1] == mk["cid"]],
+                              score=e.get("score") if venue == "poly" else None,
+                              live=e.get("live") if venue == "poly" else None,
                               ref=e["slug"] if venue == "poly" else e["event_ticker"],
                               url=(f"https://polymarket.com/event/{e['slug']}" if venue == "poly"
                                    else f"https://kalshi.com/markets/{e['event_ticker'].split('-')[0].lower()}")))

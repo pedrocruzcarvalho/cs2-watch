@@ -99,10 +99,11 @@ a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underl
 /* tabs */
 .tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; margin-left: auto; }
 .tabs button { font: 600 12.5px "Barlow", sans-serif; color: var(--mute); background: transparent; border: 0; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
-.accts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 16px; }
+.accts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 0 0 16px; }
 .acard { text-align: left; font: inherit; color: inherit; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 18px; cursor: pointer; min-width: 0; }
 .acard[aria-pressed="true"] { border-color: var(--t); }
-.acard .nm { font: 600 15px "Chakra Petch", sans-serif; display: flex; gap: 8px; align-items: center; }
+.acard .nm { font: 600 15px "Chakra Petch", sans-serif; }
+.acard .nm small { display: block; margin-top: 2px; }
 .acard .nm small { font: 500 12.5px "Barlow", sans-serif; color: var(--mute); }
 .acard .row1 { display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; margin-top: 6px; }
 .acard .big { font: 600 30px/1.1 "Chakra Petch", sans-serif; }
@@ -115,7 +116,6 @@ details.plan .panel { box-shadow: none; border: 0; border-top: 1px solid var(--l
 .acct button { font-size: 14px; padding: 7px 16px; }
 .acct .tabs { margin-left: 0; }
 .acct p { margin: 8px 2px 0; color: var(--mute); font-size: 13.5px; max-width: 900px; }
-body[data-acct="live"] [data-only="informed"], body:not([data-acct="live"]) [data-only="live"] { display: none !important; }
 .tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
 
 /* tables */
@@ -244,8 +244,6 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
 <main class="wrap" id="app">
   <nav class="accts" id="accts" aria-label="Paper accounts">
-    <button class="acard" data-v="live" aria-pressed="false"><div class="nm">Live big money <small>copies $3k+ bets placed during low-tier matches</small></div><div id="c-live"></div></button>
-    <button class="acard" data-v="informed" aria-pressed="false"><div class="nm">Informed wallets <small>copies hot wallets before kickoff</small></div><div id="c-informed"></div></button>
   </nav>
   <section class="board" aria-label="Paper account">
     <div class="cell"><div class="cap">Balance</div><div class="v num" id="k-bal">–</div><div class="d num" id="k-bal-d"></div></div>
@@ -257,11 +255,10 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
   <section class="panel flush" style="margin-top:0">
     <header><h2>Betting now</h2><span class="cap" id="sig-count"></span></header>
-    <p class="sub" data-only="informed">Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.</p>
-    <p class="sub" data-only="live">Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.</p>
+    <p class="sub" id="sig-sub"></p>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Biggest wallet / other side</span></th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap" id="th-money"></th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
         <tbody id="t-sig"></tbody>
       </table>
     </div>
@@ -275,7 +272,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Wallet money</span></th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap" id="th-hmoney"></th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
         <tbody id="t-hist"></tbody>
       </table>
     </div>
@@ -357,6 +354,18 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
   </details>
 
+  <details class="panel plan" data-only="shift">
+    <summary>How the odd-shift plan works</summary>
+    <ul class="rules">
+      <li><b>Paper only.</b> A separate $300 account, started Oct 20 2026.</li>
+      <li><b>The idea:</b> during a match the price should follow the scoreboard. When the team that is clearly ahead trades far below what the score says, someone may know it won't finish the job (your examples: Damajuana a map up at 35%, Revise 7–3 up in the decider at 19%, G2 Ares 14–12 up at 0.3%; all three lost).</li>
+      <li><b>Fair price from the score:</b> Polymarket's live score (rounds in the current map, maps won). Each round is treated as a coin tilted by the teams' pre-match price, a map is first to 13 with overtime in blocks of 6, the series best of 1/3/5.</li>
+      <li><b>Signal:</b> live T2–T6 match, match-winner market, the scoreboard leader is 60%+ by that model, and the market prices it at least 35 points lower.</li>
+      <li><b>Bet:</b> $20 on the team the market prefers (the one behind on the scoreboard), once per match, at the next scan, filled against the real order book. Skipped at 0.97+.</li>
+      <li><b>Not backtested.</b> Polymarket keeps no score history, so this rule starts untested. Every live score and price is stored from today so it can be checked properly later.</li>
+    </ul>
+  </details>
+
   <details class="panel plan" data-only="live">
     <summary>How the live plan works</summary>
     <ul class="rules">
@@ -415,7 +424,19 @@ const split = t => { const s = short(t); const i = s.indexOf(" - "); return i < 
 const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
 let D = null, RAW = null, resMode = "market", histFilter = "all", showAllSigs = false;
-let acct = (() => { try { return location.hash === "#informed" || (location.hash !== "#live" && localStorage.getItem("acct") === "informed") ? "informed" : "live"; } catch { return "live"; } })();
+const ACCTS = {
+  live: {name: "Live big money", sub: "copies $3k+ bets placed during low-tier matches", data: d => d.live,
+         sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
+         empty: "A bet appears when one wallet puts $3k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
+  shift: {name: "Odd shifts", sub: "follows the market when it contradicts the scoreboard", data: d => d.shift,
+         sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T2–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
+         empty: "A bet appears when a live T2–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},
+  informed: {name: "Informed wallets", sub: "copies hot wallets before kickoff", data: d => d,
+         sig: "Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.",
+         empty: "A bet appears when informed wallets put $200+ on one side of a T3–T6 match.", money: "Informed money", hmoney: "Informed money", head: "Informed wallets", what: "informed"},
+};
+const scoreText = sc => sc ? `${esc(sc.home)} ${sc.rounds[0]}–${sc.rounds[1]} ${esc(sc.away)}${sc.bo > 1 ? ` · maps ${sc.maps[0]}–${sc.maps[1]}` : ""}` : "–";
+let acct = (() => { try { const h = location.hash.slice(1), st = localStorage.getItem("acct"); return ACCTS[h] ? h : ACCTS[st] ? st : "live"; } catch { return "live"; } })();
 const opened = new Set();
 
 function pathHtml(path, escd) {
@@ -479,7 +500,7 @@ function board() {
   $("k-dd-d").textContent = `best ${usd(s.best, true)} · worst ${usd(s.worst, true)}`;
   const age = (nowS() - D.at) / 60, stale = age > 25;
   $("status").innerHTML = `<span class="dot ${stale ? "stale" : ""}"></span><span>${stale ? "<b>stale</b> · " : ""}scanned ${age < 1 ? "just now" : Math.round(age) + " min ago"}</span>
-    <span class="long">· ${D.scanned} markets · ${acct === "live" ? (D.signals || []).length + " in play" : (D.wallets || []).length + " informed wallets"} · ${(D.signals || []).filter(x => x.active).length} signals</span>`;
+    <span class="long">· ${D.scanned} markets · ${(D.signals || []).filter(x => x.active).length} signals</span>`;
   $("since").textContent = "since " + new Date(D.opened_at * 1000).toLocaleDateString([], {day: "numeric", month: "short"});
 }
 
@@ -543,8 +564,10 @@ function signals() {
   more.textContent = showAllSigs ? "Hide matches that don't qualify" : `Show ${quiet} match${quiet === 1 ? "" : "es"} watched but not bet (and why)`;
   more.onclick = () => { showAllSigs = !showAllSigs; signals(); };
   const act = ss.filter(x => x.active).length;
-  $("sig-count").textContent = ss.length ? `${act} signal${act === 1 ? "" : "s"} · ${ss.length} with ${acct === "live" ? "in-play" : "informed"} money` : "";
-  if (!ss.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">Nothing to bet right now. ${acct === "live" ? "A bet appears when one wallet puts $3k+ on one side during a T3–T6 match." : "A bet appears when informed wallets put $200+ on one side of a T3–T6 match."} Checked every 10 minutes.</td></tr>`; toggleRows(tb, "s-"); return; }
+  const A = ACCTS[acct];
+  $("sig-sub").textContent = A.sig; $("th-money").textContent = A.money;
+  $("sig-count").textContent = all.length ? `${act} signal${act === 1 ? "" : "s"} · ${all.length} with ${A.what} data` : "";
+  if (!ss.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">Nothing to bet right now. ${A.empty} Checked every 10 minutes.</td></tr>`; toggleRows(tb, "s-"); return; }
   tb.innerHTML = ss.map((x, i) => {
     const k = esc(x.cid), isOpen = opened.has("s-" + k), px = x.prices[x.side];
     const status = x.placed ? (x.placed.status === "open" ? `<span class="tag open">bet ${usd(x.placed.stake)}</span><span class="split">at ${x.placed.price.toFixed(3)}</span>`
@@ -554,11 +577,15 @@ function signals() {
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(x.start)}</b><span style="display:block;padding-left:16px">${day(x.start)} · ${rel(x.start)}</span></td>
       ${matchCell({match: x.match, url: x.url, vtier: x.vtier, kind: x.market === "Match Winner" ? "match" : "side", market: x.market}, true)}
-      <td data-label="Informed"><b class="num">${usd0(x.money)}</b> <span style="color:var(--mute)">/ ${usd0(x.other_money)}</span><span class="split">${x.wallets.length} wallet${x.wallets.length === 1 ? "" : "s"}: ${x.wallets.slice(0, 3).map(w => esc(wname(w))).join(", ")}</span></td>
+      ${x.score ? `<td data-label="Score"><b>${scoreText(x.score)}</b><span class="split">${esc(x.leader)}: fair ${Math.round(x.leader_model * 100)}% · market ${Math.round(x.leader_price * 100)}% (gap ${Math.round(x.gap * 100)} pts)</span></td>`
+        : `<td data-label="Money"><b class="num">${usd0(x.money)}</b> <span style="color:var(--mute)">/ ${usd0(x.other_money)}</span><span class="split">${x.wallets.length} wallet${x.wallets.length === 1 ? "" : "s"}: ${x.wallets.slice(0, 3).map(w => esc(wname(w))).join(", ")}</span></td>`}
       <td class="side" data-label="Bet on">${esc(betLabel(x.market, x.side))}</td>
       <td class="r num" data-label="Price">${px != null ? px.toFixed(2) + `<span class="split">${Math.round(px * 100)}%</span>` : "–"}</td>
       <td data-label="Status">${status}</td></tr>
-      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">${acct === "live" ? "Big in-play money" : "Informed wallets"} on ${esc(betLabel(x.market, x.side))}</p><div class="wl">${x.wallets.map(walletRecord).join("")}</div>
+      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">${A.head}${x.score ? "" : " on " + esc(betLabel(x.market, x.side))}</p>
+        ${x.score ? `<div class="wl"><div>Score: <b>${scoreText(x.score)}</b> (best of ${x.score.bo}). Pre-match price for ${esc(x.score.home)}: ${Math.round(x.pre_home * 100)}%.</div>
+          <div>From the score, ${esc(x.leader)} should be about <b>${Math.round(x.leader_model * 100)}%</b>; the market has it at <b>${Math.round(x.leader_price * 100)}%</b>. A bet needs a gap of 35+ points, then follows the market: ${esc(x.side)}.</div></div>`
+        : `<div class="wl">${x.wallets.map(walletRecord).join("")}</div>`}
         ${x.against.length ? `<p class="head" style="margin-top:14px">On the other side</p><div class="wl">${x.against.map(walletRecord).join("")}</div>` : ""}
         ${x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
   }).join("");
@@ -609,15 +636,16 @@ function walletsPanel() {
 
 function history() {
   const all = D.bets, bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
+  $("th-hmoney").textContent = ACCTS[acct].hmoney;
   $("hist-count").textContent = all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "";
-  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : `No bets yet. The first goes in at the next scan after ${acct === "live" ? "a live" : "an informed"} signal appears.`}</td></tr>`; return; }
+  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : `No bets yet. ${ACCTS[acct].empty}`}</td></tr>`; return; }
   const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded"};
   tb.innerHTML = bs.map((b, i) => {
     const k = key(b), isOpen = opened.has("h-" + k), tr = (b.tranches || []).filter(t => t.stake);
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(b.start)}</b><span style="display:block;padding-left:16px">${day(b.start)}</span></td>
       ${matchCell(b, true)}
-      <td data-label="Informed">${b.wallets ? `<b class="num">${usd0(b.money)}</b><span class="split">${b.wallets.length} wallet${b.wallets.length === 1 ? "" : "s"}</span>` : `<div>${pathHtml(b.path, b.escalated)}</div>`}</td>
+      <td data-label="Money">${b.score ? `<b>${scoreText(b.score)}</b><span class="split">${esc(b.leader)} fair ${Math.round(b.leader_model * 100)}% vs ${Math.round(b.leader_price * 100)}%</span>` : b.wallets ? `<b class="num">${usd0(b.money)}</b><span class="split">${b.wallets.length} wallet${b.wallets.length === 1 ? "" : "s"}</span>` : `<div>${pathHtml(b.path, b.escalated)}</div>`}</td>
       <td class="side" data-label="Bet on">${esc(betLabel(b.market, b.side))}${b.flipped ? '<span class="split">side flipped later</span>' : ""}</td>
       <td class="r num" data-label="Avg price">${b.price.toFixed(2)}</td>
       <td class="r num" data-label="Staked">${b.stake ? usd(b.stake) : "–"}${tr.length > 1 ? `<span class="split">${tr.map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</span>` : ""}</td>
@@ -690,9 +718,14 @@ function group(sel, set) {
 }
 group("#res-tabs", v => { resMode = v; results(); });
 function cards() {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  for (const [k, a] of [["informed", RAW], ["live", RAW.live]]) {
-    const box = $("c-" + k);
+  const today = new Date(), nav = $("accts");
+  today.setHours(0, 0, 0, 0);
+  if (!nav.children.length) {
+    nav.innerHTML = Object.entries(ACCTS).map(([k, a]) => `<button class="acard" data-v="${k}" aria-pressed="${k === acct}"><div class="nm">${a.name} <small>${a.sub}</small></div><div id="c-${k}"></div></button>`).join("");
+    nav.querySelectorAll("button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
+  }
+  for (const [k, A] of Object.entries(ACCTS)) {
+    const a = A.data(RAW), box = $("c-" + k);
     if (!a || !a.stats) { box.innerHTML = '<div class="d">starts with the next scan</div>'; continue; }
     const s = a.stats, n = (a.bets || []).filter(b => b.stake && b.placed_at * 1000 >= today.getTime()).length;
     const act = (a.signals || []).filter(x => x.active && !x.placed).length;
@@ -705,17 +738,18 @@ function cards() {
 function view() {
   if (!RAW) return;
   cards();
-  D = acct === "live" && RAW.live ? {...RAW, ...RAW.live} : RAW;
+  const a = ACCTS[acct].data(RAW);
+  D = a && a !== RAW && a.stats ? {...RAW, ...a} : acct === "informed" ? RAW : {...RAW, stats: {start: 300, balance: 300, equity: 300, profit: 0, roi: null, bets: 0, wins: 0, losses: 0, win_rate: null, open: 0, at_risk: 0, skipped: 0, best: 0, worst: 0, max_drawdown: 0, streak: "", by_market: [], by_tier: [], by_wallets: []}, series: [], bets: [], signals: []};
   board(); chart(); tape(); results(); signals(); history(); walletsPanel(); risingPanel(); watch();
 }
 function setAcct(v) {
   acct = v; document.body.dataset.acct = v;
   document.querySelectorAll("#accts button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v));
+  document.querySelectorAll("[data-only]").forEach(el => el.hidden = !el.dataset.only.split(" ").includes(v));
   try { localStorage.setItem("acct", v); } catch {}
   try { window.history.replaceState(null, "", "#" + v); } catch {}
   opened.clear(); showAllSigs = false; view();
 }
-document.querySelectorAll("#accts button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
 setAcct(acct);
 group(".filters", v => { histFilter = v; history(); });
 
