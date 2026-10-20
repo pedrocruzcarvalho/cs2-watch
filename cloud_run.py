@@ -28,12 +28,13 @@ import cs2_watch as C
 import oddspapi as O
 import teams as TM
 import informed as I
+import live_money as LM
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
-        "state:informed": "informed.json"}
+        "state:informed": "informed.json", "state:livemoney": "livemoney.json"}
 KEEP_DAYS = 90
 
 
@@ -168,17 +169,28 @@ def tick(store, log=print):
     log(f"informed: +{added} resolved positions, {len(qual)} informed wallets, "
         f"{sum(s['active'] for s in sigs)} active signals")
 
+    # ---- live big money: the second paper account (live_money.py) ----
+    lst = O.load(work / "livemoney.json")
+    lsigs = LM.signals(infos, C.vtier, ts)
+    I.settle(lst, infos, ts, fetch_winner, log=log)
+    I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live")
+    (work / "livemoney.json").write_text(json.dumps(lst))
+    live = LM.dashboard(lst, lsigs, ts)
+    log(f"live money: {len(lsigs)} markets with in-play money, {sum(s['active'] for s in lsigs)} active signals, "
+        f"balance ${live['stats']['balance']:.2f}")
+
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
                 stats=inf["stats"], series=inf["series"], bets=inf["bets"], signals=inf["signals"],
                 wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
-                flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles))
+                flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
+                live=live)
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 
     for key in ("state:ledger", "state:wallets", "state:meta", "state:watch_auto", "state:profiles", "state:vrs",
-                "state:informed"):
+                "state:informed", "state:livemoney"):
         store.put(key, (work / KEYS[key]).read_bytes())
     store.put("dashboard", json.dumps(dash, default=str).encode())
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} markets, {dash['flagged']} informed signals, "

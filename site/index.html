@@ -99,6 +99,11 @@ a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underl
 /* tabs */
 .tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; margin-left: auto; }
 .tabs button { font: 600 12.5px "Barlow", sans-serif; color: var(--mute); background: transparent; border: 0; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
+.acct { margin: 0 0 16px; }
+.acct button { font-size: 14px; padding: 7px 16px; }
+.acct .tabs { margin-left: 0; }
+.acct p { margin: 8px 2px 0; color: var(--mute); font-size: 13.5px; max-width: 900px; }
+body[data-acct="live"] [data-only="informed"], body:not([data-acct="live"]) [data-only="live"] { display: none !important; }
 .tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
 
 /* tables */
@@ -226,6 +231,11 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 </div></div>
 
 <main class="wrap" id="app">
+  <nav class="acct" aria-label="Paper account">
+    <div class="tabs" id="acct-tabs" role="group"><button aria-pressed="true" data-v="informed">Informed wallets</button><button aria-pressed="false" data-v="live">Live big money</button></div>
+    <p data-only="informed">Copies wallets with a strong CS2 record when they bet a low-tier match before kickoff.</p>
+    <p data-only="live">Copies one wallet's $3k+ bet placed <b>during</b> a low-tier match. A separate $300 account, started Oct 20 2026.</p>
+  </nav>
   <section class="board" aria-label="Paper account">
     <div class="cell"><div class="cap">Balance</div><div class="v num" id="k-bal">–</div><div class="d num" id="k-bal-d"></div></div>
     <div class="cell"><div class="cap">Profit</div><div class="v num" id="k-pnl">–</div><div class="d num" id="k-pnl-d"></div></div>
@@ -254,11 +264,11 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     <section class="panel flush">
       <header>
         <h2>Results</h2>
-        <div class="tabs" role="group" aria-label="Group results by">
+        <div class="tabs" id="res-tabs" role="group" aria-label="Group results by">
           <button aria-pressed="true" data-v="market">Market</button><button aria-pressed="false" data-v="tier">Tier</button><button aria-pressed="false" data-v="wallets">Wallets</button>
         </div>
       </header>
-      <p class="sub">Settled bets of the informed-wallets account, grouped three ways.</p>
+      <p class="sub">Settled bets of this account, grouped three ways.</p>
       <div class="body scroll">
         <table class="mini">
           <thead><tr><th class="cap" id="res-col">Market</th><th class="cap r">W–L</th><th class="cap r">Staked</th><th class="cap r">P&amp;L</th><th class="cap r">ROI</th></tr></thead>
@@ -269,11 +279,12 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   </div>
 
   <section class="panel flush" style="margin-top:16px">
-    <header><h2>Informed money right now</h2><span class="cap" id="sig-count"></span></header>
-    <p class="sub">Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.</p>
+    <header><h2 data-only="informed">Informed money right now</h2><h2 data-only="live">Big money in play right now</h2><span class="cap" id="sig-count"></span></header>
+    <p class="sub" data-only="informed">Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.</p>
+    <p class="sub" data-only="live">Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.</p>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Informed money</th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Biggest wallet / other side</span></th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
         <tbody id="t-sig"></tbody>
       </table>
     </div>
@@ -286,13 +297,13 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">Informed money</th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Wallet money</span></th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
         <tbody id="t-hist"></tbody>
       </table>
     </div>
   </section>
 
-  <section class="panel flush" style="margin-top:16px">
+  <section class="panel flush" style="margin-top:16px" data-only="informed">
     <header><h2>Informed wallets</h2><span class="cap" id="wal-count"></span></header>
     <p class="sub">Wallets whose last 21 days of CS2 bets (5+ bets of $20+, placed before kickoff, on finished matches) won far more often than their prices predicted: luck score 2.5+ and an edge of 10+ points. The list updates every 10 minutes as matches finish; wallets join and drop out on their own.</p>
     <div class="body scroll">
@@ -303,7 +314,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
   </section>
 
-  <section class="panel flush" style="margin-top:16px">
+  <section class="panel flush" style="margin-top:16px" data-only="informed">
     <header><h2>Rising wallets</h2><span class="cap" id="ris-count"></span></header>
     <p class="sub">Close to the bar but not there yet: luck score 2.0–2.5 with 5+ bets, or a strong record from only 3–4 bets. These are not bet on (in the 60-day test this band was about break-even), but this is where new informed wallets come from: they move up by themselves once their record crosses the bar.</p>
     <div class="body scroll">
@@ -314,7 +325,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
   </section>
 
-  <section class="panel flush" style="margin-top:16px">
+  <section class="panel flush" style="margin-top:16px" data-only="informed">
     <header><h2>Watched wallets</h2><span class="cap" id="watch-count"></span></header>
     <p class="sub">Wallets you're keeping an eye on, plus ones the old big-bet flags picked up. Each is checked against its full Polymarket history (luck score: below 1 = normal luck, above 2.5 = very unlikely to be luck). These are for your information; the paper account bets only on informed wallets above.</p>
     <form class="watch-form" id="watch-form" autocomplete="off">
@@ -331,7 +342,19 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
   </section>
 
-  <details class="panel plan">
+  <details class="panel plan" data-only="live">
+    <summary>How the live plan works</summary>
+    <ul class="rules">
+      <li><b>Paper only.</b> A separate $300 account, started Oct 20 2026. Nothing is ever placed for real.</li>
+      <li><b>Signal:</b> during a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), one wallet has bought $3,000+ net on one side of a market after kickoff, and wallets with $1,500+ on the other side add up to less than half of that. Any market counts.</li>
+      <li><b>Bet:</b> $20 on that side, once per market, at the next scan (within 10 minutes), filled against Polymarket's real order book with the fee. Skipped if that side already costs 0.97 or more.</li>
+      <li><b>Why live and not before kickoff:</b> in 60 days of past matches, big pre-match bets only picked the favourite. Following them did no better than backing the favourite, and big bets on underdogs lost 15–23%. Of the pre-match settings that looked good on the first 30 days, only 30% stayed positive on the next 30.</li>
+      <li><b>The test behind it:</b> copying $3k+ in-play bets on T3–T6 matches 10 minutes later returned +16.7% over 140 bets (+21.7% and +11.0% in the two halves). Backing the favourite at those same moments returned −6.4%. It was positive at every size from $1.5k to $5k and in 6 of 9 weeks. Most of it came from T3 matches. The rules were fixed before any live bet.</li>
+      <li><b>Caveat:</b> in-play money often reacts to the score faster than the price does, and we copy up to 10 minutes late. The live results here are the real test.</li>
+    </ul>
+  </details>
+
+  <details class="panel plan" data-only="informed">
     <summary>How the plan works</summary>
     <ul class="rules">
       <li><b>Paper only.</b> A fresh $300 account, started Oct 20 2026. Nothing is ever placed for real.</li>
@@ -375,7 +398,8 @@ const betLabel = (market, side) => {
 const split = t => { const s = short(t); const i = s.indexOf(" - "); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 3)]; };
 const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
-let D = null, resMode = "market", histFilter = "all";
+let D = null, RAW = null, resMode = "market", histFilter = "all";
+let acct = (() => { try { return location.hash === "#live" || (location.hash !== "#informed" && localStorage.getItem("acct") === "live") ? "live" : "informed"; } catch { return "informed"; } })();
 const opened = new Set();
 
 function pathHtml(path, escd) {
@@ -439,7 +463,7 @@ function board() {
   $("k-dd-d").textContent = `best ${usd(s.best, true)} · worst ${usd(s.worst, true)}`;
   const age = (nowS() - D.at) / 60, stale = age > 25;
   $("status").innerHTML = `<span class="dot ${stale ? "stale" : ""}"></span><span>${stale ? "<b>stale</b> · " : ""}scanned ${age < 1 ? "just now" : Math.round(age) + " min ago"}</span>
-    <span class="long">· ${D.scanned} markets · ${(D.wallets || []).length} informed wallets · ${D.flagged} signals</span>`;
+    <span class="long">· ${D.scanned} markets · ${acct === "live" ? (D.signals || []).length + " in play" : (D.wallets || []).length + " informed wallets"} · ${(D.signals || []).filter(x => x.active).length} signals</span>`;
   $("since").textContent = "since " + new Date(D.opened_at * 1000).toLocaleDateString([], {day: "numeric", month: "short"});
 }
 
@@ -489,6 +513,8 @@ function wname(x) {
 }
 function walletRecord(x) {
   const r = x.record;
+  if (!r) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
+    bought <b class="num">${usd0(x.usd)}</b> during the match at an average ${(+x.avg).toFixed(2)}${x.at ? ` · last trade ${hm(x.at)}` : ""}</div>`;
   return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
     put <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)} · last 21 days: <b class="num">${r.wins}–${r.losses}</b>,
     won ${Math.round(r.win_rate * 100)}% at prices that predicted ${Math.round(r.avg_price * 100)}% · edge ${r.edge >= 0 ? "+" : ""}${Math.round(r.edge * 100)} pts · luck score ${r.z.toFixed(1)}</div>`;
@@ -496,8 +522,8 @@ function walletRecord(x) {
 function signals() {
   const ss = D.signals || [], tb = $("t-sig");
   const act = ss.filter(x => x.active).length;
-  $("sig-count").textContent = ss.length ? `${act} signal${act === 1 ? "" : "s"} · ${ss.length} with informed money` : "";
-  if (!ss.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No informed wallet has bet on an upcoming match yet. The scan runs every 10 minutes.</td></tr>'; return; }
+  $("sig-count").textContent = ss.length ? `${act} signal${act === 1 ? "" : "s"} · ${ss.length} with ${acct === "live" ? "in-play" : "informed"} money` : "";
+  if (!ss.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">${acct === "live" ? "No match in play has a $1k+ in-play position right now." : "No informed wallet has bet on an upcoming match yet."} The scan runs every 10 minutes.</td></tr>`; return; }
   tb.innerHTML = ss.map((x, i) => {
     const k = esc(x.cid), isOpen = opened.has("s-" + k), px = x.prices[x.side];
     const status = x.placed ? (x.placed.status === "open" ? `<span class="tag open">bet ${usd(x.placed.stake)}</span><span class="split">at ${x.placed.price.toFixed(3)}</span>`
@@ -511,7 +537,7 @@ function signals() {
       <td class="side" data-label="Bet on">${esc(betLabel(x.market, x.side))}</td>
       <td class="r num" data-label="Price">${px != null ? px.toFixed(2) + `<span class="split">${Math.round(px * 100)}%</span>` : "–"}</td>
       <td data-label="Status">${status}</td></tr>
-      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">Informed wallets on ${esc(betLabel(x.market, x.side))}</p><div class="wl">${x.wallets.map(walletRecord).join("")}</div>
+      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">${acct === "live" ? "Big in-play money" : "Informed wallets"} on ${esc(betLabel(x.market, x.side))}</p><div class="wl">${x.wallets.map(walletRecord).join("")}</div>
         ${x.against.length ? `<p class="head" style="margin-top:14px">On the other side</p><div class="wl">${x.against.map(walletRecord).join("")}</div>` : ""}
         ${x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
   }).join("");
@@ -556,7 +582,7 @@ function walletsPanel() {
 function history() {
   const all = D.bets, bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
   $("hist-count").textContent = all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "";
-  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : "No bets yet. The first goes in at the next scan after an informed signal appears."}</td></tr>`; return; }
+  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : `No bets yet. The first goes in at the next scan after ${acct === "live" ? "a live" : "an informed"} signal appears.`}</td></tr>`; return; }
   const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded"};
   tb.innerHTML = bs.map((b, i) => {
     const k = key(b), isOpen = opened.has("h-" + k), tr = (b.tranches || []).filter(t => t.stake);
@@ -634,7 +660,21 @@ function group(sel, set) {
   document.querySelectorAll(sel + " button").forEach(b => b.onclick = () => {
     document.querySelectorAll(sel + " button").forEach(x => x.setAttribute("aria-pressed", x === b)); set(b.dataset.v); });
 }
-group(".tabs", v => { resMode = v; results(); });
+group("#res-tabs", v => { resMode = v; results(); });
+function view() {
+  if (!RAW) return;
+  D = acct === "live" && RAW.live ? {...RAW, ...RAW.live} : RAW;
+  board(); chart(); tape(); results(); signals(); history(); walletsPanel(); risingPanel(); watch();
+}
+function setAcct(v) {
+  acct = v; document.body.dataset.acct = v;
+  document.querySelectorAll("#acct-tabs button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v));
+  try { localStorage.setItem("acct", v); } catch {}
+  try { window.history.replaceState(null, "", "#" + v); } catch {}
+  opened.clear(); view();
+}
+document.querySelectorAll("#acct-tabs button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
+setAcct(acct);
 group(".filters", v => { histFilter = v; history(); });
 
 async function load() {
@@ -643,7 +683,7 @@ async function load() {
     const d = await r.json();
     if (!d.stats) throw new Error("No data yet: the first scan hasn't finished. It runs every 10 minutes.");
     await loadWatch();
-    D = d; board(); chart(); tape(); results(); signals(); history(); walletsPanel(); risingPanel(); watch();
+    RAW = d; view();
   } catch (e) {
     if (!D) $("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }

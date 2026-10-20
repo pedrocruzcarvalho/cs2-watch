@@ -132,12 +132,12 @@ def signals(infos, qual, vtier_of, now):
 
 # ------------------------------------------------------------------------------------------------ account
 
-def place_bets(state, sigs, now, book_asks, fill, log=print):
-    """As soon as a signal is active (before kickoff), bet $20 on it once."""
+def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_price=0.97, tag="informed"):
+    """As soon as a signal is active, bet $20 on it once: before kickoff, or (live=True) after it."""
     acct = state.setdefault("account", dict(opened_at=now, bets={}))
     for s in sigs:
         key = s["cid"]
-        if not s["active"] or key in acct["bets"] or s["start"] <= now:
+        if not s["active"] or key in acct["bets"] or (s["start"] <= now) != live:
             continue
         bal = balance(acct)
         if bal < STAKE:
@@ -153,9 +153,11 @@ def place_bets(state, sigs, now, book_asks, fill, log=print):
             acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="skipped", reason="no sellers", stake=0.0,
                                      shares=0.0, price=s["prices"].get(s["side"]))
             continue
+        if avg >= max_price:                        # nothing left to win: the market has all but decided
+            continue
         acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="open", stake=round(spent, 2),
                                  shares=round(sh, 2), price=round(avg, 4), levels=levels)
-        log(f"informed bet: ${spent:.2f} on {s['side']} ({s['match'][16:60]}, {s['market']}) at {avg:.3f}")
+        log(f"{tag} bet: ${spent:.2f} on {s['side']} ({s['match'][16:60]}, {s['market']}) at {avg:.3f}")
 
 
 def sig_summary(s):
@@ -243,6 +245,24 @@ def explain(b, now):
 
 
 def dashboard(state, sigs, qual, now):
+    view = account_view(state, sigs, now, explain, "INFORMED", ("T3", "T4", "T5", "T6"),
+                        ("1 informed wallet", "2+ informed wallets"))
+    active_bets = {}
+    for s in sigs:
+        for x in s["wallets"] + s["against"]:
+            active_bets.setdefault(x["wallet"], []).append(dict(match=s["match"], market=s["market"], usd=x["usd"],
+                                                                start=s["start"], side=s["side"] if x in s["wallets"] else "other"))
+    wallets = []
+    for w, r in sorted(qual.items(), key=lambda kv: -kv[1]["z"]):
+        wallets.append(dict(wallet=w, name=r.get("name", ""), record=r, betting=active_bets.get(w, [])))
+    return dict(view, wallets=wallets,
+                rising=[dict(x, betting=active_bets.get(x["wallet"], [])) for x in rising(state, now, qual)],
+                rules=dict(window_days=21, min_bets=MIN_BETS, min_z=MIN_Z, min_edge=MIN_EDGE, min_money=MIN_MONEY,
+                           stake=STAKE))
+
+
+def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
+    """Stats, balance series, bet history and signals of one paper account (shared with live_money.py)."""
     acct = state.get("account", dict(opened_at=now, bets={}))
     bets = sorted(acct.get("bets", {}).values(), key=lambda b: b["start"], reverse=True)
     out_bets, bal, series = [], START_BALANCE, [(acct.get("opened_at", now), START_BALANCE)]
@@ -258,8 +278,8 @@ def dashboard(state, sigs, qual, now):
         series.append((t, round(bal + sum(x["stake"] for x in bets if x["status"] == "open" and x["placed_at"] <= t
                                           and (x.get("settled_at") or 9e18) > t), 2)))
     for b in bets:
-        out_bets.append(dict(b, level="INFORMED", path=[], escalated=False, flipped=False, tranches=[],
-                             kind="match" if b["market"] == "Match Winner" else "side", why=explain(b, now)))
+        out_bets.append(dict(b, level=level, path=[], escalated=False, flipped=False, tranches=[],
+                             kind="match" if b["market"] == "Match Winner" else "side", why=explain_fn(b, now)))
     settled = [b for b in bets if b["status"] in ("won", "lost")]
     open_ = [b for b in bets if b["status"] == "open"]
     staked = sum(b["stake"] for b in settled)
@@ -289,9 +309,9 @@ def dashboard(state, sigs, qual, now):
                  streak="", escalation=1,
                  by_market=[group("Match winner", [b for b in settled if b["market"] == "Match Winner"]),
                             group("Maps, totals, rounds", [b for b in settled if b["market"] != "Match Winner"])],
-                 by_tier=[group(t, [b for b in settled if b.get("vtier") == t]) for t in ("T3", "T4", "T5", "T6")],
-                 by_wallets=[group("1 informed wallet", [b for b in settled if len(b["wallets"]) == 1]),
-                             group("2+ informed wallets", [b for b in settled if len(b["wallets"]) >= 2])])
+                 by_tier=[group(t, [b for b in settled if b.get("vtier") == t]) for t in tiers],
+                 by_wallets=[group(wallet_groups[0], [b for b in settled if len(b["wallets"]) == 1]),
+                             group(wallet_groups[1], [b for b in settled if len(b["wallets"]) >= 2])])
     if settled:
         last = sorted(settled, key=lambda b: b.get("settled_at") or 0, reverse=True)
         k, n = last[0]["status"], 0
@@ -300,19 +320,9 @@ def dashboard(state, sigs, qual, now):
                 break
             n += 1
         stats["streak"] = f"{n} {k}"
-    active_bets = {}
-    for s in sigs:
-        for x in s["wallets"] + s["against"]:
-            active_bets.setdefault(x["wallet"], []).append(dict(match=s["match"], market=s["market"], usd=x["usd"],
-                                                                start=s["start"], side=s["side"] if x in s["wallets"] else "other"))
-    wallets = []
-    for w, r in sorted(qual.items(), key=lambda kv: -kv[1]["z"]):
-        wallets.append(dict(wallet=w, name=r.get("name", ""), record=r, betting=active_bets.get(w, [])))
     sig_out = []
     for s in sigs:
         b = acct.get("bets", {}).get(s["cid"])
         sig_out.append(dict(s, placed=b and {k: b[k] for k in ("status", "stake", "price", "shares")}))
-    return dict(stats=stats, series=series, bets=out_bets[:500], signals=sig_out[:60], wallets=wallets,
-                rising=[dict(x, betting=active_bets.get(x["wallet"], [])) for x in rising(state, now, qual)],
-                opened_at=acct.get("opened_at", now), rules=dict(window_days=21, min_bets=MIN_BETS, min_z=MIN_Z,
-                                                                 min_edge=MIN_EDGE, min_money=MIN_MONEY, stake=STAKE))
+    return dict(stats=stats, series=series, bets=out_bets[:500], signals=sig_out[:60],
+                opened_at=acct.get("opened_at", now))
