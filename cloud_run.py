@@ -43,6 +43,7 @@ KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:b
         "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json"}
 BUNDLE = "state:bundle"
 KEEP_DAYS = 90
+RESET = "2026-10-21"          # change to wipe every paper account back to $300 once (Pedro, Oct 20 2026)
 
 
 class KV:
@@ -171,7 +172,13 @@ def tick(store, log=print):
     C.save_ledger(led)
 
     # ---- informed wallets: the paper account the dashboard shows (informed.py) ----
+    reset = meta.get("reset") != RESET                             # one-time restart of all paper accounts
+    if reset:
+        log(f"resetting every paper account to ${I.START_BALANCE:.0f} ({RESET})")
+        meta["reset"] = RESET
     ist = O.load(work / "informed.json")
+    if reset:
+        ist.pop("account", None)
     ts = now.timestamp()
     added = I.add_resolved(ist, infos, ts)
     qual = I.qualifying(ist, ts)
@@ -185,7 +192,7 @@ def tick(store, log=print):
         f"{sum(s['active'] for s in sigs)} active signals")
 
     # ---- live big money: the second paper account (live_money.py) ----
-    lst = O.load(work / "livemoney.json")
+    lst = {} if reset else O.load(work / "livemoney.json")
     lsigs = LM.signals(infos, C.vtier, ts)
     I.settle(lst, infos, ts, fetch_winner, log=log)
     I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live")
@@ -196,6 +203,8 @@ def tick(store, log=print):
 
     # ---- odd shifts: price vs scoreboard (oddshift.py) ----
     ost = O.load(work / "oddshift.json")
+    if reset:
+        ost.pop("account", None)
     osigs = OS.signals(ost, infos, C.vtier, ts)
     I.settle(ost, infos, ts, fetch_winner, log=log)
     I.place_bets(ost, osigs, ts, C.book_asks, B.fill, log=log, live=True, tag="odd shift")
