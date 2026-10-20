@@ -99,6 +99,18 @@ a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underl
 /* tabs */
 .tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; margin-left: auto; }
 .tabs button { font: 600 12.5px "Barlow", sans-serif; color: var(--mute); background: transparent; border: 0; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
+.accts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 16px; }
+.acard { text-align: left; font: inherit; color: inherit; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 18px; cursor: pointer; min-width: 0; }
+.acard[aria-pressed="true"] { border-color: var(--t); }
+.acard .nm { font: 600 15px "Chakra Petch", sans-serif; display: flex; gap: 8px; align-items: center; }
+.acard .nm small { font: 500 12.5px "Barlow", sans-serif; color: var(--mute); }
+.acard .row1 { display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; margin-top: 6px; }
+.acard .big { font: 600 30px/1.1 "Chakra Petch", sans-serif; }
+.acard .d { font-size: 13px; color: var(--mute); margin-top: 4px; }
+.board { display: none !important; }
+details.plan .panel { box-shadow: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; margin-top: 0 !important; }
+.showmore { margin: 6px 20px 12px; font: 600 13px "Barlow", sans-serif; color: var(--ct); background: none; border: 0; padding: 0; cursor: pointer; }
+@media (max-width: 720px) { .accts { grid-template-columns: 1fr; } }
 .acct { margin: 0 0 16px; }
 .acct button { font-size: 14px; padding: 7px 16px; }
 .acct .tabs { margin-left: 0; }
@@ -231,10 +243,9 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 </div></div>
 
 <main class="wrap" id="app">
-  <nav class="acct" aria-label="Paper account">
-    <div class="tabs" id="acct-tabs" role="group"><button aria-pressed="true" data-v="informed">Informed wallets</button><button aria-pressed="false" data-v="live">Live big money</button></div>
-    <p data-only="informed">Copies wallets with a strong CS2 record when they bet a low-tier match before kickoff.</p>
-    <p data-only="live">Copies one wallet's $3k+ bet placed <b>during</b> a low-tier match. A separate $300 account, started Oct 20 2026.</p>
+  <nav class="accts" id="accts" aria-label="Paper accounts">
+    <button class="acard" data-v="live" aria-pressed="false"><div class="nm">Live big money <small>copies $3k+ bets placed during low-tier matches</small></div><div id="c-live"></div></button>
+    <button class="acard" data-v="informed" aria-pressed="false"><div class="nm">Informed wallets <small>copies hot wallets before kickoff</small></div><div id="c-informed"></div></button>
   </nav>
   <section class="board" aria-label="Paper account">
     <div class="cell"><div class="cap">Balance</div><div class="v num" id="k-bal">–</div><div class="d num" id="k-bal-d"></div></div>
@@ -242,6 +253,32 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     <div class="cell"><div class="cap">Record</div><div class="v num" id="k-rec">–</div><div class="d" id="k-rec-d"></div></div>
     <div class="cell"><div class="cap">Open bets</div><div class="v num" id="k-open">–</div><div class="d num" id="k-open-d"></div></div>
     <div class="cell"><div class="cap">Worst dip</div><div class="v num" id="k-dd">–</div><div class="d num" id="k-dd-d"></div></div>
+  </section>
+
+  <section class="panel flush" style="margin-top:0">
+    <header><h2>Betting now</h2><span class="cap" id="sig-count"></span></header>
+    <p class="sub" data-only="informed">Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.</p>
+    <p class="sub" data-only="live">Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.</p>
+    <div class="body scroll">
+      <table class="stack">
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Biggest wallet / other side</span></th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
+        <tbody id="t-sig"></tbody>
+      </table>
+    </div>
+    <button class="showmore" id="sig-more" hidden></button>
+  </section>
+
+  <section class="panel flush" style="margin-top:16px">
+    <header><h2>Bets</h2><span class="cap" id="hist-count"></span></header>
+    <div class="filters" role="group" aria-label="Show">
+      <button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="open">Open</button><button aria-pressed="false" data-v="won">Won</button><button aria-pressed="false" data-v="lost">Lost</button>
+    </div>
+    <div class="body scroll">
+      <table class="stack">
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Wallet money</span></th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
+        <tbody id="t-hist"></tbody>
+      </table>
+    </div>
   </section>
 
   <div class="grid">
@@ -255,7 +292,6 @@ details.plan[open] summary::before { transform: rotate(90deg); }
           <div class="tape-legend">
             <span style="--k: var(--win)">won</span><span style="--k: var(--loss)">lost</span>
             <span style="--k: transparent; --b: var(--ct)">open</span>
-            <span style="--k: var(--high)">top tick = level</span>
           </div>
         </div>
       </div>
@@ -278,32 +314,9 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </section>
   </div>
 
-  <section class="panel flush" style="margin-top:16px">
-    <header><h2 data-only="informed">Informed money right now</h2><h2 data-only="live">Big money in play right now</h2><span class="cap" id="sig-count"></span></header>
-    <p class="sub" data-only="informed">Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.</p>
-    <p class="sub" data-only="live">Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.</p>
-    <div class="body scroll">
-      <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Biggest wallet / other side</span></th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
-        <tbody id="t-sig"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel flush" style="margin-top:16px">
-    <header><h2>Betting history</h2><span class="cap" id="hist-count"></span></header>
-    <div class="filters" role="group" aria-label="Show">
-      <button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="open">Open</button><button aria-pressed="false" data-v="won">Won</button><button aria-pressed="false" data-v="lost">Lost</button>
-    </div>
-    <div class="body scroll">
-      <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap"><span data-only="informed">Informed money</span><span data-only="live">Wallet money</span></th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
-        <tbody id="t-hist"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel flush" style="margin-top:16px" data-only="informed">
+  <details class="panel plan" data-only="informed">
+    <summary>Wallet lists: informed, rising, watched</summary>
+  <section class="panel flush">
     <header><h2>Informed wallets</h2><span class="cap" id="wal-count"></span></header>
     <p class="sub">Wallets whose last 21 days of CS2 bets (5+ bets of $20+, placed before kickoff, on finished matches) won far more often than their prices predicted: luck score 2.5+ and an edge of 10+ points. The list updates every 10 minutes as matches finish; wallets join and drop out on their own.</p>
     <div class="body scroll">
@@ -314,7 +327,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
   </section>
 
-  <section class="panel flush" style="margin-top:16px" data-only="informed">
+  <section class="panel flush">
     <header><h2>Rising wallets</h2><span class="cap" id="ris-count"></span></header>
     <p class="sub">Close to the bar but not there yet: luck score 2.0–2.5 with 5+ bets, or a strong record from only 3–4 bets. These are not bet on (in the 60-day test this band was about break-even), but this is where new informed wallets come from: they move up by themselves once their record crosses the bar.</p>
     <div class="body scroll">
@@ -325,7 +338,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     </div>
   </section>
 
-  <section class="panel flush" style="margin-top:16px" data-only="informed">
+  <section class="panel flush">
     <header><h2>Watched wallets</h2><span class="cap" id="watch-count"></span></header>
     <p class="sub">Wallets you're keeping an eye on, plus ones the old big-bet flags picked up. Each is checked against its full Polymarket history (luck score: below 1 = normal luck, above 2.5 = very unlikely to be luck). These are for your information; the paper account bets only on informed wallets above.</p>
     <form class="watch-form" id="watch-form" autocomplete="off">
@@ -341,6 +354,8 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       </table>
     </div>
   </section>
+
+  </details>
 
   <details class="panel plan" data-only="live">
     <summary>How the live plan works</summary>
@@ -399,8 +414,8 @@ const betLabel = (market, side) => {
 const split = t => { const s = short(t); const i = s.indexOf(" - "); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 3)]; };
 const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
-let D = null, RAW = null, resMode = "market", histFilter = "all";
-let acct = (() => { try { return location.hash === "#live" || (location.hash !== "#informed" && localStorage.getItem("acct") === "live") ? "live" : "informed"; } catch { return "informed"; } })();
+let D = null, RAW = null, resMode = "market", histFilter = "all", showAllSigs = false;
+let acct = (() => { try { return location.hash === "#informed" || (location.hash !== "#live" && localStorage.getItem("acct") === "informed") ? "informed" : "live"; } catch { return "live"; } })();
 const opened = new Set();
 
 function pathHtml(path, escd) {
@@ -521,10 +536,15 @@ function walletRecord(x) {
     won ${Math.round(r.win_rate * 100)}% at prices that predicted ${Math.round(r.avg_price * 100)}% · edge ${r.edge >= 0 ? "+" : ""}${Math.round(r.edge * 100)} pts · luck score ${r.z.toFixed(1)}</div>`;
 }
 function signals() {
-  const ss = D.signals || [], tb = $("t-sig");
+  const all = D.signals || [], tb = $("t-sig"), quiet = all.filter(x => !x.active && !x.placed).length;
+  const ss = showAllSigs ? all : all.filter(x => x.active || x.placed);
+  const more = $("sig-more");
+  more.hidden = !quiet;
+  more.textContent = showAllSigs ? "Hide matches that don't qualify" : `Show ${quiet} match${quiet === 1 ? "" : "es"} watched but not bet (and why)`;
+  more.onclick = () => { showAllSigs = !showAllSigs; signals(); };
   const act = ss.filter(x => x.active).length;
   $("sig-count").textContent = ss.length ? `${act} signal${act === 1 ? "" : "s"} · ${ss.length} with ${acct === "live" ? "in-play" : "informed"} money` : "";
-  if (!ss.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">${acct === "live" ? "No match in play has a $1k+ in-play position right now." : "No informed wallet has bet on an upcoming match yet."} The scan runs every 10 minutes.</td></tr>`; return; }
+  if (!ss.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">Nothing to bet right now. ${acct === "live" ? "A bet appears when one wallet puts $3k+ on one side during a T3–T6 match." : "A bet appears when informed wallets put $200+ on one side of a T3–T6 match."} Checked every 10 minutes.</td></tr>`; toggleRows(tb, "s-"); return; }
   tb.innerHTML = ss.map((x, i) => {
     const k = esc(x.cid), isOpen = opened.has("s-" + k), px = x.prices[x.side];
     const status = x.placed ? (x.placed.status === "open" ? `<span class="tag open">bet ${usd(x.placed.stake)}</span><span class="split">at ${x.placed.price.toFixed(3)}</span>`
@@ -669,19 +689,33 @@ function group(sel, set) {
     document.querySelectorAll(sel + " button").forEach(x => x.setAttribute("aria-pressed", x === b)); set(b.dataset.v); });
 }
 group("#res-tabs", v => { resMode = v; results(); });
+function cards() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (const [k, a] of [["informed", RAW], ["live", RAW.live]]) {
+    const box = $("c-" + k);
+    if (!a || !a.stats) { box.innerHTML = '<div class="d">starts with the next scan</div>'; continue; }
+    const s = a.stats, n = (a.bets || []).filter(b => b.stake && b.placed_at * 1000 >= today.getTime()).length;
+    const act = (a.signals || []).filter(x => x.active && !x.placed).length;
+    box.innerHTML = `<div class="row1"><span class="big num">${usd(s.balance + s.at_risk)}</span>
+      <span class="num ${tone(s.profit)}">${usd(s.profit, true)}</span>
+      <span class="num"><span class="pos">${s.wins}</span>–<span class="neg">${s.losses}</span></span></div>
+      <div class="d">${n} bet${n === 1 ? "" : "s"} today · ${s.open} open${act ? ` · <b style="color:var(--ct)">${act} about to bet</b>` : ""}${s.roi != null ? ` · ROI ${pct(s.roi, true)}` : ""}</div>`;
+  }
+}
 function view() {
   if (!RAW) return;
+  cards();
   D = acct === "live" && RAW.live ? {...RAW, ...RAW.live} : RAW;
   board(); chart(); tape(); results(); signals(); history(); walletsPanel(); risingPanel(); watch();
 }
 function setAcct(v) {
   acct = v; document.body.dataset.acct = v;
-  document.querySelectorAll("#acct-tabs button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v));
+  document.querySelectorAll("#accts button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v));
   try { localStorage.setItem("acct", v); } catch {}
   try { window.history.replaceState(null, "", "#" + v); } catch {}
-  opened.clear(); view();
+  opened.clear(); showAllSigs = false; view();
 }
-document.querySelectorAll("#acct-tabs button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
+document.querySelectorAll("#accts button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
 setAcct(acct);
 group(".filters", v => { histFilter = v; history(); });
 
