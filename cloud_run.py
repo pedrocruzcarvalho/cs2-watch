@@ -1,7 +1,10 @@
 """
 One 10-minute tick: scan, update the prediction ledger, replay the paper bankroll, publish the dashboard data.
 
-State lives in Cloudflare KV (the repo stays free of data):
+State lives in Cloudflare KV (the repo stays free of data). The free plan allows 1,000 writes a day and a tick runs
+144 times a day, so all state goes into ONE gzipped value, "state:bundle": 2 writes per tick (bundle + dashboard).
+The keys below are the bundle's parts (older deployments stored them one per KV key; those are read once if the
+bundle is missing):
   state:ledger   predictions, frozen at kickoff, resolved after the match
   state:wallets  wallet lookups cache
   state:baseline normal position sizes per tier (from cs2_watch.py --calibrate)
@@ -13,6 +16,7 @@ Locally: python cloud_run.py --local some/dir   (same thing, files instead of KV
 """
 
 import argparse
+import gzip
 import json
 import os
 import sys
@@ -36,6 +40,7 @@ KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:b
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
         "state:informed": "informed.json", "state:livemoney": "livemoney.json"}
+BUNDLE = "state:bundle"
 KEEP_DAYS = 90
 
 
@@ -118,8 +123,15 @@ def tick(store, log=print):
     t0 = time.time()
     work = Path(tempfile.mkdtemp(prefix="cs2_"))
     C.DIR = work
+    bundle = store.get(BUNDLE)
+    parts = json.loads(gzip.decompress(bundle)) if bundle else {}
     for key, name in KEYS.items():
-        blob = store.get(key)
+        if key == "watchlist":                                     # written by the dashboard, never by the tick
+            blob = store.get(key)
+        elif bundle:
+            blob = parts[key].encode() if key in parts else None
+        else:
+            blob = store.get(key)
         if blob:
             (work / name).write_bytes(blob)
     meta = json.loads((work / "meta.json").read_text()) if (work / "meta.json").exists() else {}
@@ -191,9 +203,9 @@ def tick(store, log=print):
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 
-    for key in ("state:ledger", "state:wallets", "state:meta", "state:watch_auto", "state:profiles", "state:vrs",
-                "state:informed", "state:livemoney"):
-        store.put(key, (work / KEYS[key]).read_bytes())
+    parts = {key: (work / name).read_text() for key, name in KEYS.items()
+             if key != "watchlist" and (work / name).exists()}
+    store.put(BUNDLE, gzip.compress(json.dumps(parts).encode()))
     store.put("dashboard", json.dumps(dash, default=str).encode())
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} markets, {dash['flagged']} informed signals, "
         f"balance ${stats['balance']:.2f} "
