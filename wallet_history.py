@@ -66,11 +66,10 @@ def cs2_row(x, won):
     return [d.group(1), slug, x.get("title", ""), round(x.get("avgPrice") or 0, 4), won, round(usd, 2)]
 
 
-def one(w):
-    path = OUT / f"{w}.json"
-    if path.exists():
-        return "cached"
-    closed = pages(f"{DATA}/closed-positions?user={w}&sortBy=TIMESTAMP&sortDirection=DESC", 50, MAX_CLOSED)
+def lifetime(w, max_closed=MAX_CLOSED):
+    """A wallet's whole Polymarket history: profit on everything and on CS2 (unredeemed losers included), and
+    every CS2 position as [date, slug, title, avg price, won, usd]."""
+    closed = pages(f"{DATA}/closed-positions?user={w}&sortBy=TIMESTAMP&sortDirection=DESC", 50, max_closed)
     openp = pages(f"{DATA}/positions?user={w}&sizeThreshold=0", 500, 20000)
     dead = [x for x in openp if x.get("curPrice") == 0]
     rows = [r for r in (cs2_row(x, x.get("realizedPnl", 0) > 0) for x in closed) if r]
@@ -78,8 +77,15 @@ def one(w):
     pnl = sum(x.get("realizedPnl", 0) for x in closed) + sum(x.get("cashPnl", 0) for x in dead)
     cs2_pnl = sum(x.get("realizedPnl", 0) for x in closed if (x.get("eventSlug") or "").startswith("cs2-")) + \
         sum(x.get("cashPnl", 0) for x in dead if (x.get("eventSlug") or "").startswith("cs2-"))
-    path.write_text(json.dumps(dict(wallet=w, pnl=round(pnl), cs2_pnl=round(cs2_pnl), n_closed=len(closed),
-                                    truncated=len(closed) >= MAX_CLOSED, rows=rows)))
+    return dict(wallet=w, pnl=round(pnl), cs2_pnl=round(cs2_pnl), n_closed=len(closed),
+                truncated=len(closed) >= max_closed, rows=rows)
+
+
+def one(w):
+    path = OUT / f"{w}.json"
+    if path.exists():
+        return "cached"
+    path.write_text(json.dumps(lifetime(w)))
     return "new"
 
 

@@ -308,7 +308,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     <p class="sub">Wallets whose last 21 days of CS2 bets (5+ bets of $20+, placed before kickoff, on finished matches) won far more often than their prices predicted: luck score 2.5+ and an edge of 10+ points. The list updates every 10 minutes as matches finish; wallets join and drop out on their own.</p>
     <div class="body scroll">
       <table class="stack">
-        <thead><tr><th class="cap">Wallet</th><th class="cap r">Bets</th><th class="cap r">Won</th><th class="cap r">Prices predicted</th><th class="cap r">Edge</th><th class="cap r">Luck score</th><th class="cap r">Money bet</th><th class="cap">Betting now</th></tr></thead>
+        <thead><tr><th class="cap">Wallet</th><th class="cap r">Bets</th><th class="cap r">Won</th><th class="cap r">Prices predicted</th><th class="cap r">Edge</th><th class="cap r">Luck score</th><th class="cap r">Money bet</th><th class="cap r">All-time profit</th><th class="cap">Betting now</th></tr></thead>
         <tbody id="t-wal"></tbody>
       </table>
     </div>
@@ -362,6 +362,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <li><b>Luck score:</b> how many standard deviations a wallet's wins are above what the prices it paid predicted. Buying at 0.50 on 30 bets should win about 15; winning 25 is a luck score of about 3.7.</li>
       <li><b>Signal:</b> on a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), informed wallets have $200+ net on one side of a market, and less than half of that on the other side. Any market counts: match, maps, totals, rounds.</li>
       <li><b>Bet:</b> $20 on that side, once per market, copied as soon as the signal appears (the next scan, within 10 minutes), filled against Polymarket's real order book with the fee. No sellers, no bet. Copying early beat waiting until kickoff in the 60-day data (+18.2% vs +11.4% on the same bets): the price drifts towards the informed side once they've bet.</li>
+      <li><b>All-time profit:</b> each informed wallet's whole Polymarket history, losing bets it never cashed in included. Several are long-run losers on a hot streak. That is shown, not filtered: in the 60-day test, following only wallets with a profitable whole CS2 history gave the same result (+17.7% vs +17.6%), and following wallets picked on their whole CS2 record did not pay at all.</li>
       <li><b>Why these rules:</b> in a 60-day walk-forward test (2,767 matches, 58,458 positions, no hindsight), following these wallets returned +17.5% over 55 bets and was positive in both halves. Without the $200 condition the edge disappeared. These settings were fixed before any live bet, so the live results are a fair test.</li>
       <li><b>Data:</b> Polymarket only. Tiers come from Valve's Regional Standings, refreshed daily.</li>
     </ul>
@@ -560,10 +561,16 @@ function risingPanel() {
       <td class="betting" data-label="Betting">${bets}</td></tr>`;
   }).join("");
 }
+const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + "$" + Math.abs(Math.round(v)).toLocaleString("en-US");
+function lifeHtml(l) {
+  if (!l) return '<span class="split">checking…</span>';
+  return `<span class="${tone(l.pnl)}" title="Everything this wallet ever bet on Polymarket, losing positions it never redeemed included">${signed(l.pnl)}</span>
+    <span class="split">CS2 <span class="${tone(l.cs2_pnl)}">${signed(l.cs2_pnl)}</span> · ${l.cs2_n} bets · luck ${l.cs2_z.toFixed(1)}${l.partial ? " · latest 1,500 only" : ""}</span>`;
+}
 function walletsPanel() {
   const ws = D.wallets || [], tb = $("t-wal");
   $("wal-count").textContent = ws.length ? `${ws.length} right now` : "";
-  if (!ws.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No wallet meets the bar right now.</td></tr>'; return; }
+  if (!ws.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">No wallet meets the bar right now.</td></tr>'; return; }
   tb.innerHTML = ws.map(w => {
     const r = w.record;
     const bets = w.betting.length ? w.betting.map(b => `<div>${b.side === "other" ? "against the signal · " : ""}<b class="num">${usd0(b.usd)}</b>${b.side !== "other" ? " on " + esc(betLabel(b.market, b.side)) : ""} · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
@@ -575,6 +582,7 @@ function walletsPanel() {
       <td class="r num pos" data-label="Edge">+${Math.round(r.edge * 100)} pts</td>
       <td class="r num" data-label="Luck">${r.z.toFixed(1)}</td>
       <td class="r num" data-label="Money">${usd0(r.usd)}</td>
+      <td class="r num" data-label="All-time">${lifeHtml(w.lifetime)}</td>
       <td class="betting" data-label="Betting">${bets}</td></tr>`;
   }).join("");
 }

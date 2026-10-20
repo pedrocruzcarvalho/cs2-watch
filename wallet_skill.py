@@ -89,9 +89,69 @@ def load_markets():
     return sorted(out, key=lambda m: m["start"])
 
 
+def informed_rule(markets, H, hist_filter, tiers=("T3", "T4", "T5", "T6")):
+    """The live informed rule (informed.py: 21-day record, 5+ bets, luck 2.5+, edge 10+ pts, $200+ one-sided,
+    copied 10 minutes after the signal), optionally also requiring a full-history CS2 record that passes
+    hist_filter(record before this match). Returns [(start, follow pnl, favourite pnl)] after a 21-day warm-up."""
+    done = []                                                   # (start, wallet, won, avg) of earlier markets
+    for mk in markets:
+        net, sh = defaultdict(float), defaultdict(float)
+        for w, o, side, size, price, ts in mk["trades"]:
+            net[(w, o)] += size * price if side == "B" else -size * price
+            if side == "B":
+                sh[(w, o)] += size
+        mk["_pos"] = [(w, o, u, (u + 0.0) / sh[(w, o)] if sh[(w, o)] else 0) for (w, o), u in net.items() if u >= 20]
+    t0 = markets[0]["start"]
+    stats = defaultdict(list)
+    qi, out = 0, []
+    for mk in markets:
+        while qi < len(markets) and markets[qi]["start"] <= mk["start"] - 3 * 3600:
+            m2 = markets[qi]
+            for w, o, u, _ in m2["_pos"]:
+                buys = [t for t in m2["trades"] if t[0] == w and t[1] == o and t[2] == "B"]
+                sz = sum(t[3] for t in buys)
+                avg = sum(t[3] * t[4] for t in buys) / sz if sz else 0
+                if 0.03 < avg < 0.97:
+                    stats[w].append((m2["start"], o == m2["winner"], avg))
+            qi += 1
+        if mk["start"] - t0 < 21 * 86400 or mk["vt"] not in tiers:
+            continue
+        qual = set()
+        for w in {t[0] for t in mk["trades"]}:
+            rs = [r for r in stats.get(w, []) if r[0] >= mk["start"] - 21 * 86400]
+            if len(rs) < 5:
+                continue
+            ex, wn = sum(r[2] for r in rs), sum(r[1] for r in rs)
+            var = sum(r[2] * (1 - r[2]) for r in rs)
+            if var <= 0 or (wn - ex) / math.sqrt(var) < 2.5 or (wn - ex) / len(rs) < 0.10:
+                continue
+            if hist_filter and not hist_filter(record(H[w]["rows"], mk["start"] - 86400) if w in H else None):
+                continue
+            qual.add(w)
+        if not qual:
+            continue
+        res = follow([mk], qual, 0, 200, None)
+        out += res
+    return out
+
+
 def main():
     H = histories()
     markets = load_markets()
+    if "--informed" in sys.argv:
+        mid = markets[len(markets) // 2]["start"]
+        for name, f in (("21-day rule as live", None),
+                        ("+ whole CS2 history luck >= 0", lambda r: r is not None and r["n"] >= 20 and r["z"] >= 0),
+                        ("+ whole CS2 history profitable", lambda r: r is not None and r["n"] >= 20 and r["profit"] > 0),
+                        ("+ whole CS2 history luck >= 1", lambda r: r is not None and r["n"] >= 20 and r["z"] >= 1),
+                        ("+ whole history luck < 0 (losers only)", lambda r: r is not None and r["n"] >= 20 and r["z"] < 0),
+                        ("+ no history found (new wallets)", lambda r: r is None or r["n"] < 20)):
+            res = informed_rule(markets, H, f)
+            s, c = F.stats([x[1] for x in res]), F.stats([x[2] for x in res])
+            a, b = F.stats([x[1] for x in res if x[0] < mid]), F.stats([x[1] for x in res if x[0] >= mid])
+            print(f"  {name:42} {s['n']:4} bets  follow {s['roi']:+6.1f}% [{s['lo']:+.0f},{s['hi']:+.0f}]  "
+                  f"halves {a['roi']:+6.1f}/{b['roi']:+6.1f}  favourite {c['roi']:+6.1f}%")
+        return
     t0, t1 = markets[0]["start"], markets[-1]["start"]
     print(f"{len(H)} wallet histories, {len(markets)} markets, {(t1 - t0) / 86400:.0f} days\n")
     for cut_day in (20, 30, 40):

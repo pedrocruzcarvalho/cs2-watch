@@ -29,6 +29,7 @@ import oddspapi as O
 import teams as TM
 import informed as I
 import live_money as LM
+import wallet_history as WH
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
@@ -164,6 +165,7 @@ def tick(store, log=print):
     sigs = I.signals(infos, qual, C.vtier, ts)
     I.settle(ist, infos, ts, fetch_winner, log=log)
     I.place_bets(ist, sigs, ts, C.book_asks, B.fill, log=log)
+    I.refresh_lifetime(ist, list(qual), ts, lambda w: WH.lifetime(w, max_closed=1500), log=log)
     (work / "informed.json").write_text(json.dumps(ist))
     inf = I.dashboard(ist, sigs, qual, ts)
     log(f"informed: +{added} resolved positions, {len(qual)} informed wallets, "

@@ -96,6 +96,28 @@ def rising(state, now, qual, limit=25):
     return sorted(out, key=lambda x: -x["record"]["z"])[:limit]
 
 
+def refresh_lifetime(state, wallets, now, fetch, log=print, per_tick=4):
+    """All-time profit (everything, and CS2 only) of the informed wallets, refreshed daily, for the dashboard.
+    Shown so long-run losers on a hot streak are visible; it does not change who is followed: in the 60-day test,
+    requiring a profitable whole CS2 history left the rule's result unchanged (+17.7% vs +17.6%)."""
+    life = state.setdefault("lifetime", {})
+    todo = [w for w in wallets if now - life.get(w, {}).get("at", 0) > 86400][:per_tick]
+    for w in todo:
+        try:
+            h = fetch(w)
+        except Exception as e:
+            log(f"  lifetime {w[:10]} failed: {e}")
+            continue
+        rows = [r for r in h["rows"] if 0.03 < r[3] < 0.97]
+        ex, wn = sum(r[3] for r in rows), sum(1 for r in rows if r[4])
+        var = sum(r[3] * (1 - r[3]) for r in rows)
+        life[w] = dict(at=now, pnl=h["pnl"], cs2_pnl=h["cs2_pnl"], cs2_n=len(rows),
+                       cs2_z=round((wn - ex) / math.sqrt(var), 2) if var > 0 else 0.0, partial=h["truncated"])
+    for w in [w for w, v in life.items() if now - v["at"] > 30 * 86400]:
+        del life[w]
+    return len(todo)
+
+
 # ------------------------------------------------------------------------------------------------ signals
 
 def signals(infos, qual, vtier_of, now):
@@ -254,7 +276,8 @@ def dashboard(state, sigs, qual, now):
                                                                 start=s["start"], side=s["side"] if x in s["wallets"] else "other"))
     wallets = []
     for w, r in sorted(qual.items(), key=lambda kv: -kv[1]["z"]):
-        wallets.append(dict(wallet=w, name=r.get("name", ""), record=r, betting=active_bets.get(w, [])))
+        wallets.append(dict(wallet=w, name=r.get("name", ""), record=r, betting=active_bets.get(w, []),
+                            lifetime=state.get("lifetime", {}).get(w)))
     return dict(view, wallets=wallets,
                 rising=[dict(x, betting=active_bets.get(x["wallet"], [])) for x in rising(state, now, qual)],
                 rules=dict(window_days=21, min_bets=MIN_BETS, min_z=MIN_Z, min_edge=MIN_EDGE, min_money=MIN_MONEY,
