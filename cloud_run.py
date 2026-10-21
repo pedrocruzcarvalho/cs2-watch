@@ -121,6 +121,57 @@ def watch_view(auto_watched, manual, rows, profiles=None):
     return sorted(out, key=lambda x: (not x["betting"], -(x["since"] or 0)))
 
 
+LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+
+
+def radar(rows, infos, qual, rising, watch, now, limit=40):
+    """Everything odd before kickoff on upcoming matches, for information (not bet): big out-of-place positions
+    (the old flag levels), watched wallets, informed and rising wallets, and lines moving toward a big bettor."""
+    rise = {x["wallet"]: x for x in rising}
+    groups = {}
+    for r in rows:
+        if r.get("venue") != "poly" or r["start"] <= now or not r.get("wallet"):
+            continue
+        w = r["wallet"].lower()
+        tags = []
+        if r.get("level"):
+            tags.append(dict(kind="big", label=f"big bet ({r['level']})"))
+        if w in watch:
+            tags.append(dict(kind="watched", label="watched: " + (watch[w].get("reason") or watch[w].get("note") or "")[:80]))
+        if w in qual:
+            tags.append(dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})"))
+        elif w in rise:
+            tags.append(dict(kind="rising", label=f"rising wallet (luck {rise[w]['record']['z']:.1f})"))
+        if (r.get("move") or 0) >= 0.10 and r["usd"] >= 1000:
+            tags.append(dict(kind="move", label=f"line moved {r['move'] * 100:+.0f}c its way"))
+        if not tags:
+            continue
+        g = groups.setdefault((r["match"], r["market"]), dict(match=r["match"], market=r["market"], start=r["start"],
+                                                            url=r.get("url"), vtier=C.vtier(r["match"]), items=[], score=0))
+        g["items"].append(dict(wallet=r["wallet"], name=r.get("name"), outcome=r["outcome"], usd=round(r["usd"]),
+                               avg=round(r.get("avg_price") or 0, 3), tags=tags, why=(r.get("why") or [])[:6]))
+        g["score"] += sum({"big": 1 + LEVEL_RANK.get(r.get("level"), 0), "watched": 6, "informed": 5, "rising": 2,
+                           "move": 1}[t["kind"]] for t in tags)
+    seen = {(x["wallet"].lower(), g["match"], g["market"], x["outcome"]) for g in groups.values() for x in g["items"]}
+    for i in infos:                                     # small bets ($20+) of followed wallets, which rows leave out
+        if i.get("venue") != "poly" or i["start"] <= now:
+            continue
+        for w, _, o, usd, avg, name in i.get("allpos") or []:
+            if (w, i["match"], i["market"], o) in seen or not (w in qual or w in rise or w in watch):
+                continue
+            tags = [dict(kind="watched", label="watched: " + (watch[w].get("reason") or watch[w].get("note") or "")[:80])]                 if w in watch else []
+            tags += [dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})")] if w in qual else                 [dict(kind="rising", label=f"rising wallet (luck {rise[w]['record']['z']:.1f})")] if w in rise else []
+            g = groups.setdefault((i["match"], i["market"]), dict(match=i["match"], market=i["market"], start=i["start"],
+                                                                url=i.get("url"), vtier=C.vtier(i["match"]), items=[], score=0))
+            g["items"].append(dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, why=[]))
+            g["score"] += sum({"watched": 6, "informed": 5, "rising": 2}[t["kind"]] for t in tags)
+    out = sorted(groups.values(), key=lambda g: (-g["score"], g["start"]))[:limit]
+    for g in out:
+        g["items"].sort(key=lambda x: -x["usd"])
+        g["items"] = g["items"][:8]
+    return out
+
+
 def tick(store, log=print):
     t0 = time.time()
     work = Path(tempfile.mkdtemp(prefix="cs2_"))
@@ -219,7 +270,8 @@ def tick(store, log=print):
                 stats=inf["stats"], series=inf["series"], bets=inf["bets"], signals=inf["signals"],
                 wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
-                live=live, shift=shift)
+                live=live, shift=shift,
+                radar=radar(rows, infos, qual, inf["rising"], C.WATCH, ts))
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 

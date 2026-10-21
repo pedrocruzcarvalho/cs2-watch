@@ -110,6 +110,11 @@ a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underl
 .acard .d { font-size: 13px; color: var(--mute); margin-top: 4px; }
 .board { display: none !important; }
 details.plan .panel { box-shadow: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; margin-top: 0 !important; }
+.rtag { display: inline-block; font: 600 11px "Barlow", sans-serif; letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; margin: 0 4px 3px 0; background: var(--panel-2); color: var(--mute); border: 1px solid var(--line); }
+.rtag.watched { color: var(--loss); border-color: currentColor; }
+.rtag.informed { color: var(--ct); border-color: currentColor; }
+.rtag.big { color: var(--t); border-color: currentColor; }
+.radar-item + .radar-item { margin-top: 6px; }
 .showmore { margin: 6px 20px 12px; font: 600 13px "Barlow", sans-serif; color: var(--ct); background: none; border: 0; padding: 0; cursor: pointer; }
 @media (max-width: 720px) { .accts { grid-template-columns: 1fr; } }
 .acct { margin: 0 0 16px; }
@@ -263,6 +268,17 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       </table>
     </div>
     <button class="showmore" id="sig-more" hidden></button>
+  </section>
+
+  <section class="panel flush" style="margin-top:16px">
+    <header><h2>Pre-match radar</h2><span class="cap" id="radar-count"></span></header>
+    <p class="sub">Everything odd before kickoff on upcoming matches, whatever the account: big out-of-place bets, watched wallets (yours and shyux's), informed and rising wallets, lines moving toward a big bettor. Information only: nothing here is bet unless an account's own rule fires. Click a row for the details.</p>
+    <div class="body scroll">
+      <table class="stack">
+        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
+        <tbody id="t-radar"></tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel flush" style="margin-top:16px">
@@ -591,6 +607,23 @@ function signals() {
   }).join("");
   toggleRows(tb, "s-");
 }
+function radarPanel() {
+  const rs = RAW.radar || [], tb = $("t-radar");
+  $("radar-count").textContent = rs.length ? `${rs.length} market${rs.length === 1 ? "" : "s"}` : "";
+  if (!rs.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Nothing odd on upcoming matches right now. Checked every 10 minutes.</td></tr>'; return; }
+  tb.innerHTML = rs.map((g, i) => {
+    const k = esc(g.match + "|" + g.market), isOpen = opened.has("r-" + k);
+    const lines = g.items.map(x => `<div class="radar-item">${x.tags.map(t => `<span class="rtag ${t.kind}">${esc(t.label)}</span>`).join("")}
+      <b class="num">${usd0(x.usd)}</b> on <b>${esc(betLabel(g.market, x.outcome))}</b> at ${(+x.avg).toFixed(2)} · <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name && !x.name.startsWith("0x") ? x.name : x.wallet.slice(0, 6) + "…" + x.wallet.slice(-4))}</a></div>`).join("");
+    const why = g.items.filter(x => x.why.length).map(x => `<li><b>${usd0(x.usd)}</b> on ${esc(betLabel(g.market, x.outcome))}: ${x.why.map(esc).join(" · ")}</li>`).join("");
+    return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
+      <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(g.start)}</b><span style="display:block;padding-left:16px">${day(g.start)} · ${rel(g.start)}</span></td>
+      ${matchCell({match: g.match, url: g.url, vtier: g.vtier, kind: g.market === "Match Winner" ? "match" : "side", market: g.market}, true)}
+      <td data-label="Odd">${lines}</td></tr>
+      <tr class="more" id="r-${i}" ${isOpen ? "" : "hidden"}><td colspan="3"><div class="why">${why ? `<p class="head">Why each bet stands out</p><ul>${why}</ul>` : '<p class="cap">Small bets from followed wallets; no size flags.</p>'}</div></td></tr>`;
+  }).join("");
+  toggleRows(tb, "r-");
+}
 function risingPanel() {
   const ws = D.rising || [], tb = $("t-ris");
   $("ris-count").textContent = ws.length ? `${ws.length} close to the bar` : "";
@@ -740,7 +773,7 @@ function view() {
   cards();
   const a = ACCTS[acct].data(RAW);
   D = a && a !== RAW && a.stats ? {...RAW, ...a} : acct === "informed" ? RAW : {...RAW, stats: {start: 300, balance: 300, equity: 300, profit: 0, roi: null, bets: 0, wins: 0, losses: 0, win_rate: null, open: 0, at_risk: 0, skipped: 0, best: 0, worst: 0, max_drawdown: 0, streak: "", by_market: [], by_tier: [], by_wallets: []}, series: [], bets: [], signals: []};
-  board(); chart(); tape(); results(); signals(); history(); walletsPanel(); risingPanel(); watch();
+  board(); chart(); tape(); results(); signals(); radarPanel(); history(); walletsPanel(); risingPanel(); watch();
 }
 function setAcct(v) {
   acct = v; document.body.dataset.acct = v;
