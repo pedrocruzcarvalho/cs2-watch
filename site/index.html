@@ -119,6 +119,7 @@ details.plan .panel { box-shadow: none; border: 0; border-top: 1px solid var(--l
 .rtag.big { color: var(--t); border-color: currentColor; }
 .rtag.kalshi { color: var(--ink); }
 .rtag.repeat { color: var(--t); }
+.rtag.sniper { color: var(--loss); border-color: currentColor; background: color-mix(in srgb, var(--loss) 8%, transparent); }
 .rtag.rising, .rtag.move { color: var(--ink); }
 .radar-item .who { display: block; font-size: 12.5px; color: var(--mute); margin-top: 1px; }
 .radar-item + .radar-item { margin-top: 6px; }
@@ -281,8 +282,8 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Pre-match radar</h2><span class="cap" id="radar-count"></span></header>
     <p class="sub" data-only="tradar">Unusual pre-match bets on upcoming tennis matches (ITF, Challengers, ATP/WTA on Polymarket). "Big" depends on the level: an ITF match normally has about $17 traded before it starts, so $500 is big there; Challengers start at $3,000 and tour matches at $15,000 (LOW &lt; MEDIUM &lt; HIGH, higher when the bet is most of the match's money). <b>Your list</b> = wallets you or I added by hand. The grey line says how much of the match's pre-match money that bet is. The Tennis radar account bets these; nothing else does.</p>
-    <p class="sub" data-only="live shift sniper radar informed">Unusual pre-kickoff bets on upcoming matches (Polymarket and Kalshi). Information only: nothing here is bet unless an account's own rule fires. Most interesting first. How to read the tags:
-      <b>Your list</b> = a wallet you or I added by hand (shyux's). <b>Informed</b> = a wallet the informed account follows. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH), often just a whale. <b>Rising</b> = close to the informed bar. <b>T2*</b> = a tier-2 match with one of your fix-prone teams (Alliance, HOTU, 5star, TYLOO, Lynn Vision, Dendele, Eternal Fire, SINNERS, JiJieHao, K27, Nuclear TigeRES, Sangal, Wildcard, magic, Nemiga, 1win, BetBoom, MIBR); every account treats it like T3–T6. The grey line under each bet is that wallet's record: "normal luck" means its wins match its prices, so probably not inside info. Click a row for why each bet was flagged.</p>
+    <p class="sub" data-only="live shift sniper radar informed">Pre-kickoff money that could mean inside knowledge or a real edge, on upcoming CS2 matches (Polymarket and Kalshi). A bet only shows up here if at least one of these is true:
+      <b>Your list</b> = a wallet you or I added by hand (shyux's). <b>Sniper</b> = a wallet with only 3–40 CS2 bets that won 60%+ of them, putting $300+. <b>Informed</b> = a wallet on a 21-day hot streak, putting $200+. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH) from a wallet that is <i>not</i> a known whale with normal luck. Small bets, whales with normal records and "rising" wallets are left out. The grey line is the wallet's record. The Radar account bets these; click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
@@ -451,22 +452,22 @@ const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
 let D = null, RAW = null, resMode = "market", histFilter = "all", showAllSigs = false;
 const ACCTS = {
-  live: {name: "Live big money", sub: "copies $3k+ bets placed during low-tier matches", data: d => d.live,
+  live: {name: "Live big money", sub: "copies one wallet buying $3k+ on a side DURING a T3–T6 match", data: d => d.live,
          sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
          empty: "A bet appears when one wallet puts $3k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
-  shift: {name: "Odd shifts", sub: "follows the market when it contradicts the scoreboard", data: d => d.shift,
+  shift: {name: "Odd shifts", sub: "live price contradicts the round score by 35+ pts → bets with the market", data: d => d.shift,
          sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T2–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
          empty: "A bet appears when a live T2–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},
-  sniper: {name: "Snipers", sub: "copies few-but-deadly CS2 wallets (like shyux's)", data: d => d.sniper,
+  sniper: {name: "Snipers", sub: "copies wallets with 3–40 CS2 bets and 60%+ won when they bet $1k+ (like shyux’s)", data: d => d.sniper,
          sig: "Matches where a sniper has money: a wallet with only 3–40 CS2 bets in its whole history that won 60%+ of them, beat its prices by 5+ points and bets mostly CS2 (plus wallets on your list). When a sniper holds $1,000+ on one side, before kickoff or in-play, the bet is copied at the next scan. Backtest: +22.9% over 124 bets, positive in both halves.",
          empty: "A bet appears when a sniper puts $1,000+ on one side of a non-tier-1 match.", money: "Sniper money", hmoney: "Sniper money", head: "Snipers", what: "sniper"},
-  radar: {name: "Radar", sub: "bets what the pre-match radar shows", data: d => d.radar_acct,
-         sig: "Upcoming matches on the pre-match radar. The account bets $20 on the side with the most radar money (big bets, your list, informed and rising wallets) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
+  radar: {name: "Radar", sub: "copies suspicious pre-match money: snipers, your list, informed wallets, big bets from non-whales", data: d => d.radar_acct,
+         sig: "Upcoming matches on the pre-match radar. The account bets $20 on the side with the most radar money (your list, snipers, informed wallets $200+, big bets from non-whales) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
          empty: "A bet appears when a match shows up on the pre-match radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
-  tradar: {sport: "tennis", name: "Tennis radar", sub: "bets what the tennis radar shows", data: d => d.tennis && d.tennis.radar_acct,
+  tradar: {sport: "tennis", name: "Tennis radar", sub: "copies big pre-match tennis money (ITF $500+, Challenger $3k+, tour $15k+)", data: d => d.tennis && d.tennis.radar_acct,
          sig: "Upcoming tennis matches on the radar. The account bets $20 on the side with the most radar money when the other side has less than half of it, once per match, at the next scan. Not a tested edge: in 30 days of tennis data, following big pre-match bets lost 2–12%.",
          empty: "A bet appears when a tennis match shows up on the radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
-  informed: {name: "Informed wallets", sub: "copies hot wallets before kickoff", data: d => d,
+  informed: {name: "Informed wallets", sub: "copies wallets on a 21-day hot streak when they bet $200+ before a T3–T6 match", data: d => d,
          sig: "Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.",
          empty: "A bet appears when informed wallets put $200+ on one side of a T3–T6 match.", money: "Informed money", hmoney: "Informed money", head: "Informed wallets", what: "informed"},
 };

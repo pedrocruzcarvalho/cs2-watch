@@ -157,58 +157,76 @@ def who(w, profiles, qual, life=None):
     return base + (f" ({a['wins']}-{a['losses']}, won {a['win_rate']:.0%} at {a['avg_price']:.0%} prices)" if a.get("n") else "")
 
 
-def radar(rows, infos, qual, rising, watch, now, profiles=None, limit=40):
-    """Everything odd before kickoff on upcoming matches, for information (not bet): big out-of-place positions
-    (the old flag levels), hand-picked wallets, informed and rising wallets, and lines moving toward a big bettor.
-    Ordered so that real leads come first: hand-picked and informed wallets, suspect records, then plain size."""
-    profiles = profiles or {}
-    rise = {x["wallet"]: x for x in rising}
+def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
+    """Pre-kickoff money that could mean inside knowledge or a real edge, on upcoming matches. Shown and bet by the
+    radar account only when at least one of these holds (Pedro, Oct 21 2026: no noise):
+      your list   a hand-picked wallet (any size from $20)
+      sniper      a wallet with the sniper profile (sniper.py) putting $300+
+      informed    a wallet on a 21-day hot streak (informed.py) putting $200+
+      repeat      an auto-watched wallet whose record is suspect or sharp, with a big bet
+      big bet     a big bet for this match (LOW/MEDIUM/HIGH; Kalshi MEDIUM+) from a wallet whose record is NOT
+                  plain normal luck (whales with normal luck are left out)"""
+    profiles, snipers = profiles or {}, snipers or {}
     groups = {}
+
+    def add(match, market, start, url, item, score):
+        g = groups.setdefault((match, market), dict(match=match, market=market, start=start, url=url,
+                                                    vtier=C.vtier_fix(match), items=[], score=0))
+        g["items"].append(item)
+        g["score"] += score
+
+    def tags_for(w, usd, level, venue):
+        tags, score = [], 0
+        wt = watch_tag(w, watch) if w else None
+        if wt and wt["kind"] == "watched" and usd >= 20:
+            tags.append(wt); score += 8
+        if w in snipers and usd >= 300:
+            p = snipers[w]
+            tags.append(dict(kind="sniper", label=f"sniper ({p['n']} CS2 bets, won {p['won']:.0%})")); score += 7
+        if w in qual and usd >= 200:
+            tags.append(dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})")); score += 6
+        if wt and wt["kind"] == "repeat" and level:
+            tags.append(wt); score += 3
+        lucky = (profiles.get(w) or {}).get("verdict") == "lucky"
+        if level and not lucky and (venue != "kalshi" or level in ("MEDIUM", "HIGH")):
+            tags.append(dict(kind="big", label=f"big bet ({level})")); score += 1 + LEVEL_RANK.get(level, 0)
+        if tags and venue == "kalshi":
+            tags.insert(0, dict(kind="kalshi", label="Kalshi"))
+        return tags, score
+
+    def who_line(w):
+        if not w:
+            return "anonymous (Kalshi)"
+        if w in snipers:
+            p = snipers[w]
+            return (f"sniper: {p['n']} CS2 bets in its whole history, won {p['won']:.0%} ({p['edge'] * 100:+.0f} pts over "
+                    f"its prices), CS2 profit ${p.get('cs2_pnl', 0):,.0f}")
+        return who(w, profiles, qual)
+
+    seen = set()
     for r in rows:
-        if r["start"] <= now or not (r.get("wallet") or (r.get("venue") == "kalshi" and r.get("level"))):
-            continue
         w = (r.get("wallet") or "").lower()
-        tags = [dict(kind="kalshi", label="Kalshi")] if r.get("venue") == "kalshi" else []
-        if r.get("level"):
-            tags.append(dict(kind="big", label=f"big bet ({r['level']})"))
-        wt = watch_tag(w, watch)
-        if wt:
-            tags.append(wt)
-        if w in qual:
-            tags.append(dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})"))
-        elif w in rise:
-            tags.append(dict(kind="rising", label=f"rising wallet (luck {rise[w]['record']['z']:.1f})"))
-        if (r.get("move") or 0) >= 0.10 and r["usd"] >= 1000:
-            tags.append(dict(kind="move", label=f"line moved {r['move'] * 100:+.0f}c its way"))
+        if r["start"] <= now or not (w or r.get("venue") == "kalshi"):
+            continue
+        tags, score = tags_for(w, r["usd"], r.get("level"), r.get("venue"))
         if not tags:
             continue
-        g = groups.setdefault((r["match"], r["market"]), dict(match=r["match"], market=r["market"], start=r["start"],
-                                                            url=r.get("url"), vtier=C.vtier_fix(r["match"]), items=[], score=0))
-        g["items"].append(dict(wallet=r.get("wallet") or "", name=r.get("name"), outcome=r["outcome"], usd=round(r["usd"]),
-                               avg=round(r.get("avg_price") or 0, 3), tags=tags, why=(r.get("why") or [])[:6],
-                               who=who(w, profiles, qual) if w else "anonymous (Kalshi)"))
-        g["score"] += sum({"big": 1 + LEVEL_RANK.get(r.get("level"), 0), "watched": 8, "informed": 6, "repeat": 3,
-                           "rising": 2, "move": 1, "kalshi": 0}[t["kind"]] for t in tags)
-        if (profiles.get(w) or {}).get("verdict") == "lucky" and not any(t["kind"] in ("watched", "informed") for t in tags):
-            g["score"] -= 1                                            # a whale with normal luck: the least interesting
-    seen = {((x["wallet"] or "").lower(), g["match"], g["market"], x["outcome"]) for g in groups.values() for x in g["items"]}
-    for i in infos:                                     # small bets ($20+) of followed wallets, which rows leave out
+        seen.add((w, r["match"], r["market"], r["outcome"]))
+        add(r["match"], r["market"], r["start"], r.get("url"),
+            dict(wallet=r.get("wallet") or "", name=r.get("name"), outcome=r["outcome"], usd=round(r["usd"]),
+                 avg=round(r.get("avg_price") or 0, 3), tags=tags, why=(r.get("why") or [])[:6], who=who_line(w)), score)
+    for i in infos:                                     # smaller bets of followed wallets, which rows leave out
         if i.get("venue") != "poly" or i["start"] <= now:
             continue
         for w, _, o, usd, avg, name in i.get("allpos") or []:
-            wt = watch_tag(w, watch)
-            if (w, i["match"], i["market"], o) in seen or not (w in qual or w in rise or wt):
+            if (w, i["match"], i["market"], o) in seen:
                 continue
-            tags = [wt] if wt else []
-            if w in qual:
-                tags.append(dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})"))
-            elif w in rise:
-                tags.append(dict(kind="rising", label=f"rising wallet (luck {rise[w]['record']['z']:.1f})"))
-            g = groups.setdefault((i["match"], i["market"]), dict(match=i["match"], market=i["market"], start=i["start"],
-                                                                url=i.get("url"), vtier=C.vtier_fix(i["match"]), items=[], score=0))
-            g["items"].append(dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, why=[],
-                                   who=who(w, profiles, qual)))
-            g["score"] += sum({"watched": 8, "informed": 6, "repeat": 3, "rising": 2}[t["kind"]] for t in tags)
+            tags, score = tags_for(w, usd, None, "poly")
+            if not tags:
+                continue
+            add(i["match"], i["market"], i["start"], i.get("url"),
+                dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, why=[], who=who_line(w)),
+                score)
     out = sorted(groups.values(), key=lambda g: (-g["score"], g["start"]))[:limit]
     for g in out:
         g["items"].sort(key=lambda x: -x["usd"])
@@ -311,7 +329,8 @@ def tick(store, log=print):
         f"{shift['snaps']} snapshots kept, balance ${shift['stats']['balance']:.2f}")
 
     # ---- radar account: bets what the pre-match radar shows (radar_account.py) ----
-    rad = radar(rows, infos, qual, inf["rising"], C.WATCH, ts, profiles)
+    sniper_prof = {w: p for w, p in O.load(work / "sniper.json").get("profiles", {}).items() if SN.is_sniper(p)}
+    rad = radar(rows, infos, qual, sniper_prof, C.WATCH, ts, profiles)
     rst = {} if reset else O.load(work / "radar.json")
     rsigs = RA.signals(rad, infos, ts, skip_tiers=("T1",))
     I.settle(rst, infos, ts, fetch_winner, log=log)

@@ -2,9 +2,10 @@
 Radar account: bet on what the pre-match radar shows (CS2 and tennis each have their own).
 
 Rules (fixed on 2026-10-21 at Pedro's request, before any result):
-  signal   a market on the pre-match radar (big out-of-place bets, hand-picked / informed / rising wallets, line
-           moves), before kickoff, on Polymarket: the side with the most radar money, with less than half of that on
-           the other side
+  signal   a market on the pre-match radar, before kickoff, on Polymarket: the side with the most radar money, with
+           less than half of that on the other side. Since Oct 21 2026 the radar only keeps hand-picked wallets,
+           snipers ($300+), informed wallets ($200+), suspect/sharp repeat bettors and big bets from wallets that
+           are not known whales with normal luck (cloud_run.radar); small bets and "rising" wallets are left out.
   bet      $20 on that side at the next 10-minute scan, filled against the real order book (fee included), once per
            market; skipped at 0.97+. $300 paper bankroll.
 Expectation, said up front: in 60 days of CS2 data, following big pre-match bets was about break-even (the same
