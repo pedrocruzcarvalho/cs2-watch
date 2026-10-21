@@ -56,6 +56,23 @@ def prune_old(state, snipers):
     return n
 
 
+def merge_backfill(state, bets):
+    """Once: add the bets today's rules would have made since the account opened (radar_replay.py), with their real
+    results. A market that already has a live (non-refunded) bet keeps it."""
+    if state.get("backfilled"):
+        return 0
+    acct = state.setdefault("account", dict(opened_at=min((b["placed_at"] for b in bets), default=0), bets={}))
+    n = 0
+    for b in bets:
+        cur = acct["bets"].get(b["cid"])
+        if cur and cur["status"] != "void":
+            continue
+        acct["bets"][b["cid"]] = b
+        n += 1
+    state["backfilled"] = True
+    return n
+
+
 def signals(groups, infos, now, skip_tiers=()):
     by_key = {(i["match"], i.get("market", "Match Winner")): i for i in infos if i.get("venue") == "poly"}
     out = []
@@ -102,6 +119,9 @@ def explain(b, now):
             + ("bought during the match." if b.get("placed_at", 0) >= b["start"] else "before kickoff."))
     why = [f"Rule: bet the side with the most pre-match radar money when the other side has less than half of it. "
            f"Here {I.money(b['money'])} vs {I.money(b.get('other_money', 0))}."]
+    if b.get("replayed"):
+        why.append("Added afterwards: a replay of the day with today's rules found the radar would have made this bet "
+                   "(filled at the last traded price then, +1c, fee included).")
     if b["status"] != "skipped":
         why.append(f"Bet {I.money(b['stake'])} at {b['price']:.3f}, filled against the real order book, fee included. "
                    f"If {b['side']} wins it pays {I.money(b['shares'])}.")

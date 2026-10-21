@@ -341,6 +341,9 @@ def tick(store, log=print):
     sniper_prof = {w: p for w, p in O.load(work / "sniper.json").get("profiles", {}).items() if SN.is_sniper(p)}
     rad = radar(rows, infos, qual, sniper_prof, C.WATCH, ts, profiles)
     rst = {} if reset else O.load(work / "radar.json")
+    seed = store.get("seed:radar_backfill") if not rst.get("backfilled") else None
+    if seed:
+        log(f"radar account: added {RA.merge_backfill(rst, json.loads(seed))} replayed bets (today's rules)")
     n = RA.prune_old(rst, sniper_prof)
     if n:
         log(f"radar account: refunded {n} old bets that today's radar would not make")
