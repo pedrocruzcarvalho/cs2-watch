@@ -29,9 +29,13 @@ KEEP_SNAPS = 30 * 86400
 
 
 def parse_score(s):
-    """'013-008|1-0|Bo3' -> (13, 8, 1, 0, 3); None if it can't be read."""
+    """'6-1|0-0|Bo3' -> (6, 1, 0, 0, 3); None if it can't be read or carries no live data.
+    The feed shows '000-000|0-0' when it has no score at all (some live matches never get one while the price
+    moves): treating that as 0-0 would turn ordinary swings into false signals, so it is skipped."""
     try:
         cur, maps, fmt = s.split("|")
+        if cur == "000-000" and maps == "0-0":
+            return None
         ra, rb = (int(x) for x in cur.split("-"))
         ma, mb = (int(x) for x in maps.split("-"))
         return ra, rb, ma, mb, int(fmt.lower().replace("bo", ""))

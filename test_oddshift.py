@@ -15,6 +15,8 @@ def _info(start, home_px, score=None, live=True, winner=None):
 def test_parse_and_model():
     assert OS.parse_score("013-008|1-0|Bo3") == (13, 8, 1, 0, 3)
     assert OS.parse_score("garbage") is None
+    assert OS.parse_score("000-000|0-0|Bo3") is None                   # feed has no live score
+    assert OS.parse_score("6-1|0-0|Bo3") == (6, 1, 0, 0, 3)
     assert abs(OS.model((0, 0, 0, 0, 3), 0.7) - 0.7) < 0.01           # no score yet: the pre-match price
     assert OS.model((1, 0, 1, 0, 3), 0.5) > 0.75                       # a map up and leading the next
     assert 0.6 < OS.model((14, 12, 1, 1, 3), 0.5) < 0.95              # overtime lead, not a finished map
