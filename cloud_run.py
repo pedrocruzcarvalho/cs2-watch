@@ -36,13 +36,14 @@ import live_money as LM
 import oddshift as OS
 import radar_account as RA
 import sniper as SN
+import tennis_watch as TW
 import wallet_history as WH
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
-        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json", "state:sniper": "sniper.json"}
+        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json", "state:sniper": "sniper.json", "state:tradar": "tradar.json"}
 BUNDLE = "state:bundle"
 KEEP_DAYS = 90
 RESET = "2026-10-21"          # change to wipe every paper account back to $300 once (Pedro, Oct 20 2026)
@@ -335,6 +336,23 @@ def tick(store, log=print):
     log(f"sniper: {snip['checked']} wallets profiled, {len(snip['snipers'])} snipers, "
         f"{sum(s['active'] for s in ssigs)} active signals, balance ${snip['stats']['balance']:.2f}")
 
+    # ---- tennis, separate from CS2: radar + radar account (tennis_watch.py) ----
+    tennis = None
+    try:
+        tinfos, trows = TW.scan(now, C.WATCH, log=log)
+        trad = TW.radar(trows, C.WATCH, ts)
+        tst = O.load(work / "tradar.json")
+        tsigs = RA.signals(trad, tinfos, ts)
+        I.settle(tst, tinfos, ts, fetch_winner, log=log)
+        I.place_bets(tst, tsigs, ts, C.book_asks, B.fill, log=log, tag="tennis radar")
+        (work / "tradar.json").write_text(json.dumps(tst))
+        tennis = dict(radar=trad, radar_acct=RA.dashboard(tst, tsigs, ts, ("ITF", "Challenger", "Tour")),
+                      scanned=len(tinfos))
+        log(f"tennis radar account: {len(trad)} radar matches, {sum(s['active'] for s in tsigs)} active signals, "
+            f"balance ${tennis['radar_acct']['stats']['balance']:.2f}")
+    except Exception as e:                                 # tennis must never stop the CS2 tick
+        log(f"tennis failed: {e!r}")
+
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
@@ -342,7 +360,7 @@ def tick(store, log=print):
                 wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
                 live=live, shift=shift,
-                radar=rad, radar_acct=radar_acct, sniper=snip)
+                radar=rad, radar_acct=radar_acct, sniper=snip, tennis=tennis)
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 

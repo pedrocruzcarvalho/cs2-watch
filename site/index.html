@@ -99,6 +99,9 @@ a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underl
 /* tabs */
 .tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; margin-left: auto; }
 .tabs button { font: 600 12.5px "Barlow", sans-serif; color: var(--mute); background: transparent; border: 0; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
+.sports { display: flex; gap: 8px; margin: 0 0 14px; }
+.sports button { font: 600 15px "Chakra Petch", sans-serif; letter-spacing: .03em; padding: 8px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--mute); cursor: pointer; }
+.sports button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 .accts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 0 0 16px; }
 .acard { text-align: left; font: inherit; color: inherit; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 18px; cursor: pointer; min-width: 0; }
 .acard[aria-pressed="true"] { border-color: var(--t); }
@@ -247,11 +250,12 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 </head>
 <body>
 <div class="top"><div class="top-in">
-  <div class="mark"><i aria-hidden="true"></i>CS2 FIX WATCH</div>
+  <div class="mark"><i aria-hidden="true"></i>FIX WATCH</div>
   <div class="status" id="status"><span class="dot"></span><span>loading…</span></div>
 </div></div>
 
 <main class="wrap" id="app">
+  <nav class="sports" id="sports" aria-label="Sport"><button data-v="cs" aria-pressed="true">CS2</button><button data-v="tennis" aria-pressed="false">Tennis</button></nav>
   <nav class="accts" id="accts" aria-label="Paper accounts">
   </nav>
   <section class="board" aria-label="Paper account">
@@ -276,7 +280,8 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Pre-match radar</h2><span class="cap" id="radar-count"></span></header>
-    <p class="sub">Unusual pre-kickoff bets on upcoming matches (Polymarket and Kalshi). Information only: nothing here is bet unless an account's own rule fires. Most interesting first. How to read the tags:
+    <p class="sub" data-only="tradar">Unusual pre-match bets on upcoming tennis matches (ITF, Challengers, ATP/WTA on Polymarket). "Big" depends on the level: an ITF match normally has about $17 traded before it starts, so $500 is big there; Challengers start at $3,000 and tour matches at $15,000 (LOW &lt; MEDIUM &lt; HIGH, higher when the bet is most of the match's money). <b>Your list</b> = wallets you or I added by hand. The grey line says how much of the match's pre-match money that bet is. The Tennis radar account bets these; nothing else does.</p>
+    <p class="sub" data-only="live shift sniper radar informed">Unusual pre-kickoff bets on upcoming matches (Polymarket and Kalshi). Information only: nothing here is bet unless an account's own rule fires. Most interesting first. How to read the tags:
       <b>Your list</b> = a wallet you or I added by hand (shyux's). <b>Informed</b> = a wallet the informed account follows. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH), often just a whale. <b>Rising</b> = close to the informed bar. <b>T2*</b> = a tier-2 match with one of your fix-prone teams (Alliance, HOTU, 5star, TYLOO, Lynn Vision, Dendele, Eternal Fire, SINNERS, JiJieHao, K27, Nuclear TigeRES, Sangal, Wildcard, magic, Nemiga, 1win, BetBoom, MIBR); every account treats it like T3–T6. The grey line under each bet is that wallet's record: "normal luck" means its wins match its prices, so probably not inside info. Click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
@@ -458,6 +463,9 @@ const ACCTS = {
   radar: {name: "Radar", sub: "bets what the pre-match radar shows", data: d => d.radar_acct,
          sig: "Upcoming matches on the pre-match radar. The account bets $20 on the side with the most radar money (big bets, your list, informed and rising wallets) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
          empty: "A bet appears when a match shows up on the pre-match radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
+  tradar: {sport: "tennis", name: "Tennis radar", sub: "bets what the tennis radar shows", data: d => d.tennis && d.tennis.radar_acct,
+         sig: "Upcoming tennis matches on the radar. The account bets $20 on the side with the most radar money when the other side has less than half of it, once per match, at the next scan. Not a tested edge: in 30 days of tennis data, following big pre-match bets lost 2–12%.",
+         empty: "A bet appears when a tennis match shows up on the radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
   informed: {name: "Informed wallets", sub: "copies hot wallets before kickoff", data: d => d,
          sig: "Upcoming matches where informed wallets have bet. When the money is $200+, one-sided, on a T3–T6 match, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets and their records.",
          empty: "A bet appears when informed wallets put $200+ on one side of a T3–T6 match.", money: "Informed money", hmoney: "Informed money", head: "Informed wallets", what: "informed"},
@@ -475,7 +483,7 @@ function matchCell(b, link) {
   const [teams, ev] = split(b.match);
   const name = link && b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(teams)}</a>` : esc(teams);
   const rk = Object.entries(b.ranks || {}).map(([t, r]) => `${esc(t)} ${r ? "#" + r : "unranked"}`).join(" · ");
-  return `<td class="match"><b>${name}</b><span class="ev">${esc(ev)}${b.vtier ? " · <b>" + esc(b.vtier) + "</b>" : b.tier ? " · " + esc(b.tier) + " tier" : ""}</span>
+  return `<td class="match"><b>${name}</b><span class="ev">${esc(ev)}${b.vtier ? (ev ? " · " : "") + "<b>" + esc(b.vtier) + "</b>" : b.tier ? (ev ? " · " : "") + esc(b.tier) + " tier" : ""}</span>
     ${rk ? `<span class="ev" style="display:block" title="Valve Regional Standings">${rk}</span>` : ""}
     ${b.kind && b.kind !== "match" ? `<div><span class="tag mk">${esc(b.market)}</span></div>` : ""}</td>`;
 }
@@ -624,7 +632,7 @@ function signals() {
   toggleRows(tb, "s-");
 }
 function radarPanel() {
-  const rs = RAW.radar || [], tb = $("t-radar");
+  const rs = (sportOf(acct) === "tennis" ? (RAW.tennis || {}).radar : RAW.radar) || [], tb = $("t-radar");
   $("radar-count").textContent = rs.length ? `${rs.length} market${rs.length === 1 ? "" : "s"}` : "";
   if (!rs.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Nothing odd on upcoming matches right now. Checked every 10 minutes.</td></tr>'; return; }
   tb.innerHTML = rs.map((g, i) => {
@@ -766,14 +774,19 @@ function group(sel, set) {
     document.querySelectorAll(sel + " button").forEach(x => x.setAttribute("aria-pressed", x === b)); set(b.dataset.v); });
 }
 group("#res-tabs", v => { resMode = v; results(); });
+const sportOf = k => (ACCTS[k] && ACCTS[k].sport) || "cs";
 function cards() {
-  const today = new Date(), nav = $("accts");
+  const today = new Date(), nav = $("accts"), sp = sportOf(acct);
   today.setHours(0, 0, 0, 0);
-  if (!nav.children.length) {
-    nav.innerHTML = Object.entries(ACCTS).map(([k, a]) => `<button class="acard" data-v="${k}" aria-pressed="${k === acct}"><div class="nm">${a.name} <small>${a.sub}</small></div><div id="c-${k}"></div></button>`).join("");
+  document.querySelectorAll("#sports button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === sp));
+  const mine = Object.entries(ACCTS).filter(([k]) => sportOf(k) === sp);
+  if (nav.dataset.sport !== sp) {
+    nav.dataset.sport = sp;
+    nav.innerHTML = mine.map(([k, a]) => `<button class="acard" data-v="${k}" aria-pressed="${k === acct}"><div class="nm">${a.name} <small>${a.sub}</small></div><div id="c-${k}"></div></button>`).join("");
     nav.querySelectorAll("button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
   }
-  for (const [k, A] of Object.entries(ACCTS)) {
+  nav.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === acct));
+  for (const [k, A] of mine) {
     const a = A.data(RAW), box = $("c-" + k);
     if (!a || !a.stats) { box.innerHTML = '<div class="d">starts with the next scan</div>'; continue; }
     const s = a.stats, n = (a.bets || []).filter(b => b.stake && b.placed_at * 1000 >= today.getTime()).length;
@@ -799,6 +812,10 @@ function setAcct(v) {
   try { window.history.replaceState(null, "", "#" + v); } catch {}
   opened.clear(); showAllSigs = false; view();
 }
+document.querySelectorAll("#sports button").forEach(b => b.onclick = () => {
+  if (sportOf(acct) === b.dataset.v) return;
+  setAcct(Object.keys(ACCTS).find(k => sportOf(k) === b.dataset.v));
+});
 setAcct(acct);
 group(".filters", v => { histFilter = v; history(); });
 
