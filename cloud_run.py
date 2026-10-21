@@ -125,7 +125,7 @@ def watch_view(auto_watched, manual, rows, profiles=None):
 
 
 LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
-LIVE_TIERS = {"T2*", "T3", "T4", "T5", "T6"}                 # the radar watches in-play money on these only
+LIVE_TIERS = {"T3", "T4", "T5", "T6"}                        # the radar watches in-play money on these only (Pedro)
 LIVE_LEVELS = [("HIGH", 25000), ("MEDIUM", 10000), ("LOW", 4000)]   # a big in-play bet
 LIST_MIN = 900                  # a hand-picked wallet triggers the radar from this size (Pedro, Oct 21 2026)
 
@@ -161,14 +161,12 @@ def who(w, profiles, qual, life=None):
 
 
 def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
-    """Pre-kickoff money that could mean inside knowledge or a real edge, on upcoming matches. Shown and bet by the
-    radar account only when at least one of these holds (Pedro, Oct 21 2026: no noise):
-      your list   a hand-picked wallet betting $900+ (Pedro, Oct 21 2026)
-      repeat      an auto-watched wallet whose record is suspect or sharp, with a big bet
-    Before kickoff on any non-tier-1 match, and during the match (in-play money) on T3-T6 and T2* only, where a big
-    in-play bet is $4k+ (LOW), $10k+ (MEDIUM), $25k+ (HIGH).
-      big bet     a big bet for this match (LOW/MEDIUM/HIGH; Kalshi MEDIUM+) from a wallet whose record is NOT
-                  plain normal luck (whales with normal luck are left out)"""
+    """The radar (Pedro's rule, Oct 21 2026, "that's literally it"):
+      big bet     any big, out-of-place bet (the scanner's LOW/MEDIUM/HIGH; Kalshi MEDIUM+), whoever placed it:
+                  before kickoff on T2-T6 (non-tier-1), during the match on T3-T6 only, where a big in-play bet is
+                  $4k+ LOW, $10k+ MEDIUM, $25k+ HIGH
+      your list   a hand-picked wallet betting $900+
+    Shown on the page and bet by the radar account."""
     profiles, snipers = profiles or {}, snipers or {}
     groups = {}
 
@@ -183,10 +181,7 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
         wt = watch_tag(w, watch) if w else None
         if wt and wt["kind"] == "watched" and usd >= LIST_MIN:
             tags.append(wt); score += 8
-        if wt and wt["kind"] == "repeat" and level:
-            tags.append(wt); score += 3
-        lucky = (profiles.get(w) or {}).get("verdict") == "lucky"
-        if level and not lucky and (venue != "kalshi" or level in ("MEDIUM", "HIGH")):
+        if level and (venue != "kalshi" or level in ("MEDIUM", "HIGH")):
             tags.append(dict(kind="big", label=f"big bet ({level})")); score += 1 + LEVEL_RANK.get(level, 0)
         if tags and venue == "kalshi":
             tags.insert(0, dict(kind="kalshi", label="Kalshi"))
@@ -344,9 +339,9 @@ def tick(store, log=print):
     seed = store.get("seed:radar_backfill") if not rst.get("backfilled") else None
     if seed:
         log(f"radar account: added {RA.merge_backfill(rst, json.loads(seed))} replayed bets (today's rules)")
-    n = RA.prune_old(rst, sniper_prof)
+    n = RA.restore_big(rst)
     if n:
-        log(f"radar account: refunded {n} old bets that today's radar would not make")
+        log(f"radar account: restored {n} big-money bets that had been refunded")
     rsigs = RA.signals(rad, infos, ts, skip_tiers=("T1",))
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")

@@ -73,6 +73,30 @@ def merge_backfill(state, bets):
     return n
 
 
+def restore_big(state):
+    """Once (Pedro, Oct 21 2026): the early bets refunded as 'would not count on today's radar' come back with their
+    real result when they copied $1,000+ (the big-money ones); the tiny ones ($33-$250) stay refunded."""
+    if state.get("restored_big"):
+        return 0
+    n = 0
+    for b in state.get("account", {}).get("bets", {}).values():
+        if b["status"] != "void" or not (b.get("reason") or "").startswith("would not count on today's radar"):
+            continue
+        if max((c.get("usd", 0) for c in b.get("wallets") or []), default=0) < 1000:
+            continue
+        b.pop("reason", None)
+        w = b.get("winner")
+        if w is None:
+            b["status"] = "open"
+            b.pop("pnl", None)
+        else:
+            b.update(status="won" if w == b["side"] else "lost",
+                     pnl=round(b["shares"] - b["stake"], 2) if w == b["side"] else -b["stake"])
+        n += 1
+    state["restored_big"] = True
+    return n
+
+
 def signals(groups, infos, now, skip_tiers=()):
     by_key = {(i["match"], i.get("market", "Match Winner")): i for i in infos if i.get("venue") == "poly"}
     out = []
