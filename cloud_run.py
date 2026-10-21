@@ -35,13 +35,14 @@ import informed as I
 import live_money as LM
 import oddshift as OS
 import radar_account as RA
+import sniper as SN
 import wallet_history as WH
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
-        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json"}
+        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json", "state:sniper": "sniper.json"}
 BUNDLE = "state:bundle"
 KEEP_DAYS = 90
 RESET = "2026-10-21"          # change to wipe every paper account back to $300 once (Pedro, Oct 20 2026)
@@ -317,6 +318,23 @@ def tick(store, log=print):
     log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "
         f"balance ${radar_acct['stats']['balance']:.2f}")
 
+    # ---- snipers: few, well-aimed CS2 bets (sniper.py) ----
+    sst = O.load(work / "sniper.json")
+    if not sst.get("profiles"):                          # one-time seed from the 1,506 wallet histories (local research)
+        seed = store.get("seed:sniper")
+        if seed:
+            sst["profiles"] = json.loads(seed)
+            log(f"sniper: seeded {len(sst['profiles'])} wallet profiles")
+    SN.refresh(sst, infos, ts, lambda w: WH.lifetime(w, max_closed=1500), log=log)
+    ssigs = SN.signals(sst, infos, C.vtier_fix, ts, manual=list(manual))
+    I.settle(sst, infos, ts, fetch_winner, log=log)
+    I.place_bets(sst, ssigs, ts, C.book_asks, B.fill, log=log, tag="sniper")
+    I.place_bets(sst, ssigs, ts, C.book_asks, B.fill, log=log, live=True, tag="sniper live")
+    (work / "sniper.json").write_text(json.dumps(sst))
+    snip = SN.dashboard(sst, ssigs, ts)
+    log(f"sniper: {snip['checked']} wallets profiled, {len(snip['snipers'])} snipers, "
+        f"{sum(s['active'] for s in ssigs)} active signals, balance ${snip['stats']['balance']:.2f}")
+
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
@@ -324,7 +342,7 @@ def tick(store, log=print):
                 wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
                 live=live, shift=shift,
-                radar=rad, radar_acct=radar_acct)
+                radar=rad, radar_acct=radar_acct, sniper=snip)
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 

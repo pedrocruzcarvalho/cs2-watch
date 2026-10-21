@@ -452,6 +452,9 @@ const ACCTS = {
   shift: {name: "Odd shifts", sub: "follows the market when it contradicts the scoreboard", data: d => d.shift,
          sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T2–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
          empty: "A bet appears when a live T2–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},
+  sniper: {name: "Snipers", sub: "copies few-but-deadly CS2 wallets (like shyux's)", data: d => d.sniper,
+         sig: "Matches where a sniper has money: a wallet with only 3–40 CS2 bets in its whole history that won 60%+ of them, beat its prices by 5+ points and bets mostly CS2 (plus wallets on your list). When a sniper holds $1,000+ on one side, before kickoff or in-play, the bet is copied at the next scan. Backtest: +22.9% over 124 bets, positive in both halves.",
+         empty: "A bet appears when a sniper puts $1,000+ on one side of a non-tier-1 match.", money: "Sniper money", hmoney: "Sniper money", head: "Snipers", what: "sniper"},
   radar: {name: "Radar", sub: "bets what the pre-match radar shows", data: d => d.radar_acct,
          sig: "Upcoming matches on the pre-match radar. The account bets $20 on the side with the most radar money (big bets, your list, informed and rising wallets) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
          empty: "A bet appears when a match shows up on the pre-match radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
@@ -574,6 +577,9 @@ function wname(x) {
 }
 function walletRecord(x) {
   const r = x.record;
+  if (!r && x.profile !== undefined) { const p = x.profile || {};
+    return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>${x.hand ? ' <span class="rtag watched">your list</span>' : ""}
+    has <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)}<span class="split">${p.n ? `${p.n} CS2 bets in its history, won ${Math.round(p.won * 100)}% (${p.edge >= 0 ? "+" : ""}${Math.round(p.edge * 100)} pts over its prices) · ${Math.round(p.share * 100)}% of its bets are CS2 · CS2 profit ${usd0(p.cs2_pnl)}` : "history not read yet"}</span></div>`; }
   if (!r && x.tags) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
     put <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)} before kickoff · ${x.tags.map(esc).join(", ")}<span class="split">${esc(x.who || "")}</span></div>`;
   if (!r) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
