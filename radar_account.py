@@ -18,6 +18,20 @@ from collections import defaultdict
 import informed as I
 
 
+CLEAN_SINCE = 1792590499       # the noise-free radar went live (Oct 21 2026); earlier bets followed the old, noisy radar
+
+
+def void_old(state):
+    """Refund every bet placed before CLEAN_SINCE: they copied small bets and 'rising' wallets that the radar no longer
+    counts (Pedro: 'wtf is this'). Done once; they stay visible as refunded."""
+    n = 0
+    for b in state.get("account", {}).get("bets", {}).values():
+        if b.get("placed_at", 0) < CLEAN_SINCE and b["status"] in ("open", "won", "lost"):
+            b.update(status="void", pnl=0.0, reason="placed under the old, noisy radar rule (refunded)")
+            n += 1
+    return n
+
+
 def signals(groups, infos, now, skip_tiers=()):
     by_key = {(i["match"], i.get("market", "Match Winner")): i for i in infos if i.get("venue") == "poly"}
     out = []

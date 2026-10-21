@@ -694,9 +694,10 @@ function walletsPanel() {
 }
 
 function history() {
-  const all = D.bets, bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
+  const voided = D.bets.filter(b => b.status === "void").length;
+  const all = D.bets.filter(b => b.status !== "void"), bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
   $("th-hmoney").textContent = ACCTS[acct].hmoney;
-  $("hist-count").textContent = all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "";
+  $("hist-count").textContent = (all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "") + (voided ? ` · ${voided} refunded (hidden)` : "");
   if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : `No bets yet. ${ACCTS[acct].empty}`}</td></tr>`; return; }
   const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded"};
   tb.innerHTML = bs.map((b, i) => {

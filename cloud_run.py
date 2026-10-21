@@ -332,6 +332,8 @@ def tick(store, log=print):
     sniper_prof = {w: p for w, p in O.load(work / "sniper.json").get("profiles", {}).items() if SN.is_sniper(p)}
     rad = radar(rows, infos, qual, sniper_prof, C.WATCH, ts, profiles)
     rst = {} if reset else O.load(work / "radar.json")
+    if RA.void_old(rst):
+        log("radar account: refunded bets placed under the old, noisy radar")
     rsigs = RA.signals(rad, infos, ts, skip_tiers=("T1",))
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")
