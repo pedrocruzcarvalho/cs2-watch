@@ -263,7 +263,8 @@ def explain(b, now):
     res = {"won": f"{b['side']} won: paid {money(b.get('shares', 0))}, profit {money(b.get('pnl', 0))}.",
            "lost": f"{b.get('winner')} won: the {money(b['stake'])} stake was lost.",
            "skipped": f"Not placed: {'no one was selling on the order book' if b.get('reason') == 'no sellers' else 'the balance could not cover it'}.",
-           "open": "Not settled yet."}[b["status"]]
+           "open": "Not settled yet.",
+           "void": f"Refunded: {b.get('reason') or 'cancelled'}."}.get(b["status"], b["status"])
     secs.append(dict(title="Result", bullets=[res]))
     return dict(headline=head, sections=secs)
 

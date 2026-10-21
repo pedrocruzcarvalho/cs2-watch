@@ -43,3 +43,13 @@ def test_no_signal_when_price_matches_score_or_top_tier_or_no_prematch_price():
     top = OS.signals(st, [_info(T0 - 3600, 0.2, "1-0|1-0|Bo3")], lambda m: "T1", T0)[0]
     assert not fair["active"] and not top["active"]
     assert OS.signals({}, [_info(T0 - 3600, 0.2, "1-0|1-0|Bo3")], lambda m: "T4", T0) == []
+
+
+def test_refunded_bets_render_and_do_not_count():
+    st = {"account": {"opened_at": T0, "bets": {"c1": dict(match="Counter-Strike: A vs B (BO3) - Cup", start=T0, market="Match Winner",
+                                                           cid="c1", slug="s", url="u", teams=["A", "B"], side="B", money=0,
+                                                           other_money=0, wallets=[], vtier="T4", placed_at=OS.VOID_BEFORE - 60,
+                                                           status="open", stake=20.0, shares=40.0, price=0.5)}}}
+    assert OS.void_blind(st) == 1
+    view = OS.dashboard(st, [], T0 + 3600)
+    assert view["stats"]["balance"] == 300 and view["bets"][0]["why"]["sections"][-1]["bullets"][0].startswith("Refunded")

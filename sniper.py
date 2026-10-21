@@ -131,7 +131,8 @@ def explain(b, now):
                    f"If {b['side']} wins it pays {I.money(b['shares'])}.")
     res = {"won": f"{b['side']} won: paid {I.money(b.get('shares', 0))}, profit {I.money(b.get('pnl', 0))}.",
            "lost": f"{b.get('winner')} won: the {I.money(b['stake'])} stake was lost.",
-           "skipped": "Not placed: no one was selling on the order book.", "open": "Not settled yet."}[b["status"]]
+           "skipped": "Not placed: no one was selling on the order book.", "open": "Not settled yet.",
+           "void": f"Refunded: {b.get('reason') or 'cancelled'}."}.get(b["status"], b["status"])
     return dict(headline=head, sections=[
         dict(title="The snipers", bullets=[wallet_line(x, b["side"]) for x in b.get("wallets", [])[:6]] or ["-"]),
         dict(title="Why this bet", bullets=why),
