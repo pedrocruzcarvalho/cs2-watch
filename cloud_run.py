@@ -161,7 +161,6 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     """Pre-kickoff money that could mean inside knowledge or a real edge, on upcoming matches. Shown and bet by the
     radar account only when at least one of these holds (Pedro, Oct 21 2026: no noise):
       your list   a hand-picked wallet (any size from $20)
-      sniper      a wallet with the sniper profile (sniper.py) putting $300+
       informed    a wallet on a 21-day hot streak (informed.py) putting $200+
       repeat      an auto-watched wallet whose record is suspect or sharp, with a big bet
       big bet     a big bet for this match (LOW/MEDIUM/HIGH; Kalshi MEDIUM+) from a wallet whose record is NOT
@@ -180,9 +179,6 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
         wt = watch_tag(w, watch) if w else None
         if wt and wt["kind"] == "watched" and usd >= 20:
             tags.append(wt); score += 8
-        if w in snipers and usd >= 300:
-            p = snipers[w]
-            tags.append(dict(kind="sniper", label=f"sniper ({p['n']} CS2 bets, won {p['won']:.0%})")); score += 7
         if w in qual and usd >= 200:
             tags.append(dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})")); score += 6
         if wt and wt["kind"] == "repeat" and level:

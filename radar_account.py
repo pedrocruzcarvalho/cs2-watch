@@ -26,8 +26,6 @@ def _counts_now(card, snipers):
     tags, usd, w = " ".join(card.get("tags") or []), card.get("usd", 0), card.get("wallet")
     if "your list" in tags and usd >= 20:
         return True
-    if w in snipers and usd >= 300:
-        return True
     if "informed wallet" in tags and usd >= 200:
         return True
     if "repeat big bettor" in tags:
