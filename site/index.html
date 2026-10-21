@@ -114,6 +114,10 @@ details.plan .panel { box-shadow: none; border: 0; border-top: 1px solid var(--l
 .rtag.watched { color: var(--loss); border-color: currentColor; }
 .rtag.informed { color: var(--ct); border-color: currentColor; }
 .rtag.big { color: var(--t); border-color: currentColor; }
+.rtag.kalshi { color: var(--ink); }
+.rtag.repeat { color: var(--t); }
+.rtag.rising, .rtag.move { color: var(--ink); }
+.radar-item .who { display: block; font-size: 12.5px; color: var(--mute); margin-top: 1px; }
 .radar-item + .radar-item { margin-top: 6px; }
 .showmore { margin: 6px 20px 12px; font: 600 13px "Barlow", sans-serif; color: var(--ct); background: none; border: 0; padding: 0; cursor: pointer; }
 @media (max-width: 720px) { .accts { grid-template-columns: 1fr; } }
@@ -272,7 +276,8 @@ details.plan[open] summary::before { transform: rotate(90deg); }
 
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Pre-match radar</h2><span class="cap" id="radar-count"></span></header>
-    <p class="sub">Everything odd before kickoff on upcoming matches, whatever the account: big out-of-place bets, watched wallets (yours and shyux's), informed and rising wallets, lines moving toward a big bettor. Information only: nothing here is bet unless an account's own rule fires. Click a row for the details.</p>
+    <p class="sub">Unusual pre-kickoff bets on upcoming matches (Polymarket and Kalshi). Information only: nothing here is bet unless an account's own rule fires. Most interesting first. How to read the tags:
+      <b>Your list</b> = a wallet you or I added by hand (shyux's). <b>Informed</b> = a wallet the informed account follows. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH), often just a whale. <b>Rising</b> = close to the informed bar. The grey line under each bet is that wallet's record: "normal luck" means its wins match its prices, so probably not inside info. Click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
@@ -614,7 +619,7 @@ function radarPanel() {
   tb.innerHTML = rs.map((g, i) => {
     const k = esc(g.match + "|" + g.market), isOpen = opened.has("r-" + k);
     const lines = g.items.map(x => `<div class="radar-item">${x.tags.map(t => `<span class="rtag ${t.kind}">${esc(t.label)}</span>`).join("")}
-      <b class="num">${usd0(x.usd)}</b> on <b>${esc(betLabel(g.market, x.outcome))}</b> at ${(+x.avg).toFixed(2)} · <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name && !x.name.startsWith("0x") ? x.name : x.wallet.slice(0, 6) + "…" + x.wallet.slice(-4))}</a></div>`).join("");
+      <b class="num">${usd0(x.usd)}</b> on <b>${esc(betLabel(g.market, x.outcome))}</b> at ${(+x.avg).toFixed(2)} · ${x.wallet ? `<a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name && !x.name.startsWith("0x") ? x.name : x.wallet.slice(0, 6) + "…" + x.wallet.slice(-4))}</a>` : "anonymous trades on Kalshi"}<span class="who">${esc(x.who || "")}</span></div>`).join("");
     const why = g.items.filter(x => x.why.length).map(x => `<li><b>${usd0(x.usd)}</b> on ${esc(betLabel(g.market, x.outcome))}: ${x.why.map(esc).join(" · ")}</li>`).join("");
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(g.start)}</b><span style="display:block;padding-left:16px">${day(g.start)} · ${rel(g.start)}</span></td>
