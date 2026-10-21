@@ -181,7 +181,7 @@ def radar(rows, infos, qual, rising, watch, now, profiles=None, limit=40):
         if not tags:
             continue
         g = groups.setdefault((r["match"], r["market"]), dict(match=r["match"], market=r["market"], start=r["start"],
-                                                            url=r.get("url"), vtier=C.vtier(r["match"]), items=[], score=0))
+                                                            url=r.get("url"), vtier=C.vtier_fix(r["match"]), items=[], score=0))
         g["items"].append(dict(wallet=r.get("wallet") or "", name=r.get("name"), outcome=r["outcome"], usd=round(r["usd"]),
                                avg=round(r.get("avg_price") or 0, 3), tags=tags, why=(r.get("why") or [])[:6],
                                who=who(w, profiles, qual) if w else "anonymous (Kalshi)"))
@@ -203,7 +203,7 @@ def radar(rows, infos, qual, rising, watch, now, profiles=None, limit=40):
             elif w in rise:
                 tags.append(dict(kind="rising", label=f"rising wallet (luck {rise[w]['record']['z']:.1f})"))
             g = groups.setdefault((i["match"], i["market"]), dict(match=i["match"], market=i["market"], start=i["start"],
-                                                                url=i.get("url"), vtier=C.vtier(i["match"]), items=[], score=0))
+                                                                url=i.get("url"), vtier=C.vtier_fix(i["match"]), items=[], score=0))
             g["items"].append(dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, why=[],
                                    who=who(w, profiles, qual)))
             g["score"] += sum({"watched": 8, "informed": 6, "repeat": 3, "rising": 2}[t["kind"]] for t in tags)
@@ -275,7 +275,7 @@ def tick(store, log=print):
     ts = now.timestamp()
     added = I.add_resolved(ist, infos, ts)
     qual = I.qualifying(ist, ts)
-    sigs = I.signals(infos, qual, C.vtier, ts)
+    sigs = I.signals(infos, qual, C.vtier_fix, ts)
     I.settle(ist, infos, ts, fetch_winner, log=log)
     I.place_bets(ist, sigs, ts, C.book_asks, B.fill, log=log)
     I.refresh_lifetime(ist, list(qual), ts, lambda w: WH.lifetime(w, max_closed=1500), log=log)
@@ -286,7 +286,7 @@ def tick(store, log=print):
 
     # ---- live big money: the second paper account (live_money.py) ----
     lst = {} if reset else O.load(work / "livemoney.json")
-    lsigs = LM.signals(infos, C.vtier, ts)
+    lsigs = LM.signals(infos, C.vtier_fix, ts)
     I.settle(lst, infos, ts, fetch_winner, log=log)
     I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live")
     (work / "livemoney.json").write_text(json.dumps(lst))
@@ -298,7 +298,7 @@ def tick(store, log=print):
     ost = O.load(work / "oddshift.json")
     if reset:
         ost.pop("account", None)
-    osigs = OS.signals(ost, infos, C.vtier, ts)
+    osigs = OS.signals(ost, infos, C.vtier_fix, ts)
     I.settle(ost, infos, ts, fetch_winner, log=log)
     I.place_bets(ost, osigs, ts, C.book_asks, B.fill, log=log, live=True, tag="odd shift")
     (work / "oddshift.json").write_text(json.dumps(ost))
@@ -313,7 +313,7 @@ def tick(store, log=print):
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")
     (work / "radar.json").write_text(json.dumps(rst))
-    radar_acct = RA.dashboard(rst, rsigs, ts, ("T2", "T3", "T4", "T5", "T6"))
+    radar_acct = RA.dashboard(rst, rsigs, ts, ("T2", "T2*", "T3", "T4", "T5", "T6"))
     log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "
         f"balance ${radar_acct['stats']['balance']:.2f}")
 

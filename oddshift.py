@@ -24,7 +24,7 @@ import informed as I
 
 GAP = 0.35
 MODEL_MIN = 0.60
-TIERS = {"T2", "T3", "T4", "T5", "T6"}
+TIERS = {"T2", "T2*", "T3", "T4", "T5", "T6"}
 KEEP_SNAPS = 30 * 86400
 
 
@@ -188,7 +188,7 @@ def explain(b, now):
 
 
 def dashboard(state, sigs, now):
-    view = I.account_view(state, sigs, now, explain, "SHIFT", ("T2", "T3", "T4", "T5", "T6"),
+    view = I.account_view(state, sigs, now, explain, "SHIFT", ("T2", "T2*", "T3", "T4", "T5", "T6"),
                           ("-", "-"))
     return dict(view, rules=dict(gap=GAP, model_min=MODEL_MIN, stake=I.STAKE, start=I.START_BALANCE),
                 snaps=len(state.get("snaps", [])))

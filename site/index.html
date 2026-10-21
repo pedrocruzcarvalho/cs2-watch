@@ -277,7 +277,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Pre-match radar</h2><span class="cap" id="radar-count"></span></header>
     <p class="sub">Unusual pre-kickoff bets on upcoming matches (Polymarket and Kalshi). Information only: nothing here is bet unless an account's own rule fires. Most interesting first. How to read the tags:
-      <b>Your list</b> = a wallet you or I added by hand (shyux's). <b>Informed</b> = a wallet the informed account follows. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH), often just a whale. <b>Rising</b> = close to the informed bar. The grey line under each bet is that wallet's record: "normal luck" means its wins match its prices, so probably not inside info. Click a row for why each bet was flagged.</p>
+      <b>Your list</b> = a wallet you or I added by hand (shyux's). <b>Informed</b> = a wallet the informed account follows. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH), often just a whale. <b>Rising</b> = close to the informed bar. <b>T2*</b> = a tier-2 match with one of your fix-prone teams (Alliance, HOTU, 5star, TYLOO, Lynn Vision, Dendele, Eternal Fire, SINNERS, JiJieHao, K27, Nuclear TigeRES, Sangal, Wildcard, magic, Nemiga, 1win, BetBoom, MIBR); every account treats it like T3–T6. The grey line under each bet is that wallet's record: "normal luck" means its wins match its prices, so probably not inside info. Click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
@@ -574,6 +574,8 @@ function wname(x) {
 }
 function walletRecord(x) {
   const r = x.record;
+  if (!r && x.tags) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
+    put <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)} before kickoff · ${x.tags.map(esc).join(", ")}<span class="split">${esc(x.who || "")}</span></div>`;
   if (!r) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
     bought <b class="num">${usd0(x.usd)}</b> during the match at an average ${(+x.avg).toFixed(2)}${x.at ? ` · last trade ${hm(x.at)}` : ""}</div>`;
   return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>

@@ -25,7 +25,7 @@ MIN_BETS, MIN_Z, MIN_EDGE = 5, 2.5, 0.10
 MIN_MONEY = 200
 STAKE, START_BALANCE = 20.0, 300.0
 BET_WINDOW = 30 * 60
-LOW_TIERS = {"T3", "T4", "T5", "T6"}
+LOW_TIERS = {"T2*", "T3", "T4", "T5", "T6"}          # T2* = tier 2 with a fix-prone team
 
 
 # ------------------------------------------------------------------------------------------------ records
@@ -138,7 +138,7 @@ def signals(infos, qual, vtier_of, now):
         vt = vtier_of(i["match"])
         reasons = []
         if vt not in LOW_TIERS:
-            reasons.append(f"match tier {vt} (only T3-T6 count)")
+            reasons.append(f"match tier {vt} (only T3-T6, or T2 with a fix-prone team)")
         if money[side] < MIN_MONEY:
             reasons.append(f"only ${money[side]:,.0f} of informed money (needs ${MIN_MONEY})")
         if other >= 0.5 * money[side]:
@@ -269,7 +269,7 @@ def explain(b, now):
 
 
 def dashboard(state, sigs, qual, now):
-    view = account_view(state, sigs, now, explain, "INFORMED", ("T3", "T4", "T5", "T6"),
+    view = account_view(state, sigs, now, explain, "INFORMED", ("T2*", "T3", "T4", "T5", "T6"),
                         ("1 informed wallet", "2+ informed wallets"))
     active_bets = {}
     for s in sigs:

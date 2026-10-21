@@ -26,7 +26,7 @@ import informed as I
 MIN_WALLET = 3000
 OTHER_MIN = 1500
 LIVE_HOURS = 5
-LOW_TIERS = {"T3", "T4", "T5", "T6"}
+LOW_TIERS = {"T2*", "T3", "T4", "T5", "T6"}          # T2* = tier 2 with a fix-prone team
 
 
 def signals(infos, vtier_of, now):
@@ -46,7 +46,7 @@ def signals(infos, vtier_of, now):
         vt = vtier_of(i["match"])
         reasons = []
         if vt not in LOW_TIERS:
-            reasons.append(f"match tier {vt} (only T3-T6 count)")
+            reasons.append(f"match tier {vt} (only T3-T6, or T2 with a fix-prone team)")
         if top[3] < MIN_WALLET:
             reasons.append(f"biggest in-play position is ${top[3]:,.0f} (needs ${MIN_WALLET:,})")
         if other >= 0.5 * top[3]:
@@ -94,6 +94,6 @@ def explain(b, now):
 
 
 def dashboard(state, sigs, now):
-    view = I.account_view(state, sigs, now, explain, "LIVE", ("T3", "T4", "T5", "T6"),
+    view = I.account_view(state, sigs, now, explain, "LIVE", ("T2*", "T3", "T4", "T5", "T6"),
                           ("1 big wallet", "2+ big wallets"))
     return dict(view, rules=dict(min_wallet=MIN_WALLET, other_min=OTHER_MIN, stake=I.STAKE, start=I.START_BALANCE))

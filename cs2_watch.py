@@ -120,6 +120,15 @@ def vtier(title):
     return TM.tier_of_rank(min(rs) if rs else None)
 
 
+def vtier_fix(title):
+    """vtier, except a tier-2 match with a team on Pedro's fix-prone list (teams.FIX_PRONE) is 'T2*', which the
+    paper accounts treat like T3-T6 (Pedro, Oct 21 2026)."""
+    t = vtier(title)
+    if t == "T2" and any(TM.norm(n) in TM.FIX_PRONE for n in team_names(title)):
+        return "T2*"
+    return t
+
+
 def tier(title):
     """'top' (excluded): big-stage main event, or both teams in Valve's top 30. 'mid': stronger team in the top 50.
     'low': the rest. Without the Valve ranking, falls back to the hand-made top-team list."""
