@@ -34,13 +34,14 @@ import teams as TM
 import informed as I
 import live_money as LM
 import oddshift as OS
+import radar_account as RA
 import wallet_history as WH
 import wallets as W
 
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
-        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json"}
+        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json"}
 BUNDLE = "state:bundle"
 KEEP_DAYS = 90
 RESET = "2026-10-21"          # change to wipe every paper account back to $300 once (Pedro, Oct 20 2026)
@@ -305,6 +306,17 @@ def tick(store, log=print):
     log(f"odd shifts: {len(osigs)} live matches with a score, {sum(s['active'] for s in osigs)} active signals, "
         f"{shift['snaps']} snapshots kept, balance ${shift['stats']['balance']:.2f}")
 
+    # ---- radar account: bets what the pre-match radar shows (radar_account.py) ----
+    rad = radar(rows, infos, qual, inf["rising"], C.WATCH, ts, profiles)
+    rst = {} if reset else O.load(work / "radar.json")
+    rsigs = RA.signals(rad, infos, ts, skip_tiers=("T1",))
+    I.settle(rst, infos, ts, fetch_winner, log=log)
+    I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")
+    (work / "radar.json").write_text(json.dumps(rst))
+    radar_acct = RA.dashboard(rst, rsigs, ts, ("T2", "T3", "T4", "T5", "T6"))
+    log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "
+        f"balance ${radar_acct['stats']['balance']:.2f}")
+
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
@@ -312,7 +324,7 @@ def tick(store, log=print):
                 wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
                 flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
                 live=live, shift=shift,
-                radar=radar(rows, infos, qual, inf["rising"], C.WATCH, ts, profiles))
+                radar=rad, radar_acct=radar_acct)
     stats = inf["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 

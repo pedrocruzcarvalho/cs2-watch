@@ -1,0 +1,83 @@
+"""
+Radar account: bet on what the pre-match radar shows (CS2 and tennis each have their own).
+
+Rules (fixed on 2026-10-21 at Pedro's request, before any result):
+  signal   a market on the pre-match radar (big out-of-place bets, hand-picked / informed / rising wallets, line
+           moves), before kickoff, on Polymarket: the side with the most radar money, with less than half of that on
+           the other side
+  bet      $20 on that side at the next 10-minute scan, filled against the real order book (fee included), once per
+           market; skipped at 0.97+. $300 paper bankroll.
+Expectation, said up front: in 60 days of CS2 data, following big pre-match bets was about break-even (the same
+as backing the favourite). This account shows that live; it is not a tested edge.
+State: "account" (bets). KV bundle parts state:radar (CS2) and state:tradar (tennis).
+"""
+
+from collections import defaultdict
+
+import informed as I
+
+
+def signals(groups, infos, now, skip_tiers=()):
+    by_key = {(i["match"], i.get("market", "Match Winner")): i for i in infos if i.get("venue") == "poly"}
+    out = []
+    for g in groups:
+        i = by_key.get((g["match"], g["market"]))
+        if not i or g["start"] <= now:
+            continue
+        money, items = defaultdict(float), defaultdict(list)
+        for x in g["items"]:
+            if not x.get("wallet"):                                      # Kalshi blocks: nothing to buy on Polymarket
+                continue
+            money[x["outcome"]] += x["usd"]
+            items[x["outcome"]].append(x)
+        if not money:
+            continue
+        side = max(money, key=money.get)
+        other = sum(v for o, v in money.items() if o != side)
+        reasons = []
+        if g.get("vtier") in skip_tiers:
+            reasons.append(f"tier {g['vtier']} is not bet")
+        if other >= 0.5 * money[side]:
+            reasons.append(f"radar money is split (${money[side]:,.0f} vs ${other:,.0f})")
+        card = lambda x: dict(wallet=x["wallet"], name=x.get("name"), usd=x["usd"], avg=x["avg"],
+                              tags=[t["label"] for t in x["tags"]], who=x.get("who"))
+        out.append(dict(match=g["match"], start=g["start"], market=g["market"], cid=i.get("cid"), slug=i.get("ref"),
+                        url=i.get("url"), teams=i.get("teams"), prices=i.get("prices") or {}, tokens=i.get("tokens") or {},
+                        side=side, money=round(money[side]), other_money=round(other),
+                        wallets=[card(x) for x in sorted(items[side], key=lambda x: -x["usd"])][:6],
+                        against=[card(x) for o, xs in items.items() if o != side for x in xs][:6],
+                        vtier=g.get("vtier"), active=not reasons, why_not=reasons))
+    return sorted(out, key=lambda s: (not s["active"], s["start"]))
+
+
+def wallet_line(x, side):
+    who = x.get("name") if x.get("name") and not str(x["name"]).startswith("0x") else x["wallet"][:6] + "…" + x["wallet"][-4:]
+    tags = ", ".join(x.get("tags") or [])
+    return f"{who}: {I.money(x['usd'])} on {side} at {x['avg']:.2f} ({tags}). {x.get('who') or ''}".strip()
+
+
+def explain(b, now):
+    other = next((t for t in b.get("teams") or [] if t != b["side"]), "the other side")
+    head = (f"{I.money(b['stake'])} on {b['side']}" + (" to beat " + other if b["market"] == "Match Winner" else f" ({b['market']})")
+            + f", following {I.money(b['money'])} of radar money before kickoff.")
+    why = [f"Rule: bet the side with the most pre-match radar money when the other side has less than half of it. "
+           f"Here {I.money(b['money'])} vs {I.money(b.get('other_money', 0))}."]
+    if b["status"] != "skipped":
+        why.append(f"Bet {I.money(b['stake'])} at {b['price']:.3f}, filled against the real order book, fee included. "
+                   f"If {b['side']} wins it pays {I.money(b['shares'])}.")
+    res = {"won": f"{b['side']} won: paid {I.money(b.get('shares', 0))}, profit {I.money(b.get('pnl', 0))}.",
+           "lost": f"{b.get('winner')} won: the {I.money(b['stake'])} stake was lost.",
+           "skipped": "Not placed: no one was selling on the order book.", "open": "Not settled yet."}[b["status"]]
+    return dict(headline=head, sections=[
+        dict(title="The radar money", bullets=[wallet_line(x, b["side"]) for x in b.get("wallets", [])] or ["-"]),
+        dict(title="Why this bet", bullets=why),
+        dict(title="Why it could be wrong", bullets=[
+            "Most radar money is whales and ordinary big bettors, not inside information. In 60 days of CS2 data, "
+            "following big pre-match bets was about break-even.",
+            "Watch the records: 'normal luck' wallets are the least likely to know anything."]),
+        dict(title="Result", bullets=[res])])
+
+
+def dashboard(state, sigs, now, tiers):
+    view = I.account_view(state, sigs, now, explain, "RADAR", tiers, ("1 radar wallet", "2+ radar wallets"))
+    return dict(view, rules=dict(stake=I.STAKE, start=I.START_BALANCE))
