@@ -627,7 +627,8 @@ function signals() {
           <div>From the score, ${esc(x.leader)} should be about <b>${Math.round(x.leader_model * 100)}%</b>; the market has it at <b>${Math.round(x.leader_price * 100)}%</b>. A bet needs a gap of 35+ points, then follows the market: ${esc(x.side)}.</div></div>`
         : `<div class="wl">${x.wallets.map(walletRecord).join("")}</div>`}
         ${x.against.length ? `<p class="head" style="margin-top:14px">On the other side</p><div class="wl">${x.against.map(walletRecord).join("")}</div>` : ""}
-        ${x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
+        ${x.placed ? `<p class="why-not" style="margin-top:12px">${x.placed.status === "void" ? "A bet was placed earlier and refunded (it came from a score feed without round data)." : `Already bet earlier (${esc(x.placed.status)}). The lines above describe the situation now, not when the bet was placed.`}</p>`
+          : x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
   }).join("");
   toggleRows(tb, "s-");
 }

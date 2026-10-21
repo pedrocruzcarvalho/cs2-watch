@@ -13,7 +13,8 @@ def _info(start, home_px, score=None, live=True, winner=None):
 
 
 def test_parse_and_model():
-    assert OS.parse_score("013-008|1-0|Bo3") == (13, 8, 1, 0, 3)
+    assert OS.parse_score("13-8|1-0|Bo3") == (13, 8, 1, 0, 3)
+    assert OS.parse_score("000-000|1-0|Bo3") is None                   # maps only, no rounds
     assert OS.parse_score("garbage") is None
     assert OS.parse_score("000-000|0-0|Bo3") is None                   # feed has no live score
     assert OS.parse_score("6-1|0-0|Bo3") == (6, 1, 0, 0, 3)
@@ -25,20 +26,20 @@ def test_parse_and_model():
 def test_price_against_scoreboard_bets_the_market_side_once():
     st = {}
     OS.signals(st, [_info(T0 + 600, 0.5, live=False)], lambda m: "T4", T0)        # remembers the pre-match price
-    sigs = OS.signals(st, [_info(T0 - 3600, 0.35, "001-000|1-0|Bo3")], lambda m: "T4", T0)
+    sigs = OS.signals(st, [_info(T0 - 3600, 0.35, "1-0|1-0|Bo3")], lambda m: "T4", T0)
     s = sigs[0]
     assert s["active"] and s["leader"] == "Damajuana" and s["side"] == "your end" and s["gap"] > 0.35
     I.place_bets(st, sigs, T0, lambda tok: [[0.66, 1000]], B.fill, log=lambda *a: None, live=True)
     I.place_bets(st, sigs, T0 + 600, lambda tok: [[0.66, 1000]], B.fill, log=lambda *a: None, live=True)
     bets = st["account"]["bets"]
     assert len(bets) == 1 and bets["c1"]["side"] == "your end" and bets["c1"]["score"]["maps"] == [1, 0]
-    assert st["snaps"] and st["snaps"][0][2] == "001-000|1-0|Bo3"
+    assert st["snaps"] and st["snaps"][0][2] == "1-0|1-0|Bo3"
 
 
 def test_no_signal_when_price_matches_score_or_top_tier_or_no_prematch_price():
     st = {}
     OS.signals(st, [_info(T0 + 600, 0.5, live=False)], lambda m: "T4", T0)
-    fair = OS.signals(st, [_info(T0 - 3600, 0.75, "001-000|1-0|Bo3")], lambda m: "T4", T0)[0]
-    top = OS.signals(st, [_info(T0 - 3600, 0.2, "001-000|1-0|Bo3")], lambda m: "T1", T0)[0]
+    fair = OS.signals(st, [_info(T0 - 3600, 0.75, "1-0|1-0|Bo3")], lambda m: "T4", T0)[0]
+    top = OS.signals(st, [_info(T0 - 3600, 0.2, "1-0|1-0|Bo3")], lambda m: "T1", T0)[0]
     assert not fair["active"] and not top["active"]
-    assert OS.signals({}, [_info(T0 - 3600, 0.2, "001-000|1-0|Bo3")], lambda m: "T4", T0) == []
+    assert OS.signals({}, [_info(T0 - 3600, 0.2, "1-0|1-0|Bo3")], lambda m: "T4", T0) == []

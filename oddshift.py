@@ -30,11 +30,12 @@ KEEP_SNAPS = 30 * 86400
 
 def parse_score(s):
     """'6-1|0-0|Bo3' -> (6, 1, 0, 0, 3); None if it can't be read or carries no live data.
-    The feed shows '000-000|0-0' when it has no score at all (some live matches never get one while the price
-    moves): treating that as 0-0 would turn ordinary swings into false signals, so it is skipped."""
+    The feed shows '000-000' when it has no round score: some matches only ever report maps ('000-000|1-0|Bo3')
+    while the price follows the rounds being played. Without rounds the model is blind inside the current map and
+    every swing looks like an odd shift, so these are skipped. Real round scores come unpadded ('6-1')."""
     try:
         cur, maps, fmt = s.split("|")
-        if cur == "000-000" and maps == "0-0":
+        if cur == "000-000":                                         # padded zeros = the feed has no round score
             return None
         ra, rb = (int(x) for x in cur.split("-"))
         ma, mb = (int(x) for x in maps.split("-"))
@@ -118,6 +119,19 @@ def model(score, pre_home):
     q = _map_win(0, 0, p)
     need = bo // 2 + 1
     return q_now * _series(ma + 1, mb, need, q) + (1 - q_now) * _series(ma, mb + 1, need, q)
+
+
+VOID_BEFORE = 1792590076        # bets placed before the round-score fix were triggered by map-only scores: refunded
+
+
+def void_blind(state):
+    """Refund bets placed before VOID_BEFORE (Oct 21 2026): they came from scores without rounds, the bug above."""
+    n = 0
+    for b in state.get("account", {}).get("bets", {}).values():
+        if b.get("placed_at", 0) < VOID_BEFORE and b["status"] in ("open", "won", "lost"):
+            b.update(status="void", pnl=0.0, reason="score feed had no round data (bug, refunded)")
+            n += 1
+    return n
 
 
 def signals(state, infos, vtier_of, now):

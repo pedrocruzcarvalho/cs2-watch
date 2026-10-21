@@ -300,6 +300,8 @@ def tick(store, log=print):
     ost = O.load(work / "oddshift.json")
     if reset:
         ost.pop("account", None)
+    if OS.void_blind(ost):
+        log("odd shifts: refunded bets placed on scores without rounds")
     osigs = OS.signals(ost, infos, C.vtier_fix, ts)
     I.settle(ost, infos, ts, fetch_winner, log=log)
     I.place_bets(ost, osigs, ts, C.book_asks, B.fill, log=log, live=True, tag="odd shift")
