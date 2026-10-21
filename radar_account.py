@@ -18,17 +18,45 @@ from collections import defaultdict
 import informed as I
 
 
-CLEAN_SINCE = 1792590499       # the noise-free radar went live (Oct 21 2026); earlier bets followed the old, noisy radar
+CLEAN_SINCE = 1792590499    # the noise-free radar went live (Oct 21 2026, ~13:48 UTC)
 
 
-def void_old(state):
-    """Refund every bet placed before CLEAN_SINCE: they copied small bets and 'rising' wallets that the radar no longer
-    counts (Pedro: 'wtf is this'). Done once; they stay visible as refunded."""
+def _counts_now(card, snipers):
+    """Would this copied wallet count on today's radar (cloud_run.radar)?"""
+    tags, usd, w = " ".join(card.get("tags") or []), card.get("usd", 0), card.get("wallet")
+    if "your list" in tags and usd >= 20:
+        return True
+    if w in snipers and usd >= 300:
+        return True
+    if "informed wallet" in tags and usd >= 200:
+        return True
+    if "repeat big bettor" in tags:
+        return True
+    return "big bet" in tags and "normal luck" not in (card.get("who") or "")
+
+
+def prune_old(state, snipers):
+    """Once (Pedro, Oct 21 2026): bets placed before CLEAN_SINCE that today's radar would not have made are refunded
+    and hidden; the others keep their real result. A first, blanket refund of all of them is undone here as well."""
+    if state.get("pruned"):
+        return 0
     n = 0
     for b in state.get("account", {}).get("bets", {}).values():
-        if b.get("placed_at", 0) < CLEAN_SINCE and b["status"] in ("open", "won", "lost"):
-            b.update(status="void", pnl=0.0, reason="placed under the old, noisy radar rule (refunded)")
+        if b.get("placed_at", 0) >= CLEAN_SINCE:
+            continue
+        if b["status"] == "void" and "old, noisy radar" in (b.get("reason") or ""):   # undo the blanket refund
+            b.pop("reason", None)
+            w = b.get("winner")
+            if w is None:
+                b["status"] = "open"
+                b.pop("pnl", None)
+            else:
+                b.update(status="won" if w == b["side"] else "lost",
+                         pnl=round(b["shares"] - b["stake"], 2) if w == b["side"] else -b["stake"])
+        if b["status"] in ("open", "won", "lost") and not any(_counts_now(c, snipers) for c in b.get("wallets") or []):
+            b.update(status="void", pnl=0.0, reason="would not count on today's radar (small, rising or whale money)")
             n += 1
+    state["pruned"] = True
     return n
 
 
