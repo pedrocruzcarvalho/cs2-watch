@@ -125,6 +125,7 @@ def watch_view(auto_watched, manual, rows, profiles=None):
 
 
 LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+LIST_MIN = 900                  # a hand-picked wallet triggers the radar from this size (Pedro, Oct 21 2026)
 
 
 VERDICT_SHORT = {"suspect": "record: suspect", "sharp": "record: sharp bettor", "lucky": "record: normal luck",
@@ -160,8 +161,7 @@ def who(w, profiles, qual, life=None):
 def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     """Pre-kickoff money that could mean inside knowledge or a real edge, on upcoming matches. Shown and bet by the
     radar account only when at least one of these holds (Pedro, Oct 21 2026: no noise):
-      your list   a hand-picked wallet (any size from $20)
-      informed    a wallet on a 21-day hot streak (informed.py) putting $200+
+      your list   a hand-picked wallet betting $900+ (Pedro, Oct 21 2026)
       repeat      an auto-watched wallet whose record is suspect or sharp, with a big bet
       big bet     a big bet for this match (LOW/MEDIUM/HIGH; Kalshi MEDIUM+) from a wallet whose record is NOT
                   plain normal luck (whales with normal luck are left out)"""
@@ -177,10 +177,8 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     def tags_for(w, usd, level, venue):
         tags, score = [], 0
         wt = watch_tag(w, watch) if w else None
-        if wt and wt["kind"] == "watched" and usd >= 20:
+        if wt and wt["kind"] == "watched" and usd >= LIST_MIN:
             tags.append(wt); score += 8
-        if w in qual and usd >= 200:
-            tags.append(dict(kind="informed", label=f"informed wallet (luck {qual[w]['z']:.1f})")); score += 6
         if wt and wt["kind"] == "repeat" and level:
             tags.append(wt); score += 3
         lucky = (profiles.get(w) or {}).get("verdict") == "lucky"

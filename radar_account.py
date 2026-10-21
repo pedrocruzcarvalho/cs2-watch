@@ -24,9 +24,7 @@ CLEAN_SINCE = 1792590499    # the noise-free radar went live (Oct 21 2026, ~13:4
 def _counts_now(card, snipers):
     """Would this copied wallet count on today's radar (cloud_run.radar)?"""
     tags, usd, w = " ".join(card.get("tags") or []), card.get("usd", 0), card.get("wallet")
-    if "your list" in tags and usd >= 20:
-        return True
-    if "informed wallet" in tags and usd >= 200:
+    if "your list" in tags and usd >= 900:
         return True
     if "repeat big bettor" in tags:
         return True

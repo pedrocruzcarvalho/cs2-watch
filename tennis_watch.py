@@ -161,7 +161,7 @@ def radar(rows, watch, now, limit=40):
         if r.get("level"):
             tags.append(dict(kind="big", label=f"big bet ({r['level']})"))
         v = watch.get(r["wallet"])
-        if v and v.get("source") == "manual":
+        if v and v.get("source") == "manual" and r["usd"] >= 900:
             tags.append(dict(kind="watched", label="your list: " + (v.get("reason") or "")[:70]))
         if not tags:
             continue
