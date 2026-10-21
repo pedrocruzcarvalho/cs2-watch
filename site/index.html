@@ -397,10 +397,10 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     <summary>How the live plan works</summary>
     <ul class="rules">
       <li><b>Paper only.</b> A separate $300 account, started Oct 20 2026. Nothing is ever placed for real.</li>
-      <li><b>Signal:</b> during a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), one wallet has bought $3,000+ net on one side of a market after kickoff, and wallets with $1,500+ on the other side add up to less than half of that. Any market counts.</li>
+      <li><b>Signal:</b> during a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), one wallet has bought $4,000+ net on one side of a market after kickoff, and wallets with $2,000+ on the other side add up to less than half of that. Any market counts.</li>
       <li><b>Bet:</b> $20 on that side, once per market, at the next scan (within 10 minutes), filled against Polymarket's real order book with the fee. Skipped if that side already costs 0.97 or more.</li>
       <li><b>Why live and not before kickoff:</b> in 60 days of past matches, big pre-match bets only picked the favourite. Following them did no better than backing the favourite, and big bets on underdogs lost 15–23%. Of the pre-match settings that looked good on the first 30 days, only 30% stayed positive on the next 30.</li>
-      <li><b>The test behind it:</b> copying $3k+ in-play bets on T3–T6 matches 10 minutes later returned +16.7% over 140 bets (+21.7% and +11.0% in the two halves). Backing the favourite at those same moments returned −6.4%. It was positive at every size from $1.5k to $5k and in 6 of 9 weeks. Most of it came from T3 matches. The rules were fixed before any live bet.</li>
+      <li><b>The test behind it:</b> copying $3k+ in-play bets on T3–T6 matches 10 minutes later returned +16.7% over 140 bets (+21.7% and +11.0% in the two halves). Backing the favourite at those same moments returned −6.4%. It was positive at every size from $1.5k to $5k and in 6 of 9 weeks. Most of it came from T3 matches. The rules were fixed before any live bet. Raised to $4k on Oct 21 2026: at $4k the same test gave +18.9% over 83 bets (+17% and +22% in the two halves).</li>
       <li><b>Caveat:</b> in-play money often reacts to the score faster than the price does, and we copy up to 10 minutes late. The live results here are the real test.</li>
     </ul>
   </details>
@@ -452,9 +452,9 @@ const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
 let D = null, RAW = null, resMode = "market", histFilter = "all", showAllSigs = false;
 const ACCTS = {
-  live: {name: "Live big money", sub: "copies one wallet buying $3k+ on a side DURING a T3–T6 match", data: d => d.live,
-         sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $3k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
-         empty: "A bet appears when one wallet puts $3k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
+  live: {name: "Live big money", sub: "copies one wallet buying $4k+ on a side DURING a T3–T6 match", data: d => d.live,
+         sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $4k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
+         empty: "A bet appears when one wallet puts $4k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
   shift: {name: "Odd shifts", sub: "live price contradicts the round score by 35+ pts → bets with the market", data: d => d.shift,
          sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T2–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
          empty: "A bet appears when a live T2–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},

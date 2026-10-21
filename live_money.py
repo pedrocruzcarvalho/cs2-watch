@@ -13,7 +13,8 @@ Why this and not the pre-match "fishy bet" flags (fishy_research.py, live_resear
 
 Rules (fixed on 2026-10-20 before any live result):
   signal   during a T3-T6 match (Valve ranking), one wallet's net in-play position on one side of a market reaches
-           $3,000, and big wallets ($1,500+) have less than half of that on the other side
+           $4,000 (raised from $3,000 by Pedro on Oct 21 2026; at $4k the test gave +18.9% over 83 bets, halves +17/+22),
+           and big wallets ($2,000+) have less than half of that on the other side
   bet      $20 on that side at the next 10-minute scan, filled against the real order book (fee included), one bet
            per market, skipped if the side already costs 0.97+; $300 paper bankroll.
 State: "account" (bets). Stored in KV as state:livemoney.
@@ -23,8 +24,8 @@ from collections import defaultdict
 
 import informed as I
 
-MIN_WALLET = 3000
-OTHER_MIN = 1500
+MIN_WALLET = 4000                                     # $3,000 until Oct 21 2026 (Pedro raised it)
+OTHER_MIN = 2000
 LIVE_HOURS = 5
 LOW_TIERS = {"T2*", "T3", "T4", "T5", "T6"}          # T2* = tier 2 with a fix-prone team
 
@@ -71,7 +72,7 @@ def explain(b, now):
     head = (f"{I.money(b['stake'])} on {b['side']}" + (" to beat " + other if b["market"] == "Match Winner" else f" ({b['market']})")
             + f", because one wallet put {I.money(b['money'])} on it during the match.")
     secs = [dict(title="The money", bullets=[wallet_line(x, b["side"]) for x in b["wallets"][:6]] or ["-"])]
-    why = [f"Rule: on a T3-T6 match, one wallet with $3,000+ on one side bought in-play, and less than half of that "
+    why = [f"Rule: on a T3-T6 match, one wallet with $4,000+ on one side bought in-play, and less than half of that "
            f"from big wallets on the other side. This was {I.money(b['money'])} vs {I.money(b.get('other_money', 0))}, "
            f"on a {b.get('vtier')} match.",
            "In 60 days of past matches, copying these in-play bets 10 minutes later returned +16.7% over 140 bets, while "
