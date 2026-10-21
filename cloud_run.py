@@ -125,6 +125,8 @@ def watch_view(auto_watched, manual, rows, profiles=None):
 
 
 LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+LIVE_TIERS = {"T2*", "T3", "T4", "T5", "T6"}                 # the radar watches in-play money on these only
+LIVE_LEVELS = [("HIGH", 25000), ("MEDIUM", 10000), ("LOW", 4000)]   # a big in-play bet
 LIST_MIN = 900                  # a hand-picked wallet triggers the radar from this size (Pedro, Oct 21 2026)
 
 
@@ -163,14 +165,16 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     radar account only when at least one of these holds (Pedro, Oct 21 2026: no noise):
       your list   a hand-picked wallet betting $900+ (Pedro, Oct 21 2026)
       repeat      an auto-watched wallet whose record is suspect or sharp, with a big bet
+    Before kickoff on any non-tier-1 match, and during the match (in-play money) on T3-T6 and T2* only, where a big
+    in-play bet is $4k+ (LOW), $10k+ (MEDIUM), $25k+ (HIGH).
       big bet     a big bet for this match (LOW/MEDIUM/HIGH; Kalshi MEDIUM+) from a wallet whose record is NOT
                   plain normal luck (whales with normal luck are left out)"""
     profiles, snipers = profiles or {}, snipers or {}
     groups = {}
 
-    def add(match, market, start, url, item, score):
-        g = groups.setdefault((match, market), dict(match=match, market=market, start=start, url=url,
-                                                    vtier=C.vtier_fix(match), items=[], score=0))
+    def add(match, market, start, url, item, score, live=False):
+        g = groups.setdefault((match, market, live), dict(match=match, market=market, start=start, url=url, live=live,
+                                                          vtier=C.vtier_fix(match), items=[], score=0))
         g["items"].append(item)
         g["score"] += score
 
@@ -221,7 +225,18 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
             add(i["match"], i["market"], i["start"], i.get("url"),
                 dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, why=[], who=who_line(w)),
                 score)
-    out = sorted(groups.values(), key=lambda g: (-g["score"], g["start"]))[:limit]
+    for i in infos:                                     # in-play money, T3-T6 (and T2*) only (Pedro, Oct 21 2026)
+        if i.get("venue") != "poly" or not i["start"] <= now < i["start"] + 5 * 3600 or i.get("winner")                 or C.vtier_fix(i["match"]) not in LIVE_TIERS:
+            continue
+        for w, _, o, usd, avg, name, last in i.get("livepos") or []:
+            lvl = next((l for l, v in LIVE_LEVELS if usd >= v), None)
+            tags, score = tags_for(w, usd, lvl, "poly")
+            if not tags:
+                continue
+            add(i["match"], i["market"], i["start"], i.get("url"),
+                dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, at=last,
+                     why=[f"${usd:,.0f} bought during the match"], who=who_line(w)), score, live=True)
+    out = sorted(groups.values(), key=lambda g: (not g["live"], -g["score"], g["start"]))[:limit]
     for g in out:
         g["items"].sort(key=lambda x: -x["usd"])
         g["items"] = g["items"][:8]
@@ -332,6 +347,7 @@ def tick(store, log=print):
     rsigs = RA.signals(rad, infos, ts, skip_tiers=("T1",))
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")
+    I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live")
     (work / "radar.json").write_text(json.dumps(rst))
     radar_acct = RA.dashboard(rst, rsigs, ts, ("T2", "T2*", "T3", "T4", "T5", "T6"))
     log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "

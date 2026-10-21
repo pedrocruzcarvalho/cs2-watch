@@ -61,7 +61,7 @@ def signals(groups, infos, now, skip_tiers=()):
     out = []
     for g in groups:
         i = by_key.get((g["match"], g["market"]))
-        if not i or g["start"] <= now:
+        if not i or (g["start"] <= now) != bool(g.get("live")) or i.get("winner"):
             continue
         money, items = defaultdict(float), defaultdict(list)
         for x in g["items"]:
@@ -85,7 +85,7 @@ def signals(groups, infos, now, skip_tiers=()):
                         side=side, money=round(money[side]), other_money=round(other),
                         wallets=[card(x) for x in sorted(items[side], key=lambda x: -x["usd"])][:6],
                         against=[card(x) for o, xs in items.items() if o != side for x in xs][:6],
-                        vtier=g.get("vtier"), active=not reasons, why_not=reasons))
+                        vtier=g.get("vtier"), live=bool(g.get("live")), active=not reasons, why_not=reasons))
     return sorted(out, key=lambda s: (not s["active"], s["start"]))
 
 
@@ -98,7 +98,8 @@ def wallet_line(x, side):
 def explain(b, now):
     other = next((t for t in b.get("teams") or [] if t != b["side"]), "the other side")
     head = (f"{I.money(b['stake'])} on {b['side']}" + (" to beat " + other if b["market"] == "Match Winner" else f" ({b['market']})")
-            + f", following {I.money(b['money'])} of radar money before kickoff.")
+            + f", following {I.money(b['money'])} of radar money "
+            + ("bought during the match." if b.get("placed_at", 0) >= b["start"] else "before kickoff."))
     why = [f"Rule: bet the side with the most pre-match radar money when the other side has less than half of it. "
            f"Here {I.money(b['money'])} vs {I.money(b.get('other_money', 0))}."]
     if b["status"] != "skipped":

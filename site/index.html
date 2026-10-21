@@ -280,9 +280,9 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   </section>
 
   <section class="panel flush" style="margin-top:16px">
-    <header><h2>Pre-match radar</h2><span class="cap" id="radar-count"></span></header>
+    <header><h2>Radar</h2><span class="cap" id="radar-count"></span></header>
     <p class="sub" data-only="tradar">Unusual pre-match bets on upcoming tennis matches (ITF, Challengers, ATP/WTA on Polymarket). "Big" depends on the level: an ITF match normally has about $17 traded before it starts, so $1,000 is huge there; Challengers start at $6,000 and tour matches at $30,000 (LOW &lt; MEDIUM &lt; HIGH, higher when the bet is most of the match's money). <b>Your list</b> = wallets you or I added by hand, betting $900+. The grey line says how much of the match's pre-match money that bet is. The Tennis radar account bets these; nothing else does.</p>
-    <p class="sub" data-only="live shift sniper radar informed">Pre-kickoff money that could mean inside knowledge, on upcoming CS2 matches (Polymarket and Kalshi). A bet only shows up here if one of these is true:
+    <p class="sub" data-only="live shift sniper radar informed">Money that could mean inside knowledge on CS2 matches (Polymarket and Kalshi): before kickoff on any non-tier-1 match, and <b>during</b> the match on T3–T6 (and T2 with one of your listed teams), marked LIVE; a big in-play bet is $4k+ (LOW), $10k+ (MEDIUM), $25k+ (HIGH). A bet only shows up here if one of these is true:
       <b>Your list</b> = a wallet you or I added by hand (shyux's) betting $900+. <b>Repeat big bettor</b> = keeps placing big bets and its record looks suspect or sharp. <b>Big bet</b> = large for this match (LOW &lt; MEDIUM &lt; HIGH) from a wallet that is <i>not</i> a known whale with normal luck (Kalshi: MEDIUM and HIGH only). Snipers, informed and "rising" wallets, small bets and whales with normal records are left out. The grey line is the wallet's record. The Radar account bets these; click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
@@ -325,10 +325,10 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <header>
         <h2>Results</h2>
         <div class="tabs" id="res-tabs" role="group" aria-label="Group results by">
-          <button aria-pressed="true" data-v="market">Market</button><button aria-pressed="false" data-v="tier">Tier</button><button aria-pressed="false" data-v="wallets">Wallets</button>
+          <button aria-pressed="false" data-v="phase">Pre/Live × tier</button><button aria-pressed="false" data-v="trigger">Trigger</button><button aria-pressed="false" data-v="team">Fix teams</button><button aria-pressed="false" data-v="wallet">Wallets</button><button aria-pressed="true" data-v="market">Market</button>
         </div>
       </header>
-      <p class="sub">Settled bets of this account, grouped three ways.</p>
+      <p class="sub">Settled bets of this account. Pre/Live × tier: before kickoff vs during the match, per tier. Trigger: what made the bet. Fix teams: matches with one of your listed teams. Wallets: which copied wallets made or lost money.</p>
       <div class="body scroll">
         <table class="mini">
           <thead><tr><th class="cap" id="res-col">Market</th><th class="cap r">W–L</th><th class="cap r">Staked</th><th class="cap r">P&amp;L</th><th class="cap r">ROI</th></tr></thead>
@@ -461,7 +461,7 @@ const ACCTS = {
   sniper: {name: "Snipers", sub: "copies wallets with 3–40 CS2 bets and 60%+ won when they bet $1k+ (like shyux’s)", data: d => d.sniper,
          sig: "Matches where a sniper has money: a wallet with only 3–40 CS2 bets in its whole history that won 60%+ of them, beat its prices by 5+ points and bets mostly CS2 (plus wallets on your list). When a sniper holds $1,000+ on one side, before kickoff or in-play, the bet is copied at the next scan. Backtest: +22.9% over 124 bets, positive in both halves.",
          empty: "A bet appears when a sniper puts $1,000+ on one side of a non-tier-1 match.", money: "Sniper money", hmoney: "Sniper money", head: "Snipers", what: "sniper"},
-  radar: {name: "Radar", sub: "copies suspicious pre-match money: your list ($900+), suspect repeat bettors, big bets from non-whales", data: d => d.radar_acct,
+  radar: {name: "Radar", sub: "copies suspicious money before and during T3–T6 matches: your list ($900+), suspect repeat bettors, big bets from non-whales", data: d => d.radar_acct,
          sig: "Upcoming matches on the pre-match radar. The account bets $20 on the side with the most radar money (your list $900+, suspect/sharp repeat bettors, big bets from non-whales) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
          empty: "A bet appears when a match shows up on the pre-match radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
   tradar: {sport: "tennis", name: "Tennis radar", sub: "copies big pre-match tennis money (ITF $1k+, Challenger $6k+, tour $30k+)", data: d => d.tennis && d.tennis.radar_acct,
@@ -575,8 +575,10 @@ function tape() {
 
 function results() {
   const s = D.stats;
-  const rows = (resMode === "tier" ? s.by_tier : resMode === "wallets" ? s.by_wallets : s.by_market || []).map(r => ({...r, label: esc(r.name)}));
-  $("res-col").textContent = {market: "Market", tier: "Tier", wallets: "Wallets"}[resMode];
+  const src = {market: s.by_market, phase: s.by_phase, trigger: s.by_trigger, team: s.by_team, wallet: s.by_wallet}[resMode] || [];
+  const rows = src.map(r => ({...r, label: esc(r.name)}));
+  $("res-col").textContent = {market: "Market", phase: "When · tier", trigger: "What triggered it", team: "Fix-prone team", wallet: "Copied wallet"}[resMode];
+  if (!rows.length) { $("t-res").innerHTML = '<tr><td colspan="5" class="empty">Nothing settled yet for this view.</td></tr>'; return; }
   $("t-res").innerHTML = rows.map(r => `<tr><td>${r.label}</td><td class="r num">${r.won}–${r.lost}</td><td class="r num">${usd0(r.staked)}</td>
     <td class="r num ${tone(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td><td class="r num ${tone(r.roi)}">${pct(r.roi, true)}</td></tr>`).join("");
 }
@@ -645,7 +647,7 @@ function radarPanel() {
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
       <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(g.start)}</b><span style="display:block;padding-left:16px">${day(g.start)} · ${rel(g.start)}</span></td>
       ${matchCell({match: g.match, url: g.url, vtier: g.vtier, kind: g.market === "Match Winner" ? "match" : "side", market: g.market}, true)}
-      <td data-label="Odd">${lines}</td></tr>
+      <td data-label="Odd">${g.live ? '<span class="rtag watched">LIVE · bought during the match</span><br>' : ""}${lines}</td></tr>
       <tr class="more" id="r-${i}" ${isOpen ? "" : "hidden"}><td colspan="3"><div class="why">${why ? `<p class="head">Why each bet stands out</p><ul>${why}</ul>` : '<p class="cap">Small bets from followed wallets; no size flags.</p>'}</div></td></tr>`;
   }).join("");
   toggleRows(tb, "r-");

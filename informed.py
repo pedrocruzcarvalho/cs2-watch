@@ -287,6 +287,45 @@ def dashboard(state, sigs, qual, now):
                            stake=STAKE))
 
 
+def _trigger(b):
+    """What made the bet, from the copied wallets' radar tags (radar accounts) or the account's own rule."""
+    tags = " ".join(t for c in b.get("wallets") or [] for t in (c.get("tags") or []))
+    if not tags:
+        return None
+    for key, name in (("your list", "Your list"), ("repeat big bettor", "Repeat big bettor"), ("(HIGH)", "Big bet HIGH"),
+                      ("(MEDIUM)", "Big bet MEDIUM"), ("(LOW)", "Big bet LOW")):
+        if key in tags:
+            return name
+    return "Other"
+
+
+def _teams(b):
+    import teams as TM                                  # here, not at the top: informed.py stays importable alone
+    core = b["match"].split(":", 1)[-1].split(" (")[0].split(" - ")[0]
+    return [t.strip() for t in core.split(" vs ") if TM.norm(t) in TM.FIX_PRONE]
+
+
+def breakdowns(settled, group):
+    """Results by phase x tier, by trigger, by Pedro's fix-prone teams and by copied wallet (top 15)."""
+    phase = lambda b: "Live" if b.get("placed_at", 0) >= b["start"] else "Pre-match"
+    keys = sorted({(phase(b), b.get("vtier") or "?") for b in settled}, key=lambda k: (k[0] != "Pre-match", k[1]))
+    trig = sorted({_trigger(b) for b in settled} - {None})
+    fix = defaultdict(list)
+    for b in settled:
+        for t in _teams(b) or ["(no listed team)"]:
+            fix[t].append(b)
+    who = defaultdict(list)
+    for b in settled:
+        c = (b.get("wallets") or [{}])[0]
+        if c.get("wallet"):
+            nm = c.get("name") if c.get("name") and not str(c["name"]).startswith("0x") else c["wallet"][:6] + "…" + c["wallet"][-4:]
+            who[nm].append(b)
+    return dict(by_phase=[group(f"{p} · {t}", [b for b in settled if (phase(b), b.get("vtier") or "?") == (p, t)]) for p, t in keys],
+                by_trigger=[group(t, [b for b in settled if _trigger(b) == t]) for t in trig],
+                by_team=sorted((group(t, bs) for t, bs in fix.items()), key=lambda g: (g["name"] == "(no listed team)", -g["bets"])),
+                by_wallet=sorted((group(w, bs) for w, bs in who.items()), key=lambda g: -g["bets"])[:15])
+
+
 def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
     """Stats, balance series, bet history and signals of one paper account (shared with live_money.py)."""
     acct = state.get("account", dict(opened_at=now, bets={}))
@@ -337,7 +376,8 @@ def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
                             group("Maps, totals, rounds", [b for b in settled if b["market"] != "Match Winner"])],
                  by_tier=[group(t, [b for b in settled if b.get("vtier") == t]) for t in tiers],
                  by_wallets=[group(wallet_groups[0], [b for b in settled if len(b["wallets"]) == 1]),
-                             group(wallet_groups[1], [b for b in settled if len(b["wallets"]) >= 2])])
+                             group(wallet_groups[1], [b for b in settled if len(b["wallets"]) >= 2])],
+                 **breakdowns(settled, group))
     if settled:
         last = sorted(settled, key=lambda b: b.get("settled_at") or 0, reverse=True)
         k, n = last[0]["status"], 0
