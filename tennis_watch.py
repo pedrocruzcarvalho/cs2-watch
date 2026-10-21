@@ -7,7 +7,7 @@ with the most radar money (radar_account.py).
 
 What "big" means here (tennis_research.py, 30 days, 6,132 matches): an ITF match's pre-match money is $17 at the
 median and only 1 in 20 sees a single position over ~$550; Challenger-level matches ~$4k at that mark; tour matches
-~$20-25k. Floors by level (ITF $500, small ATP/WTA $3k, tour $15k), then:
+~$20-25k. Floors by level (ITF $1,000, small ATP/WTA $6k, tour $30k: about 1-3 matches in 100), then:
   HIGH    10x the floor, or 4x with half of the match's pre-match money
   MEDIUM  4x the floor, or 2x with 40% of the match's pre-match money
   LOW     the floor
@@ -26,7 +26,7 @@ import cs2_watch as C
 
 SERIES = {"itf": 11634, "atp": 10365, "wta": 10366}
 BIG = re.compile(r"open|masters|championship|classic|cup|tennis|slam|finals|wimbledon|roland|international|grand prix", re.I)
-FLOOR = {"ITF": 500, "Challenger": 3000, "Tour": 15000}
+FLOOR = {"ITF": 1000, "Challenger": 6000, "Tour": 30000}     # raised Oct 21 2026 (Pedro): bigger money only
 MIN_VOLUME = 100                                      # skip matches with almost nothing traded (most ITF)
 
 
