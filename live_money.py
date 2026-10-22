@@ -27,7 +27,7 @@ import informed as I
 MIN_WALLET = 4000                                     # $3,000 until Oct 21 2026 (Pedro raised it)
 OTHER_MIN = 2000
 LIVE_HOURS = 5
-LOW_TIERS = {"T2*", "T3", "T4", "T5", "T6"}          # T2* = tier 2 with a fix-prone team
+LOW_TIERS = {"T3", "T4", "T5", "T6"}                 # T3+ only (Pedro, Oct 22 2026; T2* dropped)
 
 
 def signals(infos, vtier_of, now):
@@ -47,7 +47,7 @@ def signals(infos, vtier_of, now):
         vt = vtier_of(i["match"])
         reasons = []
         if vt not in LOW_TIERS:
-            reasons.append(f"match tier {vt} (only T3-T6, or T2 with a fix-prone team)")
+            reasons.append(f"match tier {vt} (only T3-T6)")
         if top[3] < MIN_WALLET:
             reasons.append(f"biggest in-play position is ${top[3]:,.0f} (needs ${MIN_WALLET:,})")
         if other >= 0.5 * top[3]:

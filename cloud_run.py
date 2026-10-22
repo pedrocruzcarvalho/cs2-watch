@@ -127,7 +127,21 @@ def watch_view(auto_watched, manual, rows, profiles=None):
 LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 LIVE_TIERS = {"T3", "T4", "T5", "T6"}                        # the radar watches in-play money on these only (Pedro)
 LIVE_LEVELS = [("HIGH", 25000), ("MEDIUM", 10000), ("LOW", 4000)]   # a big in-play bet
-LIST_MIN = 900                  # a hand-picked wallet triggers the radar from this size (Pedro, Oct 21 2026)
+LIST_MIN = 900
+TOP_TIERS = ("T1", "T2", "T2*")                # never bet by Radar or Live big money (Pedro, Oct 22 2026: T3+ only)
+
+
+def drop_top_tiers(state, log, name):
+    """Once: settled bets on T1/T2 matches are removed (refunded, hidden) and the balance recalculates (Pedro)."""
+    if state.get("t12_removed"):
+        return
+    n = 0
+    for b in state.get("account", {}).get("bets", {}).values():
+        if b.get("vtier") in TOP_TIERS and b["status"] in ("won", "lost"):
+            b.update(status="void", pnl=0.0, reason="tier 1/2 match, removed (only T3+ is bet)")
+            n += 1
+    state["t12_removed"] = True
+    log(f"{name}: removed {n} settled T1/T2 bets")                  # a hand-picked wallet triggers the radar from this size (Pedro, Oct 21 2026)
 
 
 VERDICT_SHORT = {"suspect": "record: suspect", "sharp": "record: sharp bettor", "lucky": "record: normal luck",
@@ -163,7 +177,7 @@ def who(w, profiles, qual, life=None):
 def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     """The radar (Pedro's rule, Oct 21 2026, "that's literally it"):
       big bet     any big, out-of-place bet (the scanner's LOW/MEDIUM/HIGH; Kalshi MEDIUM+), whoever placed it:
-                  before kickoff on T2-T6 (non-tier-1), during the match on T3-T6 only, where a big in-play bet is
+                  before kickoff and during the match, T3-T6 only (T1/T2 never, Pedro Oct 22 2026), where a big in-play bet is
                   $4k+ LOW, $10k+ MEDIUM, $25k+ HIGH
       your list   a hand-picked wallet betting $900+
     Shown on the page and bet by the radar account."""
@@ -231,7 +245,8 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
             add(i["match"], i["market"], i["start"], i.get("url"),
                 dict(wallet=w, name=name, outcome=o, usd=round(usd), avg=round(avg, 3), tags=tags, at=last,
                      why=[f"${usd:,.0f} bought during the match"], who=who_line(w)), score, live=True)
-    out = sorted(groups.values(), key=lambda g: (not g["live"], -g["score"], g["start"]))[:limit]
+    out = sorted((g for g in groups.values() if g["vtier"] not in TOP_TIERS),       # T3+ only (Pedro, Oct 22 2026)
+                 key=lambda g: (not g["live"], -g["score"], g["start"]))[:limit]
     for g in out:
         g["items"].sort(key=lambda x: -x["usd"])
         g["items"] = g["items"][:8]
@@ -310,6 +325,7 @@ def tick(store, log=print):
 
     # ---- live big money: the second paper account (live_money.py) ----
     lst = {} if reset else O.load(work / "livemoney.json")
+    drop_top_tiers(lst, log, "live money")
     lsigs = LM.signals(infos, C.vtier_fix, ts)
     I.settle(lst, infos, ts, fetch_winner, log=log)
     I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live")
@@ -339,10 +355,11 @@ def tick(store, log=print):
     seed = store.get("seed:radar_backfill") if not rst.get("backfilled") else None
     if seed:
         log(f"radar account: added {RA.merge_backfill(rst, json.loads(seed))} replayed bets (today's rules)")
+    drop_top_tiers(rst, log, "radar account")
     n = RA.restore_big(rst)
     if n:
         log(f"radar account: restored {n} big-money bets that had been refunded")
-    rsigs = RA.signals(rad, infos, ts, skip_tiers=("T1",))
+    rsigs = RA.signals(rad, infos, ts, skip_tiers=TOP_TIERS)
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live")

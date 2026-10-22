@@ -215,7 +215,12 @@ def winner_of(market, ended=False):
         return None
     if (market.get("closed") or ended) and prices and max(prices) >= 0.99:
         return outs[prices.index(max(prices))]
+    if market.get("closed") and len(prices) == 2 and all(abs(p - 0.5) < 0.01 for p in prices):
+        return CANCELLED                                # resolved 50/50: Polymarket's way of settling a cancelled match
     return None
+
+
+CANCELLED = "__cancelled__"
 
 
 # How CS2 money arrives on Polymarket before kickoff (median over 160 low/mid-tier matches, Oct 15-19 2026):

@@ -282,7 +282,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Radar</h2><span class="cap" id="radar-count"></span></header>
     <p class="sub" data-only="tradar">Unusual pre-match bets on upcoming tennis matches (ITF, Challengers, ATP/WTA on Polymarket). "Big" depends on the level: an ITF match normally has about $17 traded before it starts, so $1,000 is huge there; Challengers start at $6,000 and tour matches at $30,000 (LOW &lt; MEDIUM &lt; HIGH, higher when the bet is most of the match's money). <b>Your list</b> = wallets you or I added by hand, betting $900+. The grey line says how much of the match's pre-match money that bet is. The Tennis radar account bets these; nothing else does.</p>
-    <p class="sub" data-only="live shift sniper radar informed">Big, out-of-place bets on CS2 (Polymarket and Kalshi), whoever placed them: <b>before kickoff on T2–T6</b>, and <b>during the match on T3–T6</b> (marked LIVE). Plus <b>your list</b>: wallets you or I added by hand, betting $900+. "Big" = large for that match: LOW &lt; MEDIUM &lt; HIGH (in-play: $4k+, $10k+, $25k+). The grey line is the wallet's record, for your information only. The Radar account bets these; click a row for why each bet was flagged.</p>
+    <p class="sub" data-only="live shift sniper radar informed">Big, out-of-place bets on CS2 (Polymarket and Kalshi), whoever placed them, on <b>T3–T6 matches only</b>: before kickoff, and during the match (marked LIVE). Plus <b>your list</b>: wallets you or I added by hand, betting $900+. "Big" = large for that match: LOW &lt; MEDIUM &lt; HIGH (in-play: $4k+, $10k+, $25k+). The grey line is the wallet's record, for your information only. The Radar account bets these; click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
@@ -451,7 +451,7 @@ const lv = l => `<span class="lv ${l}">${l}</span>`;
 const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
 let D = null, RAW = null, resMode = "market", histFilter = "all", showAllSigs = false;
 const ACCTS = {
-  live: {name: "Live big money", sub: "copies one wallet buying $4k+ on a side DURING a T3–T6 match", data: d => d.live,
+  live: {name: "Live big money", sub: "copies one wallet buying $4k+ on a side DURING a T3–T6 match (T3+ only)", data: d => d.live,
          sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $4k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
          empty: "A bet appears when one wallet puts $4k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
   shift: {name: "Odd shifts", sub: "live price contradicts the round score by 35+ pts → bets with the market", data: d => d.shift,
@@ -460,7 +460,7 @@ const ACCTS = {
   sniper: {name: "Snipers", sub: "copies wallets with 3–40 CS2 bets and 60%+ won when they bet $1k+ (like shyux’s)", data: d => d.sniper,
          sig: "Matches where a sniper has money: a wallet with only 3–40 CS2 bets in its whole history that won 60%+ of them, beat its prices by 5+ points and bets mostly CS2 (plus wallets on your list). When a sniper holds $1,000+ on one side, before kickoff or in-play, the bet is copied at the next scan. Backtest: +22.9% over 124 bets, positive in both halves.",
          empty: "A bet appears when a sniper puts $1,000+ on one side of a non-tier-1 match.", money: "Sniper money", hmoney: "Sniper money", head: "Snipers", what: "sniper"},
-  radar: {name: "Radar", sub: "copies big out-of-place bets (pre-match T2–T6, live T3–T6) and your list ($900+)", data: d => d.radar_acct,
+  radar: {name: "Radar", sub: "copies big out-of-place bets on T3–T6 matches (pre-match and live) and your list ($900+)", data: d => d.radar_acct,
          sig: "Upcoming matches on the pre-match radar. The account bets $20 on the side with the most radar money (big out-of-place bets, your list $900+) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
          empty: "A bet appears when a match shows up on the pre-match radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
   tradar: {sport: "tennis", name: "Tennis radar", sub: "copies big pre-match tennis money (ITF $1k+, Challenger $6k+, tour $30k+)", data: d => d.tennis && d.tennis.radar_acct,

@@ -203,6 +203,9 @@ def settle(state, infos, now, fetch_winner, log=print):
                 log(f"  informed settle failed: {err}")
         if not w:
             continue
+        if w == "__cancelled__":                        # cancelled match (50/50 resolution): stake refunded (Pedro)
+            b.update(status="void", pnl=0.0, settled_at=now, reason="match cancelled (refunded)")
+            continue
         b["winner"], b["settled_at"] = w, now
         if w == b["side"]:
             b.update(status="won", pnl=round(b["shares"] - b["stake"], 2))
