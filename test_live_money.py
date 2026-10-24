@@ -45,3 +45,17 @@ def test_pre_match_account_ignores_live_signals():
     sigs = LM.signals([_info([["0xw", "c1", "A", 6000, 0.6, "", T0]])], lambda m: "T3", T0)
     I.place_bets(st, sigs, T0, lambda tok: [[0.6, 1000]], B.fill, log=lambda *a: None)
     assert st["account"]["bets"] == {}
+
+
+def test_skipped_signals_say_why_instead_of_waiting_forever():
+    import sizing as Z
+    st = {}
+    fav = LM.signals([_info([["0xw", "c1", "A", 6000, 0.85, "", T0]])], lambda m: "T3", T0)
+    fav[0]["prices"] = {"A": 0.85, "B": 0.15}
+    I.place_bets(st, fav, T0, lambda tok: [[0.86, 1000]], B.fill, log=lambda *a: None, live=True, stake_fn=Z.LIVE)
+    dead = LM.signals([_info([["0xw", "c1", "A", 6000, 0.2, "", T0]])], lambda m: "T3", T0)
+    dead[0]["prices"] = {"A": 0.2, "B": 0.8}
+    I.place_bets(st, dead, T0, lambda tok: [[0.001, 1000]], B.fill, log=lambda *a: None, live=True, stake_fn=Z.LIVE)
+    assert st["account"]["bets"] == {}
+    assert not fav[0]["active"] and "no edge" in fav[0]["why_not"][-1]
+    assert not dead[0]["active"] and "all but decided" in dead[0]["why_not"][-1]

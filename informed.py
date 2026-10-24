@@ -158,16 +158,23 @@ def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_pri
     """As soon as a signal is active, bet on it once: before kickoff, or (live=True) after it. The stake is $20, or
     stake_fn(signal, balance) (sizing.py: a share of the balance by signal strength and odds)."""
     acct = state.setdefault("account", dict(opened_at=now, bets={}))
+
+    def skip(s, why):                               # not bet: say why on the page instead of "betting at the next scan"
+        s["active"] = False
+        s["why_not"] = list(s.get("why_not") or []) + [why]
+
     for s in sigs:
         key = s["cid"]
         if not s["active"] or key in acct["bets"] or (s["start"] <= now) != live:
             continue
         px = (s.get("prices") or {}).get(s["side"])
         if px is not None and not (1 - max_price) < px < max_price:   # decided market: skip before touching the book
+            skip(s, f"market all but decided (price {px:.2f})")
             continue
         bal = balance(acct)
         amount = stake_fn(s, bal) if stake_fn else STAKE
         if amount <= 0:                             # the sizing says this kind of signal isn't worth a bet
+            skip(s, f"favourite at {px:.2f}: no edge at 0.80+, so no bet" if px is not None else "no stake for this signal")
             continue
         if bal < amount:
             acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="skipped", reason="balance", stake=0.0,
@@ -183,6 +190,7 @@ def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_pri
                                      shares=0.0, price=s["prices"].get(s["side"]))
             continue
         if avg >= max_price or avg <= 1 - max_price:    # the market has all but decided (either way): no bet
+            skip(s, f"order book says it's all but decided (would fill at {avg:.3f})")
             continue
         acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="open", stake=round(spent, 2),
                                  shares=round(sh, 2), price=round(avg, 4), levels=levels)
