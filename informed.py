@@ -154,21 +154,23 @@ def signals(infos, qual, vtier_of, now):
 
 # ------------------------------------------------------------------------------------------------ account
 
-def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_price=0.97, tag="informed"):
-    """As soon as a signal is active, bet $20 on it once: before kickoff, or (live=True) after it."""
+def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_price=0.97, tag="informed", stake_fn=None):
+    """As soon as a signal is active, bet on it once: before kickoff, or (live=True) after it. The stake is $20, or
+    stake_fn(signal, balance) (sizing.py: a share of the balance by signal strength and odds)."""
     acct = state.setdefault("account", dict(opened_at=now, bets={}))
     for s in sigs:
         key = s["cid"]
         if not s["active"] or key in acct["bets"] or (s["start"] <= now) != live:
             continue
         bal = balance(acct)
-        if bal < STAKE:
+        amount = stake_fn(s, bal) if stake_fn else STAKE
+        if bal < amount:
             acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="skipped", reason="balance", stake=0.0,
                                      shares=0.0, price=s["prices"].get(s["side"]))
             continue
         asks = book_asks(s["tokens"].get(s["side"]))
         if asks:
-            sh, spent, avg, levels = fill(STAKE, asks)
+            sh, spent, avg, levels = fill(amount, asks)
         else:
             sh = spent = avg = levels = 0
         if not sh:

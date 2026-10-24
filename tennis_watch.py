@@ -106,6 +106,20 @@ def scan(now, watch, log=print):
                     prices=px, winner=C.winner_of(m, e.get("ended")), cid=m["conditionId"], ref=e["slug"],
                     url=f"https://polymarket.com/event/{e['slug']}", tokens=dict(zip(outs, json.loads(m.get("clobTokenIds") or "[]"))),
                     level=lvl, tour=tour, volume=float(e.get("volume") or 0))
+        live = defaultdict(lambda: [0.0, 0.0, 0.0, 0])                 # in-play: shares, usd bought, usd sold, last
+        for t in sorted(trades, key=lambda t: t["timestamp"]):
+            if t["timestamp"] < start:
+                continue
+            q = live[(t["proxyWallet"].lower(), t["outcome"])]
+            if t["side"] == "BUY":
+                q[0] += t["size"]
+                q[1] += t["size"] * t["price"]
+            else:
+                q[2] += t["size"] * t["price"]
+            q[3] = t["timestamp"]
+        info["livepos"] = [[w, m["conditionId"], o, round(ub - us, 2), round(ub / sb, 4) if sb else 0,
+                            next((t.get("name") or t.get("pseudonym") or "" for t in trades if t["proxyWallet"].lower() == w), ""), last]
+                           for (w, o), (sb, ub, us, last) in live.items() if ub - us >= 1000]
         pre = [t for t in trades if t["timestamp"] < start]
         flow = sum(t["size"] * t["price"] for t in pre)
         pos, names = defaultdict(lambda: [0.0, 0.0, 0.0]), {}
@@ -176,3 +190,61 @@ def radar(rows, watch, now, limit=40):
     for g in out:
         g["items"] = sorted(g["items"], key=lambda x: -x["usd"])[:8]
     return out
+
+
+# ------------------------------------------------------------------------------------------------ tennis live
+# ITF in-play, one wallet $2k+ on the UNDERDOG (price under 0.45): tennis_research.py, 30 days, 56 bets, ROI +46%,
+# +45% / +50% in the two halves, while backing the favourite at those moments lost 28%. Small ATP/WTA underdogs
+# did the opposite (-40..-75%), so ITF only. Rules fixed on 2026-10-24 before any live result; the stake is 3% of
+# the balance (sizing.py). Found after looking at many combinations: promising, not proven.
+LIVE_MIN, LIVE_MAX_PRICE, LIVE_OTHER = 2000, 0.45, 1000
+
+
+def live_signals(infos, now):
+    out = []
+    for i in infos:
+        if i.get("level") != "ITF" or not i["start"] <= now < i["start"] + 5 * 3600 or i.get("winner"):
+            continue
+        pos = i.get("livepos") or []
+        if not pos:
+            continue
+        top = max(pos, key=lambda x: x[3])
+        side = top[2]
+        px = (i.get("prices") or {}).get(side)
+        against = [x for x in pos if x[2] != side and x[3] >= LIVE_OTHER]
+        other = sum(x[3] for x in against)
+        reasons = []
+        if top[3] < LIVE_MIN:
+            reasons.append(f"biggest in-play position is ${top[3]:,.0f} (needs ${LIVE_MIN:,})")
+        if px is None or px >= LIVE_MAX_PRICE:
+            reasons.append(f"{side} is not the underdog (price {px if px is not None else '?'}; needs under {LIVE_MAX_PRICE})")
+        if other >= 0.5 * top[3]:
+            reasons.append(f"${other:,.0f} of big money on the other side")
+        card = lambda x: dict(wallet=x[0], name=x[5], usd=x[3], avg=x[4], at=x[6])
+        out.append(dict(match=i["match"], start=i["start"], market="Match Winner", cid=i["cid"], slug=i["ref"], url=i["url"],
+                        teams=i["teams"], prices=i.get("prices") or {}, tokens=i.get("tokens") or {}, side=side,
+                        money=round(top[3]), other_money=round(other), wallets=[card(x) for x in sorted(
+                            (x for x in pos if x[2] == side), key=lambda x: -x[3])][:6],
+                        against=[card(x) for x in against][:6], vtier="ITF", live=True, active=not reasons, why_not=reasons))
+    return sorted(out, key=lambda s: (not s["active"], -s["money"]))
+
+
+def live_explain(b, now):
+    import informed as I
+    other = next((t for t in b.get("teams") or [] if t != b["side"]), "the other player")
+    head = f"{I.money(b['stake'])} on {b['side']} to beat {other}, copying {I.money(b['money'])} bought on the underdog during an ITF match."
+    why = ["Rule: ITF match in play, one wallet with $2,000+ on the underdog (priced under 0.45), not much big money on "
+           "the other side.",
+           "In 30 days of ITF matches this returned +46% over 56 bets (+45% and +50% in the two halves), while backing "
+           "the favourite at those moments lost 28%. Promising, not proven: it was found among many combinations."]
+    if b["status"] != "skipped":
+        why.append(f"Bet {I.money(b['stake'])} (3% of the balance) at {b['price']:.3f}, filled against the real order "
+                   f"book, fee included. If {b['side']} wins it pays {I.money(b['shares'])}.")
+    res = {"won": f"{b['side']} won: paid {I.money(b.get('shares', 0))}, profit {I.money(b.get('pnl', 0))}.",
+           "lost": f"{b.get('winner')} won: the {I.money(b['stake'])} stake was lost.",
+           "skipped": "Not placed.", "open": "Not settled yet.",
+           "void": f"Refunded: {b.get('reason') or 'cancelled'}."}.get(b["status"], b["status"])
+    return dict(headline=head, sections=[
+        dict(title="The money", bullets=[f"{x.get('name') or x['wallet'][:10]}: ${x['usd']:,.0f} at {x['avg']:.2f} during the match"
+                                         for x in b.get("wallets", [])[:6]] or ["-"]),
+        dict(title="Why this bet", bullets=why), dict(title="Result", bullets=[res])])

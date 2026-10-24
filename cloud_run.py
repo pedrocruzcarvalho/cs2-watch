@@ -35,6 +35,7 @@ import informed as I
 import live_money as LM
 import oddshift as OS
 import radar_account as RA
+import sizing as SZ
 import sniper as SN
 import tennis_watch as TW
 import wallet_history as WH
@@ -43,7 +44,7 @@ import wallets as W
 KEYS = {"state:ledger": "ledger.json", "state:wallets": "wallets.json", "state:baseline": "baseline.json",
         "state:meta": "meta.json", "state:oddspapi": "oddspapi.json", "state:watch_auto": "watch_auto.json",
         "watchlist": "watchlist.json", "state:profiles": "profiles.json", "state:vrs": "vrs.json",
-        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json", "state:sniper": "sniper.json", "state:tradar": "tradar.json"}
+        "state:informed": "informed.json", "state:livemoney": "livemoney.json", "state:oddshift": "oddshift.json", "state:radar": "radar.json", "state:sniper": "sniper.json", "state:tradar": "tradar.json", "state:tlive": "tlive.json"}
 BUNDLE = "state:bundle"
 KEEP_DAYS = 90
 RESET = "2026-10-21"          # change to wipe every paper account back to $300 once (Pedro, Oct 20 2026)
@@ -303,32 +304,19 @@ def tick(store, log=print):
     led = {k: r for k, r in led.items() if r["mode"] == "live" and r["start"] >= old}
     C.save_ledger(led)
 
-    # ---- informed wallets: the paper account the dashboard shows (informed.py) ----
+    # Informed wallets and Snipers were switched off at Pedro's request (Oct 24 2026); their stored state is kept.
     reset = meta.get("reset") != RESET                             # one-time restart of all paper accounts
     if reset:
         log(f"resetting every paper account to ${I.START_BALANCE:.0f} ({RESET})")
         meta["reset"] = RESET
-    ist = O.load(work / "informed.json")
-    if reset:
-        ist.pop("account", None)
     ts = now.timestamp()
-    added = I.add_resolved(ist, infos, ts)
-    qual = I.qualifying(ist, ts)
-    sigs = I.signals(infos, qual, C.vtier_fix, ts)
-    I.settle(ist, infos, ts, fetch_winner, log=log)
-    I.place_bets(ist, sigs, ts, C.book_asks, B.fill, log=log)
-    I.refresh_lifetime(ist, list(qual), ts, lambda w: WH.lifetime(w, max_closed=1500), log=log)
-    (work / "informed.json").write_text(json.dumps(ist))
-    inf = I.dashboard(ist, sigs, qual, ts)
-    log(f"informed: +{added} resolved positions, {len(qual)} informed wallets, "
-        f"{sum(s['active'] for s in sigs)} active signals")
 
     # ---- live big money: the second paper account (live_money.py) ----
     lst = {} if reset else O.load(work / "livemoney.json")
     drop_top_tiers(lst, log, "live money")
     lsigs = LM.signals(infos, C.vtier_fix, ts)
     I.settle(lst, infos, ts, fetch_winner, log=log)
-    I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live")
+    I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live", stake_fn=SZ.LIVE)
     (work / "livemoney.json").write_text(json.dumps(lst))
     live = LM.dashboard(lst, lsigs, ts)
     log(f"live money: {len(lsigs)} markets with in-play money, {sum(s['active'] for s in lsigs)} active signals, "
@@ -342,15 +330,14 @@ def tick(store, log=print):
         log("odd shifts: refunded bets placed on scores without rounds")
     osigs = OS.signals(ost, infos, C.vtier_fix, ts)
     I.settle(ost, infos, ts, fetch_winner, log=log)
-    I.place_bets(ost, osigs, ts, C.book_asks, B.fill, log=log, live=True, tag="odd shift")
+    I.place_bets(ost, osigs, ts, C.book_asks, B.fill, log=log, live=True, tag="odd shift", stake_fn=SZ.SHIFT)
     (work / "oddshift.json").write_text(json.dumps(ost))
     shift = OS.dashboard(ost, osigs, ts)
     log(f"odd shifts: {len(osigs)} live matches with a score, {sum(s['active'] for s in osigs)} active signals, "
         f"{shift['snaps']} snapshots kept, balance ${shift['stats']['balance']:.2f}")
 
     # ---- radar account: bets what the pre-match radar shows (radar_account.py) ----
-    sniper_prof = {w: p for w, p in O.load(work / "sniper.json").get("profiles", {}).items() if SN.is_sniper(p)}
-    rad = radar(rows, infos, qual, sniper_prof, C.WATCH, ts, profiles)
+    rad = radar(rows, infos, {}, {}, C.WATCH, ts, profiles)
     rst = {} if reset else O.load(work / "radar.json")
     seed = store.get("seed:radar_backfill") if not rst.get("backfilled") else None
     if seed:
@@ -361,29 +348,12 @@ def tick(store, log=print):
         log(f"radar account: restored {n} big-money bets that had been refunded")
     rsigs = RA.signals(rad, infos, ts, skip_tiers=TOP_TIERS)
     I.settle(rst, infos, ts, fetch_winner, log=log)
-    I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar")
-    I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live")
+    I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar", stake_fn=SZ.RADAR)
+    I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live", stake_fn=SZ.RADAR)
     (work / "radar.json").write_text(json.dumps(rst))
-    radar_acct = RA.dashboard(rst, rsigs, ts, ("T2", "T2*", "T3", "T4", "T5", "T6"))
+    radar_acct = RA.dashboard(rst, rsigs, ts, ("T3", "T4", "T5", "T6"))
     log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "
         f"balance ${radar_acct['stats']['balance']:.2f}")
-
-    # ---- snipers: few, well-aimed CS2 bets (sniper.py) ----
-    sst = O.load(work / "sniper.json")
-    if not sst.get("profiles"):                          # one-time seed from the 1,506 wallet histories (local research)
-        seed = store.get("seed:sniper")
-        if seed:
-            sst["profiles"] = json.loads(seed)
-            log(f"sniper: seeded {len(sst['profiles'])} wallet profiles")
-    SN.refresh(sst, infos, ts, lambda w: WH.lifetime(w, max_closed=1500), log=log)
-    ssigs = SN.signals(sst, infos, C.vtier_fix, ts, manual=list(manual))
-    I.settle(sst, infos, ts, fetch_winner, log=log)
-    I.place_bets(sst, ssigs, ts, C.book_asks, B.fill, log=log, tag="sniper")
-    I.place_bets(sst, ssigs, ts, C.book_asks, B.fill, log=log, live=True, tag="sniper live")
-    (work / "sniper.json").write_text(json.dumps(sst))
-    snip = SN.dashboard(sst, ssigs, ts)
-    log(f"sniper: {snip['checked']} wallets profiled, {len(snip['snipers'])} snipers, "
-        f"{sum(s['active'] for s in ssigs)} active signals, balance ${snip['stats']['balance']:.2f}")
 
     # ---- tennis, separate from CS2: radar + radar account (tennis_watch.py) ----
     tennis = None
@@ -393,10 +363,20 @@ def tick(store, log=print):
         tst = O.load(work / "tradar.json")
         tsigs = RA.signals(trad, tinfos, ts)
         I.settle(tst, tinfos, ts, fetch_winner, log=log)
-        I.place_bets(tst, tsigs, ts, C.book_asks, B.fill, log=log, tag="tennis radar")
+        I.place_bets(tst, tsigs, ts, C.book_asks, B.fill, log=log, tag="tennis radar", stake_fn=SZ.TENNIS_RADAR)
         (work / "tradar.json").write_text(json.dumps(tst))
+        tlst = O.load(work / "tlive.json")                        # tennis live: ITF underdogs bought in-play
+        tlsigs = TW.live_signals(tinfos, ts)
+        I.settle(tlst, tinfos, ts, fetch_winner, log=log)
+        I.place_bets(tlst, tlsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="tennis live",
+                     stake_fn=SZ.TENNIS_LIVE)
+        (work / "tlive.json").write_text(json.dumps(tlst))
         tennis = dict(radar=trad, radar_acct=RA.dashboard(tst, tsigs, ts, ("ITF", "Challenger", "Tour")),
+                      live_acct=I.account_view(tlst, tlsigs, ts, TW.live_explain, "TLIVE", ("ITF",),
+                                               ("1 wallet", "2+ wallets")),
                       scanned=len(tinfos))
+        log(f"tennis live: {len(tlsigs)} ITF matches with in-play money, {sum(s['active'] for s in tlsigs)} active "
+            f"signals, balance ${tennis['live_acct']['stats']['balance']:.2f}")
         log(f"tennis radar account: {len(trad)} radar matches, {sum(s['active'] for s in tsigs)} active signals, "
             f"balance ${tennis['radar_acct']['stats']['balance']:.2f}")
     except Exception as e:                                 # tennis must never stop the CS2 tick
@@ -404,20 +384,19 @@ def tick(store, log=print):
 
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
-    dash = dict(at=now.timestamp(), opened_at=inf["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
-                stats=inf["stats"], series=inf["series"], bets=inf["bets"], signals=inf["signals"],
-                wallets=inf["wallets"], rising=inf["rising"], rules=inf["rules"], scanned=len({m["match_id"] for m in matches}),
-                flagged=sum(1 for s in sigs if s["active"]), watch=watch_view(auto_watched, manual, rows, profiles),
-                live=live, shift=shift,
-                radar=rad, radar_acct=radar_acct, sniper=snip, tennis=tennis)
-    stats = inf["stats"]
+    dash = dict(at=now.timestamp(), opened_at=live["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
+                stats=live["stats"], series=live["series"], bets=live["bets"], signals=live["signals"],
+                scanned=len({m["match_id"] for m in matches}), flagged=sum(1 for s in lsigs if s["active"]),
+                watch=watch_view(auto_watched, manual, rows, profiles),
+                live=live, shift=shift, radar=rad, radar_acct=radar_acct, tennis=tennis)
+    stats = live["stats"]
     (work / "meta.json").write_text(json.dumps(meta))
 
     parts = {key: (work / name).read_text() for key, name in KEYS.items()
              if key != "watchlist" and (work / name).exists()}
     store.put(BUNDLE, gzip.compress(json.dumps(parts).encode()))
     store.put("dashboard", json.dumps(dash, default=str).encode())
-    log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} markets, {dash['flagged']} informed signals, "
+    log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} markets, {dash['flagged']} live signals, "
         f"balance ${stats['balance']:.2f} "
         f"({stats['wins']}W/{stats['losses']}L, {stats['open']} open)")
     return dash
