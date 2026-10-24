@@ -6,7 +6,7 @@ Method: per bucket, the test's edge (win rate minus the price paid) is shrunk to
 buckets can't claim much, then turned into a share of the Kelly stake, edge / (1 - price), and rounded to a simple
 step: about half Kelly on the strong signals, small fixed stakes on untested or weak ones (raised from quarter Kelly
 on Oct 24 2026 at Pedro's request). Every stake is 1-12% of the balance at the time of the bet (minimum $1).
-Current steps: Live big money 8% (T3, under 0.65) / 5% (under 0.45) / 3% (0.45-0.80) / 1% (0.80+); Radar 1.5% LOW,
+Current steps: Live big money 8% (T3, under 0.65) / 5% (under 0.45) / 3% (0.45-0.80) / no bet at 0.80+; Radar 1.5% LOW,
 2% MEDIUM, 3% HIGH or hand-picked; Tennis live 6% W50+ / 4% M25-W35 / 2% M15-W15, x1.5 at $3k+, x2 at $5k+;
 Odd shifts 2%; Tennis radar 1.5%. The per-bucket notes below are the evidence.
 
@@ -41,7 +41,7 @@ def live_pct(s):
         return 0.05
     if p < 0.80:
         return 0.03
-    return 0.01
+    return 0.0                                  # favourites 0.80+: no edge in the test, so no bet (Oct 24 2026)
 
 
 def radar_pct(s):
@@ -68,8 +68,11 @@ def tennis_live_pct(s):
 
 
 def stake(pct_fn):
-    """A stake function for informed.place_bets: share of the current balance, capped."""
-    return lambda s, bal: max(MIN_USD, round(bal * min(pct_fn(s), MAX_PCT), 2))
+    """A stake function for informed.place_bets: share of the current balance, capped; 0 means no bet."""
+    def f(s, bal):
+        pct = pct_fn(s)
+        return 0.0 if pct <= 0 else max(MIN_USD, round(bal * min(pct, MAX_PCT), 2))
+    return f
 
 
 LIVE = stake(live_pct)

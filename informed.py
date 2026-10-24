@@ -164,6 +164,8 @@ def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_pri
             continue
         bal = balance(acct)
         amount = stake_fn(s, bal) if stake_fn else STAKE
+        if amount <= 0:                             # the sizing says this kind of signal isn't worth a bet
+            continue
         if bal < amount:
             acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="skipped", reason="balance", stake=0.0,
                                      shares=0.0, price=s["prices"].get(s["side"]))
