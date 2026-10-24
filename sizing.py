@@ -3,8 +3,12 @@ How much each paper account bets: a share of its current balance, by how strong 
 by the odds (Pedro, Oct 24 2026: "some matchfixings are clear and others are not; odds are relevant").
 
 Method: per bucket, the test's edge (win rate minus the price paid) is shrunk toward zero by n/(n+40) so small
-buckets can't claim much, then turned into a quarter of the Kelly stake, edge / (1 - price), and rounded down to a
-simple step. Every stake is 1-8% of the balance at the time of the bet (minimum $1).
+buckets can't claim much, then turned into a share of the Kelly stake, edge / (1 - price), and rounded to a simple
+step: about half Kelly on the strong signals, small fixed stakes on untested or weak ones (raised from quarter Kelly
+on Oct 24 2026 at Pedro's request). Every stake is 1-12% of the balance at the time of the bet (minimum $1).
+Current steps: Live big money 8% (T3, under 0.65) / 5% (under 0.45) / 3% (0.45-0.80) / 1% (0.80+); Radar 1.5% LOW,
+2% MEDIUM, 3% HIGH or hand-picked; Tennis live 6% W50+ / 4% M25-W35 / 2% M15-W15, x1.5 at $3k+, x2 at $5k+;
+Odd shifts 2%; Tennis radar 1.5%. The per-bucket notes below are the evidence.
 
 Live big money, 83 in-play bets of $4k+ on T3-T6 (live_research.py, 60 days):
   price < 0.45   n=18  edge +25 pts   ->  3%
@@ -20,7 +24,7 @@ Tennis live by ITF level (in-play underdog $1k+, 107 bets): W50+ +52% (both halv
 Odd shifts: no backtest  ->  1.5%.  Tennis radar (pre-match): tested negative  ->  1%.
 """
 
-MIN_USD, MAX_PCT = 1.0, 0.08
+MIN_USD, MAX_PCT = 1.0, 0.12        # raised Oct 24 2026 (Pedro): about half Kelly on the strongest signals
 
 
 def _price(s):
@@ -32,11 +36,11 @@ def live_pct(s):
     if p is None:
         return 0.01
     if s.get("vtier") == "T3" and p < 0.65:
-        return 0.05
+        return 0.08
     if p < 0.45:
-        return 0.03
+        return 0.05
     if p < 0.80:
-        return 0.02
+        return 0.03
     return 0.01
 
 
@@ -45,8 +49,8 @@ def radar_pct(s):
         return live_pct(s)
     tags = " ".join(t for c in s.get("wallets") or [] for t in (c.get("tags") or []))
     if "your list" in tags or "(HIGH)" in tags:
-        return 0.02
-    return 0.015 if "(MEDIUM)" in tags else 0.01
+        return 0.03
+    return 0.02 if "(MEDIUM)" in tags else 0.015
 
 
 def itf_level(match):
@@ -58,7 +62,7 @@ def itf_level(match):
 
 def tennis_live_pct(s):
     lvl = itf_level(s.get("match"))
-    base = 0.04 if lvl and lvl >= 50 else 0.015 if lvl and lvl <= 15 else 0.03
+    base = 0.06 if lvl and lvl >= 50 else 0.02 if lvl and lvl <= 15 else 0.04
     usd = s.get("money") or 0
     return base * (2.0 if usd >= 5000 else 1.5 if usd >= 3000 else 1.0)
 
@@ -70,6 +74,6 @@ def stake(pct_fn):
 
 LIVE = stake(live_pct)
 RADAR = stake(radar_pct)
-SHIFT = stake(lambda s: 0.015)
+SHIFT = stake(lambda s: 0.02)
 TENNIS_LIVE = stake(tennis_live_pct)
-TENNIS_RADAR = stake(lambda s: 0.01)
+TENNIS_RADAR = stake(lambda s: 0.015)
