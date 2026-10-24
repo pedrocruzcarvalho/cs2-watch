@@ -344,7 +344,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
       <li><b>Paper only.</b> A separate $300 account, started Oct 20 2026.</li>
       <li><b>The idea:</b> during a match the price should follow the scoreboard. When the team that is clearly ahead trades far below what the score says, someone may know it won't finish the job (your examples: Damajuana a map up at 35%, Revise 7–3 up in the decider at 19%, G2 Ares 14–12 up at 0.3%; all three lost).</li>
       <li><b>Fair price from the score:</b> Polymarket's live score (rounds in the current map, maps won). Each round is treated as a coin tilted by the teams' pre-match price, a map is first to 13 with overtime in blocks of 6, the series best of 1/3/5.</li>
-      <li><b>Signal:</b> live T2–T6 match, match-winner market, the scoreboard leader is 60%+ by that model, and the market prices it at least 35 points lower.</li>
+      <li><b>Signal:</b> live T3–T6 match, match-winner market, the scoreboard leader is 60%+ by that model, and the market prices it at least 35 points lower.</li>
       <li><b>Bet:</b> 2% of the balance on the team the market prefers (the one behind on the scoreboard), once per match, at the next scan, filled against the real order book. Skipped at 0.97+.</li>
       <li><b>Not backtested.</b> Polymarket keeps no score history, so this rule starts untested. Every live score and price is stored from today so it can be checked properly later.</li>
     </ul>
@@ -399,9 +399,9 @@ const ACCTS = {
   live: {name: "Live big money", sub: "copies one wallet buying $4k+ on a side DURING a T3–T6 match (T3+ only)", data: d => d.live,
          sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $4k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
          empty: "A bet appears when one wallet puts $4k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
-  shift: {name: "Odd shifts", sub: "live price contradicts the round score by 35+ pts → bets with the market", data: d => d.shift,
-         sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T2–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
-         empty: "A bet appears when a live T2–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},
+  shift: {name: "Odd shifts", sub: "live price contradicts the round score by 35+ pts on a T3–T6 match → bets with the market", data: d => d.shift,
+         sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T3–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
+         empty: "A bet appears when a live T3–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},
   radar: {name: "Radar", sub: "copies big out-of-place bets on T3–T6 matches (pre-match and live) and your list ($900+)", data: d => d.radar_acct,
          sig: "Upcoming matches on the pre-match radar. The account bets 1.5% of its balance on a LOW big bet, 2% on MEDIUM, 3% on HIGH or a your-list wallet (in-play money sized like Live big money) on the side with the most radar money (big out-of-place bets, your list $900+) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
          empty: "A bet appears when a match shows up on the pre-match radar with one-sided money.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
@@ -740,10 +740,10 @@ function cards() {
     if (!a || !a.stats) { box.innerHTML = '<div class="d">starts with the next scan</div>'; continue; }
     const s = a.stats, n = (a.bets || []).filter(b => b.stake && b.placed_at * 1000 >= today.getTime()).length;
     const act = (a.signals || []).filter(x => x.active && !x.placed).length;
-    box.innerHTML = `<div class="row1"><span class="big num">${usd(s.balance + s.at_risk)}</span>
+    box.innerHTML = `<div class="row1"><span class="big num" title="Cash: money not riding on an open bet">${usd(s.balance)}</span>
       <span class="num ${tone(s.profit)}">${usd(s.profit, true)}</span>
       <span class="num"><span class="pos">${s.wins}</span>–<span class="neg">${s.losses}</span></span></div>
-      <div class="d">${n} bet${n === 1 ? "" : "s"} today · ${s.open} open${act ? ` · <b style="color:var(--ct)">${act} about to bet</b>` : ""}${s.roi != null ? ` · ROI ${pct(s.roi, true)}` : ""}</div>`;
+      <div class="d">${s.open ? `+ ${usd(s.at_risk)} in ${s.open} open bet${s.open === 1 ? "" : "s"} · ` : ""}${n} bet${n === 1 ? "" : "s"} today${act ? ` · <b style="color:var(--ct)">${act} about to bet</b>` : ""}${s.roi != null ? ` · ROI ${pct(s.roi, true)}` : ""}</div>`;
   }
 }
 function view() {

@@ -10,7 +10,7 @@ Each round is a coin tilted by the teams' pre-match strength (from the last pre-
 
 Rules (fixed on 2026-10-20, before any result; NOT backtested, because Polymarket keeps no score history. Every
 live snapshot is stored so it can be tested later):
-  signal   live T2-T6 match (Valve ranking), match-winner market: the team AHEAD on the scoreboard (model >= 60%)
+  signal   live T3-T6 match (Valve ranking), match-winner market: the team AHEAD on the scoreboard (model >= 60%)
            trades at least 35 points below the model
   bet      $20 on the team the market prefers (the one behind on the scoreboard), once per match, at the next scan,
            filled against the real order book; skipped at 0.97+. $300 paper bankroll.
@@ -24,7 +24,7 @@ import informed as I
 
 GAP = 0.35
 MODEL_MIN = 0.60
-TIERS = {"T2", "T2*", "T3", "T4", "T5", "T6"}
+TIERS = {"T3", "T4", "T5", "T6"}                     # T3+ only (Pedro, Oct 24 2026)
 KEEP_SNAPS = 30 * 86400
 
 
@@ -158,7 +158,7 @@ def signals(state, infos, vtier_of, now):
         vt = vtier_of(i["match"])
         reasons = []
         if vt not in TIERS:
-            reasons.append(f"match tier {vt} (only T2-T6)")
+            reasons.append(f"match tier {vt} (only T3-T6)")
         if lead_m < MODEL_MIN:
             reasons.append(f"scoreboard too close ({lead} {lead_m:.0%} by the model)")
         elif lead_m - lead_px < GAP:
@@ -184,7 +184,7 @@ def explain(b, now):
            f"(best of {sc.get('bo')}).",
            f"From that score and the pre-match price, {b.get('leader')} should have been about {b.get('leader_model', 0):.0%}. "
            f"The market had it at {b.get('leader_price', 0):.0%}, a gap of {b.get('gap', 0) * 100:.0f} points.",
-           "Rule: a gap of 35+ points on a live T2-T6 match. The bet follows the market, on the theory that someone "
+           "Rule: a gap of 35+ points on a live T3-T6 match. The bet follows the market, on the theory that someone "
            "knows the leading team will not finish the job."]
     if b["status"] != "skipped":
         why.append(f"Bet {I.money(b['stake'])} at {b['price']:.3f}, filled against the real order book, fee included. "
@@ -203,7 +203,7 @@ def explain(b, now):
 
 
 def dashboard(state, sigs, now):
-    view = I.account_view(state, sigs, now, explain, "SHIFT", ("T2", "T2*", "T3", "T4", "T5", "T6"),
+    view = I.account_view(state, sigs, now, explain, "SHIFT", ("T3", "T4", "T5", "T6"),
                           ("-", "-"))
     return dict(view, rules=dict(gap=GAP, model_min=MODEL_MIN, stake=I.STAKE, start=I.START_BALANCE),
                 snaps=len(state.get("snaps", [])))
