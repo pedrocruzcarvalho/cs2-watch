@@ -378,12 +378,8 @@ def tick(store, log=print):
     try:
         tinfos, trows = TW.scan(now, C.WATCH, log=log)
         trad = TW.radar(trows, C.WATCH, ts)
-        tst = O.load(work / "tradar.json")
-        restart(tst, ts)
-        tsigs = RA.signals(trad, tinfos, ts)
-        I.settle(tst, tinfos, ts, fetch_winner, log=log)
-        I.place_bets(tst, tsigs, ts, C.book_asks, B.fill, log=log, tag="tennis radar", stake_fn=SZ.TENNIS_RADAR)
-        (work / "tradar.json").write_text(json.dumps(tst))
+        # the tennis radar account was switched off (Pedro, Oct 24 2026: pre-match tennis big bets lost -31% in 30 days);
+        # the radar list stays on the page as information
         tlst = O.load(work / "tlive.json")                        # tennis live: ITF underdogs bought in-play
         restart(tlst, ts)
         tlsigs = TW.live_signals(tinfos, ts)
@@ -391,14 +387,11 @@ def tick(store, log=print):
         I.place_bets(tlst, tlsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="tennis live",
                      stake_fn=SZ.TENNIS_LIVE)
         (work / "tlive.json").write_text(json.dumps(tlst))
-        tennis = dict(radar=trad, radar_acct=RA.dashboard(tst, tsigs, ts, ("ITF", "Challenger", "Tour")),
-                      live_acct=I.account_view(tlst, tlsigs, ts, TW.live_explain, "TLIVE", ("ITF",),
+        tennis = dict(radar=trad, live_acct=I.account_view(tlst, tlsigs, ts, TW.live_explain, "TLIVE", ("ITF",),
                                                ("1 wallet", "2+ wallets")),
                       scanned=len(tinfos))
         log(f"tennis live: {len(tlsigs)} ITF matches with in-play money, {sum(s['active'] for s in tlsigs)} active "
             f"signals, balance ${tennis['live_acct']['stats']['balance']:.2f}")
-        log(f"tennis radar account: {len(trad)} radar matches, {sum(s['active'] for s in tsigs)} active signals, "
-            f"balance ${tennis['radar_acct']['stats']['balance']:.2f}")
     except Exception as e:                                 # tennis must never stop the CS2 tick
         log(f"tennis failed: {e!r}")
 
