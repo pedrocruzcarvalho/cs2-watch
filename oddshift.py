@@ -13,7 +13,7 @@ live snapshot is stored so it can be tested later):
   signal   live T3-T6 match (Valve ranking), match-winner market: the team AHEAD on the scoreboard (model >= 60%)
            trades at least 35 points below the model
   bet      $20 on the team the market prefers (the one behind on the scoreboard), once per match, at the next scan,
-           filled against the real order book; skipped at 0.97+. $300 paper bankroll.
+           filled against the real order book; skipped at 0.95+ or 0.05- (decided). $300 paper bankroll.
 State: "account" (bets), "pre" (last pre-kickoff price per match), "snaps" (live snapshots). KV bundle part
 state:oddshift.
 """

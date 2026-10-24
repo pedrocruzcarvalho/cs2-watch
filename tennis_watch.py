@@ -216,7 +216,9 @@ def live_signals(infos, now):
         reasons = []
         if top[3] < LIVE_MIN:
             reasons.append(f"biggest in-play position is ${top[3]:,.0f} (needs ${LIVE_MIN:,})")
-        if px is None or px >= LIVE_MAX_PRICE:
+        if px is not None and px <= 0.05:
+            reasons.append(f"{side} is all but beaten (price {px:.3f})")
+        elif px is None or px >= LIVE_MAX_PRICE:
             reasons.append(f"{side} is not the underdog (price {px if px is not None else '?'}; needs under {LIVE_MAX_PRICE})")
         if other >= 0.5 * top[3]:
             reasons.append(f"${other:,.0f} of big money on the other side")

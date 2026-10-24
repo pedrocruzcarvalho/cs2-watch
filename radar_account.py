@@ -7,7 +7,7 @@ Rules (fixed on 2026-10-21 at Pedro's request, before any result):
            snipers ($300+), informed wallets ($200+), suspect/sharp repeat bettors and big bets from wallets that
            are not known whales with normal luck (cloud_run.radar); small bets and "rising" wallets are left out.
   bet      $20 on that side at the next 10-minute scan, filled against the real order book (fee included), once per
-           market; skipped at 0.97+. $300 paper bankroll.
+           market; skipped at 0.95+ or 0.05- (decided). $300 paper bankroll.
 Expectation, said up front: in 60 days of CS2 data, following big pre-match bets was about break-even (the same
 as backing the favourite). This account shows that live; it is not a tested edge.
 State: "account" (bets). KV bundle parts state:radar (CS2) and state:tradar (tennis).
@@ -97,7 +97,9 @@ def restore_big(state):
     return n
 
 
-def signals(groups, infos, now, skip_tiers=()):
+def signals(groups, infos, now, skip_tiers=(), pre_match_only_list=False):
+    """pre_match_only_list: before kickoff, only hand-picked wallets count (CS2 radar since Oct 24 2026: in 30 days
+    its pre-match big bets lost 8% over 111 bets while its in-play ones made +157% over 32)."""
     by_key = {(i["match"], i.get("market", "Match Winner")): i for i in infos if i.get("venue") == "poly"}
     out = []
     for g in groups:
@@ -108,6 +110,8 @@ def signals(groups, infos, now, skip_tiers=()):
         for x in g["items"]:
             if not x.get("wallet"):                                      # Kalshi blocks: nothing to buy on Polymarket
                 continue
+            if not g.get("live") and pre_match_only_list and not any(t["kind"] == "watched" for t in x["tags"]):
+                continue                    # before kickoff only hand-picked wallets count (Pedro, Oct 24 2026)
             money[x["outcome"]] += x["usd"]
             items[x["outcome"]].append(x)
         if not money:

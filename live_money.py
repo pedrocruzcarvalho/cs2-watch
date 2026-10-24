@@ -16,7 +16,7 @@ Rules (fixed on 2026-10-20 before any live result):
            $4,000 (raised from $3,000 by Pedro on Oct 21 2026; at $4k the test gave +18.9% over 83 bets, halves +17/+22),
            and big wallets ($2,000+) have less than half of that on the other side
   bet      $20 on that side at the next 10-minute scan, filled against the real order book (fee included), one bet
-           per market, skipped if the side already costs 0.97+; $300 paper bankroll.
+           per market, skipped if the side costs 0.95+ or 0.05 or less (decided); $300 paper bankroll.
 State: "account" (bets). Stored in KV as state:livemoney.
 """
 

@@ -154,13 +154,16 @@ def signals(infos, qual, vtier_of, now):
 
 # ------------------------------------------------------------------------------------------------ account
 
-def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_price=0.97, tag="informed", stake_fn=None):
+def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_price=0.95, tag="informed", stake_fn=None):
     """As soon as a signal is active, bet on it once: before kickoff, or (live=True) after it. The stake is $20, or
     stake_fn(signal, balance) (sizing.py: a share of the balance by signal strength and odds)."""
     acct = state.setdefault("account", dict(opened_at=now, bets={}))
     for s in sigs:
         key = s["cid"]
         if not s["active"] or key in acct["bets"] or (s["start"] <= now) != live:
+            continue
+        px = (s.get("prices") or {}).get(s["side"])
+        if px is not None and not (1 - max_price) < px < max_price:   # decided market: skip before touching the book
             continue
         bal = balance(acct)
         amount = stake_fn(s, bal) if stake_fn else STAKE
@@ -179,7 +182,7 @@ def place_bets(state, sigs, now, book_asks, fill, log=print, live=False, max_pri
             acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="skipped", reason="no sellers", stake=0.0,
                                      shares=0.0, price=s["prices"].get(s["side"]))
             continue
-        if avg >= max_price:                        # nothing left to win: the market has all but decided
+        if avg >= max_price or avg <= 1 - max_price:    # the market has all but decided (either way): no bet
             continue
         acct["bets"][key] = dict(sig_summary(s), placed_at=now, status="open", stake=round(spent, 2),
                                  shares=round(sh, 2), price=round(avg, 4), levels=levels)

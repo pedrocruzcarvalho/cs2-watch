@@ -129,7 +129,7 @@ LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 LIVE_TIERS = {"T3", "T4", "T5", "T6"}                        # the radar watches in-play money on these only (Pedro)
 LIVE_LEVELS = [("HIGH", 25000), ("MEDIUM", 10000), ("LOW", 4000)]   # a big in-play bet
 LIST_MIN = 900
-FRESH_START = "2026-10-24"     # Pedro: reset every balance to $300 and start with %-of-balance stakes
+FRESH_START = "2026-10-24b"    # Pedro: clear every account back to $300 (second fresh start, radar pre-match cut)
 
 
 def restart(state, now):
@@ -364,7 +364,7 @@ def tick(store, log=print):
     if n:
         log(f"radar account: restored {n} big-money bets that had been refunded")
     restart(rst, ts)
-    rsigs = RA.signals(rad, infos, ts, skip_tiers=TOP_TIERS)
+    rsigs = RA.signals(rad, infos, ts, skip_tiers=TOP_TIERS, pre_match_only_list=True)
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar", stake_fn=SZ.RADAR)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live", stake_fn=SZ.RADAR)
