@@ -238,7 +238,7 @@ def live_explain(b, now):
            "In 30 days of ITF matches this returned +46% over 56 bets (+45% and +50% in the two halves), while backing "
            "the favourite at those moments lost 28%. Promising, not proven: it was found among many combinations."]
     if b["status"] != "skipped":
-        why.append(f"Bet {I.money(b['stake'])} (3% of the balance) at {b['price']:.3f}, filled against the real order "
+        why.append(f"Bet {I.money(b['stake'])} (by ITF level and the size of the copied bet, sizing.py) at {b['price']:.3f}, filled against the real order "
                    f"book, fee included. If {b['side']} wins it pays {I.money(b['shares'])}.")
     res = {"won": f"{b['side']} won: paid {I.money(b.get('shares', 0))}, profit {I.money(b.get('pnl', 0))}.",
            "lost": f"{b.get('winner')} won: the {I.money(b['stake'])} stake was lost.",

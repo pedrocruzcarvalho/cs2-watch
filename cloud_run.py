@@ -129,6 +129,20 @@ LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 LIVE_TIERS = {"T3", "T4", "T5", "T6"}                        # the radar watches in-play money on these only (Pedro)
 LIVE_LEVELS = [("HIGH", 25000), ("MEDIUM", 10000), ("LOW", 4000)]   # a big in-play bet
 LIST_MIN = 900
+FRESH_START = "2026-10-24"     # Pedro: reset every balance to $300 and start with %-of-balance stakes
+
+
+def restart(state, now):
+    """Once per FRESH_START: archive the account's bets and open a fresh $300 account (other state, e.g. odd-shift
+    snapshots, is kept). Each account remembers its own restart, so one failing section can't skip it."""
+    if state.get("fresh_start") == FRESH_START:
+        return
+    state["fresh_start"] = FRESH_START
+    old = state.get("account")
+    if old and old.get("bets"):
+        state.setdefault("archive", []).append(dict(closed_at=now, opened_at=old.get("opened_at"),
+                                                    bets=list(old["bets"].values())))
+    state["account"] = dict(opened_at=now, bets={})
 TOP_TIERS = ("T1", "T2", "T2*")                # never bet by Radar or Live big money (Pedro, Oct 22 2026: T3+ only)
 
 
@@ -310,10 +324,12 @@ def tick(store, log=print):
         log(f"resetting every paper account to ${I.START_BALANCE:.0f} ({RESET})")
         meta["reset"] = RESET
     ts = now.timestamp()
+    fresh = meta.get("fresh_start") != FRESH_START              # every account back to $300 once, history archived
 
     # ---- live big money: the second paper account (live_money.py) ----
     lst = {} if reset else O.load(work / "livemoney.json")
     drop_top_tiers(lst, log, "live money")
+    restart(lst, ts)
     lsigs = LM.signals(infos, C.vtier_fix, ts)
     I.settle(lst, infos, ts, fetch_winner, log=log)
     I.place_bets(lst, lsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="live", stake_fn=SZ.LIVE)
@@ -326,6 +342,7 @@ def tick(store, log=print):
     ost = O.load(work / "oddshift.json")
     if reset:
         ost.pop("account", None)
+    restart(ost, ts)
     if OS.void_blind(ost):
         log("odd shifts: refunded bets placed on scores without rounds")
     osigs = OS.signals(ost, infos, C.vtier_fix, ts)
@@ -346,6 +363,7 @@ def tick(store, log=print):
     n = RA.restore_big(rst)
     if n:
         log(f"radar account: restored {n} big-money bets that had been refunded")
+    restart(rst, ts)
     rsigs = RA.signals(rad, infos, ts, skip_tiers=TOP_TIERS)
     I.settle(rst, infos, ts, fetch_winner, log=log)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar", stake_fn=SZ.RADAR)
@@ -361,11 +379,13 @@ def tick(store, log=print):
         tinfos, trows = TW.scan(now, C.WATCH, log=log)
         trad = TW.radar(trows, C.WATCH, ts)
         tst = O.load(work / "tradar.json")
+        restart(tst, ts)
         tsigs = RA.signals(trad, tinfos, ts)
         I.settle(tst, tinfos, ts, fetch_winner, log=log)
         I.place_bets(tst, tsigs, ts, C.book_asks, B.fill, log=log, tag="tennis radar", stake_fn=SZ.TENNIS_RADAR)
         (work / "tradar.json").write_text(json.dumps(tst))
         tlst = O.load(work / "tlive.json")                        # tennis live: ITF underdogs bought in-play
+        restart(tlst, ts)
         tlsigs = TW.live_signals(tinfos, ts)
         I.settle(tlst, tinfos, ts, fetch_winner, log=log)
         I.place_bets(tlst, tlsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="tennis live",
@@ -382,6 +402,9 @@ def tick(store, log=print):
     except Exception as e:                                 # tennis must never stop the CS2 tick
         log(f"tennis failed: {e!r}")
 
+    if fresh:
+        meta["fresh_start"] = FRESH_START
+        log(f"fresh start: every paper account back to $300 ({FRESH_START}), old bets archived")
     meta["last_run"] = now.timestamp()
     meta["runs"] = meta.get("runs", 0) + 1
     dash = dict(at=now.timestamp(), opened_at=live["opened_at"], took=round(time.time() - t0, 1), runs=meta["runs"],
