@@ -279,10 +279,10 @@ details.plan[open] summary::before { transform: rotate(90deg); }
     <button class="showmore" id="sig-more" hidden></button>
   </section>
 
-  <section class="panel flush" style="margin-top:16px">
+  <section class="panel flush" style="margin-top:16px" id="radar-panel">
     <header><h2>Radar</h2><span class="cap" id="radar-count"></span></header>
     <p class="sub" data-only="tlive">Unusual pre-match bets on upcoming tennis matches (ITF, Challengers, ATP/WTA on Polymarket). "Big" depends on the level: an ITF match normally has about $17 traded before it starts, so $1,000 is huge there; Challengers start at $6,000 and tour matches at $30,000 (LOW &lt; MEDIUM &lt; HIGH, higher when the bet is most of the match's money). <b>Your list</b> = wallets you or I added by hand, betting $900+. The grey line says how much of the match's pre-match money that bet is. Information only: the tennis radar account was switched off (pre-match tennis big bets lost 31% over 30 days).</p>
-    <p class="sub" data-only="live shift sniper radar informed">Big, out-of-place bets on CS2 (Polymarket and Kalshi), whoever placed them, on <b>T3–T6 matches only</b>: before kickoff, and during the match (marked LIVE). Plus <b>your list</b>: wallets you or I added by hand, betting $900+. "Big" = large for that match: LOW &lt; MEDIUM &lt; HIGH (in-play: $4k+, $10k+, $25k+). The grey line is the wallet's record, for your information only. The Radar account bets these; click a row for why each bet was flagged.</p>
+    <p class="sub" data-only="live shift sniper radar informed">Only markets the Radar account bets (or is about to bet this scan): big bets bought <b>during</b> a T3–T6 match (marked LIVE), or a your-list wallet's bet before kickoff. Plus <b>your list</b>: wallets you or I added by hand, betting $900+. "Big" = large for that match: LOW &lt; MEDIUM &lt; HIGH (in-play: $4k+, $10k+, $25k+). The grey line is the wallet's record, for your information only. The Radar account bets these; click a row for why each bet was flagged.</p>
     <div class="body scroll">
       <table class="stack">
         <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
@@ -574,9 +574,10 @@ function signals() {
   toggleRows(tb, "s-");
 }
 function radarPanel() {
-  const rs = (sportOf(acct) === "tennis" ? (RAW.tennis || {}).radar : RAW.radar) || [], tb = $("t-radar");
+  $("radar-panel").hidden = sportOf(acct) === "tennis";            // no tennis radar account, so nothing to show
+  const rs = (sportOf(acct) === "tennis" ? [] : RAW.radar) || [], tb = $("t-radar");
   $("radar-count").textContent = rs.length ? `${rs.length} market${rs.length === 1 ? "" : "s"}` : "";
-  if (!rs.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Nothing odd on upcoming matches right now. Checked every 10 minutes.</td></tr>'; return; }
+  if (!rs.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Nothing the Radar account would bet right now. Checked every 10 minutes.</td></tr>'; return; }
   tb.innerHTML = rs.map((g, i) => {
     const k = esc(g.match + "|" + g.market), isOpen = opened.has("r-" + k);
     const lines = g.items.map(x => `<div class="radar-item">${x.tags.map(t => `<span class="rtag ${t.kind}">${esc(t.label)}</span>`).join("")}

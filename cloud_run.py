@@ -369,6 +369,9 @@ def tick(store, log=print):
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar", stake_fn=SZ.RADAR)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live", stake_fn=SZ.RADAR)
     (work / "radar.json").write_text(json.dumps(rst))
+    placed = rst.get("account", {}).get("bets", {})
+    bet_on = {(x["match"], x["market"]) for x in rsigs if x["active"] or x["cid"] in placed}
+    rad = [g for g in rad if (g["match"], g["market"]) in bet_on]     # only what the radar account bets (Pedro)
     radar_acct = RA.dashboard(rst, rsigs, ts, ("T3", "T4", "T5", "T6"))
     log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "
         f"balance ${radar_acct['stats']['balance']:.2f}")
@@ -387,7 +390,7 @@ def tick(store, log=print):
         I.place_bets(tlst, tlsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="tennis live",
                      stake_fn=SZ.TENNIS_LIVE)
         (work / "tlive.json").write_text(json.dumps(tlst))
-        tennis = dict(radar=trad, live_acct=I.account_view(tlst, tlsigs, ts, TW.live_explain, "TLIVE", ("ITF",),
+        tennis = dict(radar=[], live_acct=I.account_view(tlst, tlsigs, ts, TW.live_explain, "TLIVE", ("ITF",),
                                                ("1 wallet", "2+ wallets")),
                       scanned=len(tinfos))
         log(f"tennis live: {len(tlsigs)} ITF matches with in-play money, {sum(s['active'] for s in tlsigs)} active "
