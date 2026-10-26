@@ -268,7 +268,8 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     return out
 
 
-KALSHI_PRE_MIN = 1000          # one Kalshi order this big before kickoff of a T3-T6 match is a radar trigger
+KALSHI_PRE_MIN = 2000          # one Kalshi order this big before kickoff of a T3-T6 match is a radar trigger
+                               # ($1k until Oct 26 2026: the $1-2k orders were break-even, about +1%)
 
 
 def kalshi_pre(rows, infos, now):

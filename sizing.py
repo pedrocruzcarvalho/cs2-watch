@@ -48,8 +48,8 @@ def radar_pct(s):
     if s.get("live"):
         return live_pct(s)
     tags = " ".join(t for c in s.get("wallets") or [] for t in (c.get("tags") or []))
-    if "Kalshi order" in tags:                  # Kalshi pre-match order: $1-2k +8.9% (n=170), $2k+ +23.6% (n=60)
-        return 0.04 if (s.get("money") or 0) >= 2000 else 0.02
+    if "Kalshi order" in tags:                  # Kalshi pre-match order of $2k+: +23.6% over 60 bets
+        return 0.04
     if "your list" in tags or "(HIGH)" in tags:
         return 0.03
     return 0.02 if "(MEDIUM)" in tags else 0.015
