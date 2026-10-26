@@ -30,3 +30,24 @@ def test_split_money_tier1_and_kalshi_only_are_not_bet():
     t1 = RA.signals([_group([("0xa", "A", 5000)], T0 + 3600, "T1")], [_info(T0 + 3600)], T0, skip_tiers=("T1",))[0]
     kalshi = RA.signals([_group([("", "A", 9000)], T0 + 3600)], [_info(T0 + 3600)], T0)
     assert not split["active"] and not t1["active"] and kalshi == []
+
+
+def test_kalshi_pre_match_order_maps_to_polymarket_and_is_bet():
+    import cloud_run as CR
+    import cs2_watch as C
+    import sizing as Z
+    C.TEAMS = {}
+    poly = dict(venue="poly", match="Counter-Strike: Alpha vs Beta Esports (BO3) - Cup", start=T0 + 3600, market="Match Winner",
+                cid="c1", ref="slug", url="u", teams=["Alpha", "Beta Esports"], prices={"Alpha": 0.45, "Beta Esports": 0.55},
+                tokens={"Alpha": "ta", "Beta Esports": "tb"})
+    krow = dict(venue="kalshi", match="Alpha vs. Beta  [Cup]", market="Match Winner", start=T0 + 3600, outcome="Alpha",
+                usd=2500, avg_price=0.45)
+    small = dict(krow, usd=600)
+    groups = CR.kalshi_pre([krow, small], [poly], T0)
+    assert len(groups) == 1 and groups[0]["items"][0]["outcome"] == "Alpha" and len(groups[0]["items"]) == 1
+    sigs = RA.signals(groups, [poly], T0, pre_match_only_list=True)
+    assert sigs[0]["active"] and sigs[0]["side"] == "Alpha"
+    assert Z.radar_pct(sigs[0]) == 0.04
+    st = {}
+    I.place_bets(st, sigs, T0, lambda tok: [[0.46, 1000]], B.fill, log=lambda *a: None, stake_fn=Z.RADAR)
+    assert abs(st["account"]["bets"]["c1"]["stake"] - 12.0) < 0.01         # 4% of $300

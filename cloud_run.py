@@ -268,6 +268,36 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     return out
 
 
+KALSHI_PRE_MIN = 1000          # one Kalshi order this big before kickoff of a T3-T6 match is a radar trigger
+
+
+def kalshi_pre(rows, infos, now):
+    """Radar groups from big Kalshi orders before kickoff (kalshi_research.py, 60 days, 2,666 matches): one order of
+    $1k+ on a T3-T6 match beat the price, +8.9% over 170 bets ($2k+: +23.6% over 60; T4-T6 $1k+: +19.4% over 89),
+    positive in both halves; T1-T2 lost. The bet goes on the same team in the Polymarket match-winner market.
+    Added Oct 26 2026 (Pedro)."""
+    poly = [i for i in infos if i.get("venue") == "poly" and i.get("market") == "Match Winner"]
+    groups = {}
+    for r in rows:
+        if r.get("venue") != "kalshi" or r.get("market") != "Match Winner" or r["start"] <= now or r["usd"] < KALSHI_PRE_MIN:
+            continue
+        key = C.match_key(r["match"])
+        i = next((i for i in poly if abs(i["start"] - r["start"]) < 6 * 3600 and C.same_match(key, C.match_key(i["match"]))), None)
+        if not i or C.vtier_fix(i["match"]) in TOP_TIERS:
+            continue
+        team = next((o for o in i["teams"] if C.norm_team(o) == C.norm_team(r["outcome"])), None) or             next((o for o in i["teams"] if C.same_match(frozenset([C.norm_team(o)]), frozenset([C.norm_team(r["outcome"])]))), None)
+        if not team:
+            continue
+        g = groups.setdefault(i["match"], dict(match=i["match"], market="Match Winner", start=i["start"], url=i.get("url"),
+                                               live=False, vtier=C.vtier_fix(i["match"]), items=[], score=0))
+        g["items"].append(dict(wallet="", name="Kalshi order", outcome=team, usd=round(r["usd"]), avg=round(r.get("avg_price") or 0, 3),
+                               tags=[dict(kind="kalshi_pre", label=f"Kalshi order ${r['usd']:,.0f} before kickoff")],
+                               why=[f"one Kalshi order of ${r['usd']:,.0f} on {team} before kickoff (anonymous: Kalshi shows no wallets)"],
+                               who="anonymous (Kalshi)"))
+        g["score"] += 5
+    return list(groups.values())
+
+
 def tick(store, log=print):
     t0 = time.time()
     work = Path(tempfile.mkdtemp(prefix="cs2_"))
@@ -355,6 +385,14 @@ def tick(store, log=print):
 
     # ---- radar account: bets what the pre-match radar shows (radar_account.py) ----
     rad = radar(rows, infos, {}, {}, C.WATCH, ts, profiles)
+    kpre = kalshi_pre(rows, infos, ts)                       # big Kalshi orders before kickoff (T3-T6)
+    for g in kpre:
+        same = next((x for x in rad if x["match"] == g["match"] and x["market"] == g["market"] and not x.get("live")), None)
+        if same:
+            same["items"] += g["items"]
+            same["score"] += g["score"]
+        else:
+            rad.append(g)
     rst = {} if reset else O.load(work / "radar.json")
     seed = store.get("seed:radar_backfill") if not rst.get("backfilled") else None
     if seed:

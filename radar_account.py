@@ -108,10 +108,11 @@ def signals(groups, infos, now, skip_tiers=(), pre_match_only_list=False):
             continue
         money, items = defaultdict(float), defaultdict(list)
         for x in g["items"]:
-            if not x.get("wallet"):                                      # Kalshi blocks: nothing to buy on Polymarket
+            kalshi_pre = any(t["kind"] == "kalshi_pre" for t in x["tags"])
+            if not x.get("wallet") and not kalshi_pre:                 # other Kalshi blocks: not a trigger
                 continue
-            if not g.get("live") and pre_match_only_list and not any(t["kind"] == "watched" for t in x["tags"]):
-                continue                    # before kickoff only hand-picked wallets count (Pedro, Oct 24 2026)
+            if not g.get("live") and pre_match_only_list and not any(t["kind"] in ("watched", "kalshi_pre") for t in x["tags"]):
+                continue                    # before kickoff: hand-picked wallets and big Kalshi orders only (Pedro)
             money[x["outcome"]] += x["usd"]
             items[x["outcome"]].append(x)
         if not money:
