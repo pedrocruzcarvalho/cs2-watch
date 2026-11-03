@@ -129,6 +129,7 @@ LEVEL_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 LIVE_TIERS = {"T3", "T4", "T5", "T6"}                        # the radar watches in-play money on these only (Pedro)
 LIVE_LEVELS = [("HIGH", 25000), ("MEDIUM", 10000), ("LOW", 4000)]   # a big in-play bet
 LIST_MIN = 900
+PRIORITY_MIN = 300             # top-priority hand-picked wallets (suspected fixers) trigger from this size
 FRESH_START = "2026-10-24b"    # Pedro: clear every account back to $300 (second fresh start, radar pre-match cut)
 
 
@@ -170,6 +171,8 @@ def watch_tag(w, watch):
     if not v:
         return None
     if v.get("source") == "manual":
+        if v.get("priority"):
+            return dict(kind="watched", label="TOP PRIORITY: " + (v.get("reason") or "")[:60], priority=True)
         return dict(kind="watched", label="your list: " + (v.get("reason") or "")[:70])
     if v.get("verdict") in ("suspect", "sharp"):
         return dict(kind="repeat", label=f"repeat big bettor ({v['verdict']})")
@@ -208,8 +211,8 @@ def radar(rows, infos, qual, snipers, watch, now, profiles=None, limit=40):
     def tags_for(w, usd, level, venue):
         tags, score = [], 0
         wt = watch_tag(w, watch) if w else None
-        if wt and wt["kind"] == "watched" and usd >= LIST_MIN:
-            tags.append(wt); score += 8
+        if wt and wt["kind"] == "watched" and usd >= (PRIORITY_MIN if wt.get("priority") else LIST_MIN):
+            tags.append(wt); score += 20 if wt.get("priority") else 8
         if level and (venue != "kalshi" or level in ("MEDIUM", "HIGH")):
             tags.append(dict(kind="big", label=f"big bet ({level})")); score += 1 + LEVEL_RANK.get(level, 0)
         if tags and venue == "kalshi":

@@ -45,6 +45,9 @@ def live_pct(s):
 
 
 def radar_pct(s):
+    tags = " ".join(t for c in s.get("wallets") or [] for t in (c.get("tags") or []))
+    if "TOP PRIORITY" in tags:                  # Pedro's top-priority suspected fixers, before or during the match
+        return 0.05
     if s.get("live"):
         return live_pct(s)
     tags = " ".join(t for c in s.get("wallets") or [] for t in (c.get("tags") or []))
