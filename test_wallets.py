@@ -9,10 +9,11 @@ def test_record_compares_wins_with_what_the_prices_predicted():
 
 
 def test_losers_left_in_open_positions_are_counted(monkeypatch):
-    closed = [dict(avgPrice=0.5, curPrice=1, slug="cs2-a", totalBought=100)] * 10
-    open_ = [dict(avgPrice=0.5, curPrice=0, slug="cs2-b", initialValue=50, redeemable=False)] * 10
-    open_ += [dict(avgPrice=0.5, curPrice=0.55, slug="cs2-c", initialValue=50)]          # still live: ignored
-    monkeypatch.setattr(W, "get", lambda url: closed if "closed-positions" in url else open_)
+    import polydata
+    won = [dict(status="CLOSED", avg_price=0.5, current_price=1, slug="cs2-a", total_size=200)] * 10
+    lost = [dict(status="REDEEMABLE_LOST", avg_price=0.5, current_price=0, slug="cs2-b", total_size=100)] * 10
+    sold = [dict(status="CLOSED", avg_price=0.5, current_price=0.55, slug="cs2-c", total_size=100)]  # sold early: ignored
+    monkeypatch.setattr(polydata, "user_positions", lambda w, cap=0: won + lost + sold)
     prof = W.build("0xabc")
     assert prof["all"]["n"] == 20 and prof["all"]["wins"] == 10 and prof["verdict"] == "lucky"
 

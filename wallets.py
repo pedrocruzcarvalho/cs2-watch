@@ -40,24 +40,16 @@ def get(url):
 
 def resolved_positions(w):
     """[(price_paid, won, is_cs2, usd_cost)] for every position whose market has resolved."""
+    import polydata                             # Data API v2 (v1 retired on 2026-11-02): lifecycle statuses
     out = []
-    for i in range(MAX_PAGES):
-        page = get(f"{DATA}/closed-positions?user={w}&limit=50&offset={i * 50}")
-        for p in page:
-            if p.get("curPrice", 0.5) >= 0.99 or p.get("curPrice", 0.5) <= 0.01:
-                out.append((p["avgPrice"], p["curPrice"] >= 0.99, p.get("slug", "").startswith("cs2-"),
-                            p["avgPrice"] * p.get("totalBought", 0)))
-        if len(page) < 50:
-            break
-    for i in range(10):
-        page = get(f"{DATA}/positions?user={w}&limit=500&offset={i * 500}&sizeThreshold=0")
-        for p in page:
-            if p.get("redeemable") or p.get("curPrice", 0.5) <= 0.001:  # resolved but never redeemed (mostly losers)
-                if p.get("curPrice", 0.5) >= 0.99 or p.get("curPrice", 0.5) <= 0.01:
-                    out.append((p["avgPrice"], p["curPrice"] >= 0.99, p.get("slug", "").startswith("cs2-"),
-                                p.get("initialValue", 0)))
-        if len(page) < 500:
-            break
+    for p in polydata.user_positions(w, cap=MAX_PAGES * 50):
+        cur = p.get("current_price")
+        if p["status"] == "REDEEMABLE_LOST":
+            cur = 0.0
+        if cur is None or not (cur >= 0.99 or cur <= 0.01):
+            continue                            # sold before the result: not a resolved bet
+        avg = p.get("avg_price") or 0
+        out.append((avg, cur >= 0.99, (p.get("slug") or "").startswith("cs2-"), avg * (p.get("total_size") or 0)))
     return [x for x in out if 0 < x[0] < 1]
 
 

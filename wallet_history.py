@@ -68,17 +68,23 @@ def cs2_row(x, won):
 
 def lifetime(w, max_closed=MAX_CLOSED):
     """A wallet's whole Polymarket history: profit on everything and on CS2 (unredeemed losers included), and
-    every CS2 position as [date, slug, title, avg price, won, usd]."""
-    closed = pages(f"{DATA}/closed-positions?user={w}&sortBy=TIMESTAMP&sortDirection=DESC", 50, max_closed)
-    openp = pages(f"{DATA}/positions?user={w}&sizeThreshold=0", 500, 20000)
-    dead = [x for x in openp if x.get("curPrice") == 0]
-    rows = [r for r in (cs2_row(x, x.get("realizedPnl", 0) > 0) for x in closed) if r]
-    rows += [r for r in (cs2_row(x, False) for x in dead) if r]
-    pnl = sum(x.get("realizedPnl", 0) for x in closed) + sum(x.get("cashPnl", 0) for x in dead)
-    cs2_pnl = sum(x.get("realizedPnl", 0) for x in closed if (x.get("eventSlug") or "").startswith("cs2-")) + \
-        sum(x.get("cashPnl", 0) for x in dead if (x.get("eventSlug") or "").startswith("cs2-"))
-    return dict(wallet=w, pnl=round(pnl), cs2_pnl=round(cs2_pnl), n_closed=len(closed),
-                truncated=len(closed) >= max_closed, rows=rows)
+    every CS2 position as [date, slug, title, avg price, won, usd]. Data API v2 (v1 retired on 2026-11-02):
+    positions by lifecycle status; v2 resets total_cost on closed positions, so the stake is avg price x shares."""
+    import polydata
+    ps = polydata.user_positions(w, cap=max_closed)
+    rows = []
+    for x in ps:
+        slug = x.get("event_slug") or x.get("slug") or ""
+        d = DATE.search(slug)
+        if not slug.startswith("cs2-") or not d:
+            continue
+        won = x["status"] != "REDEEMABLE_LOST" and (x.get("total_pnl") or 0) > 0
+        rows.append([d.group(1), slug, x.get("title", ""), round(x.get("avg_price") or 0, 4), won,
+                     round((x.get("avg_price") or 0) * (x.get("total_size") or 0), 2)])
+    pnl = sum(x.get("total_pnl") or 0 for x in ps)
+    cs2_pnl = sum(x.get("total_pnl") or 0 for x in ps if (x.get("event_slug") or "").startswith("cs2-"))
+    return dict(wallet=w, pnl=round(pnl), cs2_pnl=round(cs2_pnl), n_closed=len(ps),
+                truncated=len(ps) >= max_closed, rows=rows)
 
 
 def one(w):

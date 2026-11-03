@@ -170,13 +170,9 @@ def poly_matches(lo, hi):
 
 
 def poly_trades(event_id):
-    out = []
-    for off in range(0, 3000, 500):
-        page = get(f"{DATA}/trades?eventId={event_id}&limit=500&offset={off}")
-        out += page
-        if len(page) < 500:
-            break
-    return out
+    """Every trade of an event (newest first, up to 3,000), via Data API v2 (v1 retired on 2026-11-02)."""
+    import polydata
+    return polydata.event_trades(event_id, cap=3000)
 
 
 def poly_market_label(m):
@@ -437,13 +433,13 @@ def wallet_info(w):
         info["created"] = iso(prof.get("createdAt")).timestamp() if prof.get("createdAt") else None
     except Exception:
         pass
-    try:
-        info["traded"] = get(f"{DATA}/traded?user={w}").get("traded")
-    except Exception:
-        pass
-    try:
-        a = get(f"{DATA}/activity?user={w}&limit=1&sortDirection=ASC")
-        info["first_trade"] = a[0]["timestamp"] if a else None
+    try:                                        # Data API v2: trade count and join date (v1 /traded, /activity retired)
+        import polydata
+        st = polydata.user_stats(w)
+        info["traded"] = st.get("trades")
+        info["first_trade"] = st.get("join_date")
+        if not info["created"] and st.get("join_date"):
+            info["created"] = st["join_date"]
     except Exception:
         pass
     _wallets[w] = info
