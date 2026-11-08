@@ -33,6 +33,7 @@ import oddspapi as O
 import teams as TM
 import informed as I
 import live_money as LM
+import notify as N
 import oddshift as OS
 import radar_account as RA
 import sizing as SZ
@@ -422,6 +423,7 @@ def tick(store, log=print):
         f"balance ${radar_acct['stats']['balance']:.2f}")
 
     # ---- tennis, separate from CS2: radar + radar account (tennis_watch.py) ----
+    alerts = [("Live", lst), ("Odd shift", ost), ("Radar", rst)]
     tennis = None
     try:
         tinfos, trows = TW.scan(now, C.WATCH, log=log)
@@ -435,6 +437,7 @@ def tick(store, log=print):
         I.place_bets(tlst, tlsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="tennis live",
                      stake_fn=SZ.TENNIS_LIVE)
         (work / "tlive.json").write_text(json.dumps(tlst))
+        alerts.append(("Tennis", tlst))
         tennis = dict(radar=[], live_acct=I.account_view(tlst, tlsigs, ts, TW.live_explain, "TLIVE", ("ITF",),
                                                ("1 wallet", "2+ wallets")),
                       scanned=len(tinfos))
@@ -460,6 +463,7 @@ def tick(store, log=print):
              if key != "watchlist" and (work / name).exists()}
     store.put(BUNDLE, gzip.compress(json.dumps(parts).encode()))
     store.put("dashboard", json.dumps(dash, default=str).encode())
+    N.send(alerts, ts, log=log)                                    # after the save, so a failed tick can't alert twice
     log(f"tick done in {time.time() - t0:.0f}s: {len(matches)} markets, {dash['flagged']} live signals, "
         f"balance ${stats['balance']:.2f} "
         f"({stats['wins']}W/{stats['losses']}L, {stats['open']} open)")
