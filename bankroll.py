@@ -48,7 +48,25 @@ def fill(stake, asks):
     return shares, spent, (paid_px / shares if shares else None), used
 
 
-SWITCH_TS = 1792445200        # from this moment new bets wait for the last 30 minutes; earlier bets stay as placed
+def sell(shares, bids):
+    """Walk the real bids (highest first) selling `shares`, taker fee taken off.
+    Returns (shares_sold, proceeds, avg_price, levels_used)."""
+    sold = got = got_px = 0.0
+    used = 0
+    for p, size in bids:
+        if sold >= shares - 1e-9:
+            break
+        take = min(size, shares - sold)
+        if take <= 0:
+            continue
+        sold += take
+        got += take * (p - FEE * p * (1 - p))
+        got_px += take * p
+        used += 1
+    return sold, got, (got_px / sold if sold else None), used
+
+
+SWITCH_TS = 1792445200       # from this moment new bets wait for the last 30 minutes; earlier bets stay as placed
 
 
 def tranches(r, opened_at, now):

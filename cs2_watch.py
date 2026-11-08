@@ -302,6 +302,7 @@ def poly_positions(event, trades, cutoff=None):
         res.append(p)
     stats["allpos"] = all_positions(real, start)
     stats["livepos"] = live_positions(real, start)
+    stats["heldpos"] = held_positions(real, WATCH)
     return res, stats
 
 
@@ -350,6 +351,26 @@ def live_positions(real, start, min_usd=1000):
         if net >= min_usd and sb > 0:
             out.append([w, cid, o, round(net, 2), round(ub / sb, 4), names.get(w, ""), last])
     return out
+
+
+def held_positions(real, watch):
+    """What each hand-picked wallet (WATCH) holds right now per market, from all its trades, sells included, for the
+    radar account to follow exits and flips: [wallet, conditionId, outcome, shares held, avg price paid, time of
+    its last sell]. Shares held never go below 0 (sells of shares bought before the trades we can see)."""
+    pos = {}
+    for t in sorted(real, key=lambda t: t["timestamp"]):
+        w = t["proxyWallet"].lower()
+        if w not in watch:
+            continue
+        p = pos.setdefault((w, t["conditionId"], t["outcome"]), [0.0, 0.0, 0.0, 0])   # bought, usd bought, sold, last sell
+        if t["side"] == "BUY":
+            p[0] += t["size"]
+            p[1] += t["size"] * t["price"]
+        else:
+            p[2] += t["size"]
+            p[3] = t["timestamp"]
+    return [[w, cid, o, round(max(0.0, sb - ss), 2), round(ub / sb, 4) if sb else 0, last]
+            for (w, cid, o), (sb, ub, ss, last) in pos.items()]
 
 
 def match_winner_market(event):
@@ -740,6 +761,7 @@ def scan(lo, hi, venues, baseline=None, log=print, prematch_only=False):
                               cid=mk["cid"], tokens=mk.get("tokens", {}),
                               allpos=[x for x in stats.get("allpos", []) if x[1] == mk["cid"]],
                               livepos=[x for x in stats.get("livepos", []) if x[1] == mk["cid"]],
+                              heldpos=[x for x in stats.get("heldpos", []) if x[1] == mk["cid"]],
                               score=e.get("score") if venue == "poly" else None,
                               live=e.get("live") if venue == "poly" else None,
                               ref=e["slug"] if venue == "poly" else e["event_ticker"],
@@ -1061,6 +1083,19 @@ def book_asks(token, levels=15):
         return None
     asks = sorted((float(a["price"]), float(a["size"])) for a in b.get("asks", []))
     return [[p, round(s, 2)] for p, s in asks if p < SWEEP][:levels]
+
+
+def book_bids(token, levels=15):
+    """Best bids on Polymarket's public order book: [[price, shares], ...] highest first.
+    [] means nobody is buying; None means the book couldn't be read."""
+    if not token:
+        return None
+    try:
+        b = get(f"{CLOB}/book?token_id={token}")
+    except Exception:
+        return None
+    bids = sorted(((float(a["price"]), float(a["size"])) for a in b.get("bids", [])), reverse=True)
+    return [[p, round(s, 2)] for p, s in bids if p > 1 - SWEEP][:levels]
 
 
 def fresh_wallet(w, start):

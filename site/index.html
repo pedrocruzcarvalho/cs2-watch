@@ -90,6 +90,7 @@ a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underl
 .slot .bar { position: absolute; left: 18%; right: 18%; border-radius: 2px; }
 .slot.won .bar { bottom: 50%; background: var(--win); }
 .slot.lost .bar { top: 50%; background: var(--loss); }
+.slot.sold.up .bar { bottom: 50%; background: var(--win); } .slot.sold.down .bar { top: 50%; background: var(--loss); }
 .slot.open .bar { top: calc(50% - 5px); height: 10px; border: 1.5px solid var(--ct); background: transparent; }
 .slot.skipped .bar, .slot.void .bar { top: calc(50% - 2px); height: 4px; background: var(--line-2); }
 .slot .tick { position: absolute; top: 0; left: 30%; right: 30%; height: 3px; border-radius: 2px; }
@@ -170,6 +171,7 @@ tr.row.open .chev { transform: rotate(90deg); }
 .tag.won { color: var(--win); background: color-mix(in srgb, var(--win) 14%, transparent); }
 .tag.lost { color: var(--loss); background: color-mix(in srgb, var(--loss) 14%, transparent); }
 .tag.open { color: var(--ct); background: var(--ct-soft); }
+.tag.sold { color: var(--ink, inherit); background: var(--panel-2); }
 .tag.skipped, .tag.void { color: var(--mute); background: var(--panel-2); }
 @media (prefers-reduced-motion: no-preference) { .tag.live.now { animation: pulse 1.8s ease-in-out infinite; } }
 @keyframes pulse { 50% { opacity: .55; } }
@@ -294,7 +296,7 @@ details.plan[open] summary::before { transform: rotate(90deg); }
   <section class="panel flush" style="margin-top:16px">
     <header><h2>Bets</h2><span class="cap" id="hist-count"></span></header>
     <div class="filters" role="group" aria-label="Show">
-      <button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="open">Open</button><button aria-pressed="false" data-v="won">Won</button><button aria-pressed="false" data-v="lost">Lost</button>
+      <button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="open">Open</button><button aria-pressed="false" data-v="won">Won</button><button aria-pressed="false" data-v="lost">Lost</button><button aria-pressed="false" data-v="sold">Exited</button>
     </div>
     <div class="body scroll">
       <table class="stack">
@@ -451,7 +453,7 @@ function toggleRows(tb, prefix) {
     tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(e); } };
   });
 }
-const key = b => esc(b.match + "|" + b.start + "|" + (b.market || ""));
+const key = b => esc(b.match + "|" + b.start + "|" + (b.market || "") + (b.status === "sold" ? "|" + b.settled_at : ""));
 function bookLine(b) {
   const bs = Object.values(b.books || {});
   if (!bs.length) return "";
@@ -504,9 +506,10 @@ function tape() {
   if (!bs.length) { box.innerHTML = '<div class="cap" style="margin:auto">no bets yet</div>'; return; }
   const big = Math.max(1, ...bs.map(b => Math.abs(b.pnl || 0)));
   box.innerHTML = bs.map(b => {
-    const h = b.status === "won" || b.status === "lost" ? Math.max(10, Math.abs(b.pnl) / big * 46) : 0;
-    const tip = `${short(b.match).split(" - ")[0]}${b.market && b.market !== "Match Winner" ? " · " + b.market : ""} · ${b.level} · ${b.status}${b.status === "won" || b.status === "lost" ? " " + usd(b.pnl, true) : ""}`;
-    return `<div class="slot ${b.status}" title="${esc(tip)}"><i class="tick" style="background:${LVC[b.level] || "var(--low)"}"></i>
+    const done = b.status === "won" || b.status === "lost" || b.status === "sold";
+    const h = done ? Math.max(10, Math.abs(b.pnl) / big * 46) : 0;
+    const tip = `${short(b.match).split(" - ")[0]}${b.market && b.market !== "Match Winner" ? " · " + b.market : ""} · ${b.level} · ${b.status}${done ? " " + usd(b.pnl, true) : ""}`;
+    return `<div class="slot ${b.status}${b.status === "sold" ? (b.pnl > 0 ? " up" : " down") : ""}" title="${esc(tip)}"><i class="tick" style="background:${LVC[b.level] || "var(--low)"}"></i>
       <i class="bar" style="${h ? `height:${h / 2}%` : ""}"></i></div>`;
   }).join("");
 }
@@ -642,7 +645,7 @@ function history() {
   $("th-hmoney").textContent = ACCTS[acct].hmoney;
   $("hist-count").textContent = (all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "") + (voided ? ` · ${voided} refunded (hidden)` : "");
   if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : `No bets yet. ${ACCTS[acct].empty}`}</td></tr>`; return; }
-  const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded"};
+  const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded", sold: "exited"};
   tb.innerHTML = bs.map((b, i) => {
     const k = key(b), isOpen = opened.has("h-" + k), tr = (b.tranches || []).filter(t => t.stake);
     return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
@@ -652,8 +655,8 @@ function history() {
       <td class="side" data-label="Bet on">${esc(betLabel(b.market, b.side))}${b.flipped ? '<span class="split">side flipped later</span>' : ""}</td>
       <td class="r num" data-label="Avg price">${b.price.toFixed(2)}</td>
       <td class="r num" data-label="Staked">${b.stake ? usd(b.stake) : "–"}${tr.length > 1 ? `<span class="split">${tr.map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</span>` : ""}</td>
-      <td data-label="Result"><span class="tag ${b.status}">${label[b.status]}</span>${b.status === "lost" && b.winner ? `<span class="split">${esc(b.winner)} won</span>` : ""}${b.status === "open" ? `<span class="split">to win ${usd(b.shares - b.stake, true)}</span>` : ""}</td>
-      <td class="r num ${tone(b.pnl)}" data-label="P&amp;L">${b.status === "won" || b.status === "lost" ? usd(b.pnl, true) : "–"}${b.balance_after != null ? `<span class="split">bal ${usd(b.balance_after)}</span>` : ""}</td></tr>
+      <td data-label="Result"><span class="tag ${b.status}">${label[b.status]}</span>${b.status === "lost" && b.winner ? `<span class="split">${esc(b.winner)} won</span>` : ""}${b.status === "sold" ? `<span class="split">sold at ${(b.sold_price || 0).toFixed(2)}</span>` : ""}${b.status === "open" ? `<span class="split">to win ${usd(b.shares - b.stake, true)}</span>` : ""}</td>
+      <td class="r num ${tone(b.pnl)}" data-label="P&amp;L">${b.status === "won" || b.status === "lost" || b.status === "sold" ? usd(b.pnl, true) : "–"}${b.balance_after != null ? `<span class="split">bal ${usd(b.balance_after)}</span>` : ""}</td></tr>
       <tr class="more" id="h-${i}" ${isOpen ? "" : "hidden"}><td colspan="8">${whyHtml(b.why, b.status)}</td></tr>`;
   }).join("");
   toggleRows(tb, "h-");

@@ -408,11 +408,14 @@ def tick(store, log=print):
     restart(rst, ts)
     rsigs = RA.signals(rad, infos, ts, skip_tiers=TOP_TIERS, pre_match_only_list=True)
     I.settle(rst, infos, ts, fetch_winner, log=log)
+    listed = {w for w in C.WATCH if (watch_tag(w, C.WATCH) or {}).get("kind") == "watched"}
+    RA.follow(rst, rsigs, infos, listed, ts, C.book_bids, B.sell, log=log)    # exit / flip with hand-picked wallets
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, tag="radar", stake_fn=SZ.RADAR)
     I.place_bets(rst, rsigs, ts, C.book_asks, B.fill, log=log, live=True, tag="radar live", stake_fn=SZ.RADAR)
     (work / "radar.json").write_text(json.dumps(rst))
     placed = rst.get("account", {}).get("bets", {})
-    bet_on = {(x["match"], x["market"]) for x in rsigs if x["active"] or x["cid"] in placed}
+    left = rst.get("account", {}).get("exited", {})
+    bet_on = {(x["match"], x["market"]) for x in rsigs if x["active"] or x["cid"] in placed or x["cid"] in left}
     rad = [g for g in rad if (g["match"], g["market"]) in bet_on]     # only what the radar account bets (Pedro)
     radar_acct = RA.dashboard(rst, rsigs, ts, ("T3", "T4", "T5", "T6"))
     log(f"radar account: {len(rad)} radar markets, {sum(s['active'] for s in rsigs)} active signals, "

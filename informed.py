@@ -231,11 +231,21 @@ def settle(state, infos, now, fetch_winner, log=print):
 def balance(acct):
     bal = START_BALANCE
     for b in acct.get("bets", {}).values():
-        if b["status"] in ("open", "won", "lost"):
+        if b["status"] in ("open", "won", "lost", "sold"):
             bal -= b["stake"]
         if b["status"] == "won":
             bal += b["shares"]
+        if b["status"] == "sold":                       # exited before the end, following the radar wallet out
+            bal += b["proceeds"]
     return round(bal, 2)
+
+
+def _win(b):
+    return b["status"] == "won" or (b["status"] == "sold" and b.get("pnl", 0) > 0)
+
+
+def _loss(b):
+    return b["status"] == "lost" or (b["status"] == "sold" and b.get("pnl", 0) <= 0)
 
 
 # ------------------------------------------------------------------------------------------------ dashboard
@@ -351,10 +361,12 @@ def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
     out_bets, bal, series = [], START_BALANCE, [(acct.get("opened_at", now), START_BALANCE)]
     events = []
     for b in bets:
-        if b["status"] in ("open", "won", "lost"):
+        if b["status"] in ("open", "won", "lost", "sold"):
             events.append((b["placed_at"], -b["stake"]))
             if b["status"] == "won":
                 events.append((b["settled_at"], b["shares"]))
+            if b["status"] == "sold":
+                events.append((b["settled_at"], b["proceeds"]))
     open_stake = 0.0
     for t, d in sorted(events):
         bal += d
@@ -363,7 +375,7 @@ def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
     for b in bets:
         out_bets.append(dict(b, level=level, path=[], escalated=False, flipped=False, tranches=[],
                              kind="match" if b["market"] == "Match Winner" else "side", why=explain_fn(b, now)))
-    settled = [b for b in bets if b["status"] in ("won", "lost")]
+    settled = [b for b in bets if b["status"] in ("won", "lost", "sold")]
     open_ = [b for b in bets if b["status"] == "open"]
     staked = sum(b["stake"] for b in settled)
     pnl = sum(b.get("pnl", 0) for b in settled)
@@ -377,14 +389,14 @@ def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
     def group(name, g):
         st = sum(b["stake"] for b in g)
         p = sum(b.get("pnl", 0) for b in g)
-        return dict(name=name, bets=len(g), won=sum(b["status"] == "won" for b in g),
-                    lost=sum(b["status"] == "lost" for b in g), staked=st, pnl=round(p, 2),
+        return dict(name=name, bets=len(g), won=sum(_win(b) for b in g),
+                    lost=sum(_loss(b) for b in g), staked=st, pnl=round(p, 2),
                     roi=round(p / st, 4) if st else None)
     stats = dict(start=START_BALANCE, balance=cash, equity=round(cash + sum(b["stake"] for b in open_), 2),
                  profit=round(cash + sum(b["stake"] for b in open_) - START_BALANCE, 2), roi=round(pnl / staked, 4) if staked else None,
-                 bets=len(settled), wins=sum(b["status"] == "won" for b in settled),
-                 losses=sum(b["status"] == "lost" for b in settled),
-                 win_rate=round(sum(b["status"] == "won" for b in settled) / len(settled), 4) if settled else None,
+                 bets=len(settled), wins=sum(_win(b) for b in settled),
+                 losses=sum(_loss(b) for b in settled),
+                 win_rate=round(sum(_win(b) for b in settled) / len(settled), 4) if settled else None,
                  open=len(open_), at_risk=round(sum(b["stake"] for b in open_), 2),
                  skipped=sum(b["status"] == "skipped" for b in bets), escalated=0,
                  best=max((b.get("pnl", 0) for b in settled), default=0),
@@ -398,9 +410,9 @@ def account_view(state, sigs, now, explain_fn, level, tiers, wallet_groups):
                  **breakdowns(settled, group))
     if settled:
         last = sorted(settled, key=lambda b: b.get("settled_at") or 0, reverse=True)
-        k, n = last[0]["status"], 0
+        k, n = ("won" if _win(last[0]) else "lost"), 0
         for b in last:
-            if b["status"] != k:
+            if ("won" if _win(b) else "lost") != k:
                 break
             n += 1
         stats["streak"] = f"{n} {k}"

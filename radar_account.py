@@ -8,6 +8,8 @@ Rules (fixed on 2026-10-21 at Pedro's request, before any result):
            are not known whales with normal luck (cloud_run.radar); small bets and "rising" wallets are left out.
   bet      $20 on that side at the next 10-minute scan, filled against the real order book (fee included), once per
            market; skipped at 0.95+ or 0.05- (decided). $300 paper bankroll.
+  exit     (Nov 5 2026) a bet copied from hand-picked wallets is sold at the real bids once they all leave its side
+           (sell out, or go bigger on the other side); the market can then be bet again on their new side (follow()).
 Expectation, said up front: in 60 days of CS2 data, following big pre-match bets was about break-even (the same
 as backing the favourite). This account shows that live; it is not a tested edge.
 State: "account" (bets). KV bundle parts state:radar (CS2) and state:tradar (tennis).
@@ -135,6 +137,64 @@ def signals(groups, infos, now, skip_tiers=(), pre_match_only_list=False):
     return sorted(out, key=lambda s: (not s["active"], s["start"]))
 
 
+def follow(state, sigs, infos, listed, now, book_bids, sell, log=print, keep=0.25, flip_min=300, max_exits=3):
+    """Follow the hand-picked wallets out (Pedro, Nov 5 2026: TopStreamer bought megoshort map 2, we copied at 0.75,
+    he sold out two minutes later and went big on Butterfly, which won).
+    An open bet copied from hand-picked wallets (`listed`) is sold at the real bids when every one of them has left
+    its side: sold since our bet and holding under `keep` of what we copied, or now holding more on the other side
+    (at least `flip_min`). The market is then free again, so the next signal there (say the wallet's new side) is
+    bet as usual; the side just left is not re-entered, and a market is exited at most `max_exits` times."""
+    acct = state.get("account") or {}
+    bets = acct.get("bets", {})
+    exited = acct.setdefault("exited", {})
+    by_cid = {i.get("cid"): i for i in infos if i.get("venue") == "poly"}
+    for key, b in list(bets.items()):
+        if b["status"] != "open" or key != b["cid"]:
+            continue
+        i = by_cid.get(b["cid"])
+        trig = [c for c in b.get("wallets") or [] if (c.get("wallet") or "").lower() in listed]
+        if not i or i.get("winner") or not trig:
+            continue
+        held = {(w, o): (sh, avg, last) for w, _, o, sh, avg, last in i.get("heldpos") or []}
+        why = []
+        for c in trig:
+            w, nm = c["wallet"].lower(), c.get("name") or c["wallet"][:8]
+            sh, avg, last = held.get((w, b["side"]), (0.0, 0.0, 0))
+            mine = sh * avg
+            other_o, other = max(((o, s * a) for (x, o), (s, a, _) in held.items() if x == w and o != b["side"]),
+                                 key=lambda t: t[1], default=(None, 0.0))
+            if other >= flip_min and other > mine:
+                why.append(f"{nm} switched to {other_o} (${other:,.0f} there, ${mine:,.0f} left on {b['side']})")
+            elif last >= b["placed_at"] and mine < keep * c["usd"]:
+                why.append(f"{nm} sold out of {b['side']} (${mine:,.0f} left of ${c['usd']:,.0f})")
+            else:
+                why = []
+                break
+        if not why:
+            continue
+        bids = book_bids((i.get("tokens") or {}).get(b["side"]))
+        n, got, px, _ = sell(b["shares"], bids or [])
+        if not bids or n < b["shares"] - 0.01:
+            log(f"radar exit waits: not enough buyers for {b['side']} ({b['match'][16:60]}, {b['market']})")
+            continue
+        bets[f"{key}~{now}"] = dict(b, status="sold", proceeds=round(got, 2), sold_price=round(px, 4), settled_at=now,
+                                    pnl=round(got - b["stake"], 2), exit_reason="; ".join(why))
+        del bets[key]
+        exited.setdefault(b["cid"], []).append(b["side"])
+        log(f"radar exit: sold {b['side']} ({b['match'][16:60]}, {b['market']}) at {px:.3f} for ${got:.2f} "
+            f"(stake ${b['stake']:.2f}): {'; '.join(why)}")
+    for s in sigs:
+        left = exited.get(s["cid"]) or []
+        if not s["active"] or not left:
+            continue
+        if s["side"] == left[-1]:
+            s["active"] = False
+            s["why_not"] = list(s.get("why_not") or []) + [f"the radar wallets just left {s['side']}"]
+        elif len(left) >= max_exits:
+            s["active"] = False
+            s["why_not"] = list(s.get("why_not") or []) + [f"already exited this market {len(left)} times"]
+
+
 def wallet_line(x, side):
     who = x.get("name") if x.get("name") and not str(x["name"]).startswith("0x") else x["wallet"][:6] + "…" + x["wallet"][-4:]
     tags = ", ".join(x.get("tags") or [])
@@ -157,7 +217,10 @@ def explain(b, now):
     res = {"won": f"{b['side']} won: paid {I.money(b.get('shares', 0))}, profit {I.money(b.get('pnl', 0))}.",
            "lost": f"{b.get('winner')} won: the {I.money(b['stake'])} stake was lost.",
            "skipped": "Not placed: no one was selling on the order book.", "open": "Not settled yet.",
-           "void": f"Refunded: {b.get('reason') or 'cancelled'}."}.get(b["status"], b["status"])
+           "void": f"Refunded: {b.get('reason') or 'cancelled'}.",
+           "sold": f"Exited early, following the radar wallets out: {b.get('exit_reason')}. Sold the "
+                   f"{b.get('shares', 0):.1f} shares at {b.get('sold_price') or 0:.3f} for {I.money(b.get('proceeds', 0))} "
+                   f"({'+' if b.get('pnl', 0) >= 0 else '-'}{I.money(abs(b.get('pnl', 0)))})."}.get(b["status"], b["status"])
     return dict(headline=head, sections=[
         dict(title="The radar money", bullets=[wallet_line(x, b["side"]) for x in b.get("wallets", [])] or ["-"]),
         dict(title="Why this bet", bullets=why),
