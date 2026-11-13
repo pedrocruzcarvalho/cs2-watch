@@ -13,13 +13,22 @@ Seeded from the research data (hunt_seed.py --book); entries older than KEEP are
 
 DAY = 86400
 SHARP_N, SHARP_EDGE = 10, 0.20
+LOW_SHARE = 0.70               # a fixer lives on tier 3+: at least this share of its matches there (Pedro, Nov 13 2026)
+# walk-forward, sharp wallets in-play CS2/Dota: no share rule +9% (352 bets); 70%+ tier 3+ +15.5% (118, halves +15/+16);
+# 90%+ +25% (52). Wallets that also bet a lot on tier 1/2 (e.g. DarkzaoGod, ry077) are good bettors, not insiders.
 MIN_USD = 200
 KEEP = 75 * DAY
 
 
+def low_share(book, w):
+    """Share of the wallet's matches (in the book) that were tier 3+; entries carry e[7] = 1 for tier 1/2."""
+    es = book.get(w, [])
+    return sum(1 for e in es if not (len(e) > 7 and e[7])) / len(es) if es else 0.0
+
+
 def record(book, w, before=None, skip_event=None):
-    """(n, wins, edge, roi) over the wallet's resolved matches (settled before `before`)."""
-    es = [e for e in book.get(w, []) if e[5] is not None and e[0] != skip_event
+    """(n, wins, edge, roi) over the wallet's resolved tier 3+ matches (settled before `before`)."""
+    es = [e for e in book.get(w, []) if e[5] is not None and e[0] != skip_event and not (len(e) > 7 and e[7])
           and (before is None or e[4] + 3 * 3600 <= before)]
     if not es:
         return 0, 0, 0.0, 0.0
@@ -32,20 +41,30 @@ def record(book, w, before=None, skip_event=None):
 
 def sharp(book, w, now, skip_event=None):
     n, wins, edge, roi = record(book, w, now, skip_event)
-    return n >= SHARP_N and edge >= SHARP_EDGE
+    return n >= SHARP_N and edge >= SHARP_EDGE and low_share(book, w) >= LOW_SHARE
 
 
-def note(book, w, event, cid, side, px, usd, start):
-    """Remember the wallet's biggest bet on this match (entry: [event, cid, px, usd, start, won, side])."""
+def note(book, w, event, cid, side, px, usd, start, top=False):
+    """Remember the wallet's biggest bet on this match (entry: [event, cid, px, usd, start, won, side, top])."""
     if usd < MIN_USD or not 0.2 <= px <= 0.97:
         return
     es = book.setdefault(w, [])
+    if top:                                             # tier 1/2: only counted (low_share), never scored
+        if not any(e[0] == event for e in es):
+            es.append([event, "", 0, 0, start, 0, "", 1])
+        return
     for e in es:
         if e[0] == event:
             if usd > e[3] and e[5] is None:
                 e[1:5], e[6] = [cid, round(px, 3), round(usd), start], side
             return
-    es.append([event, cid, round(px, 3), round(usd), start, None, side])
+    es.append([event, cid, round(px, 3), round(usd), start, None, side, 1 if top else 0])
+
+
+def prune(book):
+    """Wallets that never bet a tier 3+ match carry no information here."""
+    for w in [w for w, es in book.items() if all(len(e) > 7 and e[7] for e in es)]:
+        del book[w]
 
 
 def pending(book, now):
@@ -81,7 +100,8 @@ def board(book, now, names, listed, limit=60):
     out = []
     for w in set(book) | set(listed):
         n, wins, edge, roi = record(book, w, now)
-        is_sharp = n >= SHARP_N and edge >= SHARP_EDGE
+        ls = low_share(book, w)
+        is_sharp = n >= SHARP_N and edge >= SHARP_EDGE and ls >= LOW_SHARE
         if not is_sharp and w not in listed:
             continue
         last = max((e[4] for e in book.get(w, [])), default=None)
@@ -89,6 +109,6 @@ def board(book, now, names, listed, limit=60):
             continue
         out.append(dict(wallet=w, name=names.get(w) or (listed.get(w) or {}).get("name"), n=n, wins=wins,
                         edge=round(edge, 3), roi=round(roi, 3), sharp=is_sharp, listed=w in listed,
-                        note=(listed.get(w) or {}).get("note"), last=last,
+                        note=(listed.get(w) or {}).get("note"), last=last, low=round(ls, 2),
                         open=sum(1 for e in book.get(w, []) if e[5] is None)))
     return sorted(out, key=lambda x: (not x["sharp"], -x["edge"] * min(x["n"], 30)))[:limit]

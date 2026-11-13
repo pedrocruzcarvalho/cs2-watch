@@ -118,6 +118,16 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   .res { grid-column: 2; text-align: left; }
 }
 
+/* clickable quiet rows, glowing fixes */
+.game.quiet[data-tog] { cursor: pointer; }
+.game.quiet:hover { opacity: .9; }
+.game.quiet.opened { opacity: 1; }
+.chev { color: var(--mute); width: 14px; text-align: center; }
+.qbody { padding: 0 0 2px; }
+.game.fix { border: 1px solid var(--green); animation: glow 1.6s ease-in-out infinite; }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(52,212,124,.0), 0 0 14px rgba(52,212,124,.25); } 50% { box-shadow: 0 0 0 3px rgba(52,212,124,.18), 0 0 28px rgba(52,212,124,.45); } }
+@media (prefers-reduced-motion: reduce) { .game.fix { animation: none; box-shadow: 0 0 0 2px rgba(52,212,124,.35); } }
+.fixtag { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: #06140c; background: var(--green); border-radius: 4px; padding: 2px 7px; }
 /* match card (full) */
 :root { --teamA: #2fae6b; --teamB: #c2453f; }
 .game.full { padding: 0; }
@@ -215,7 +225,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   </div>
 
   <div id="v-wallets" hidden>
-    <p class="note" style="margin:0 2px 10px">Carteiras a seguir em jogos tier 3+. <b style="color:#e8edf3">Afiada</b> = 10+ jogos resolvidos em tier 3+ e acerta 20+ pontos acima das odds que paga (é atualizado sozinho, a cada scan). <b style="color:#e8edf3">Lista</b> = escolhidas por ti. Quando uma afiada aposta ao vivo (CS2 ou Dota, desde $200), é sinal para apostar.</p>
+    <p class="note" style="margin:0 2px 10px">Carteiras a seguir em jogos tier 3+. <b style="color:#e8edf3">Afiada</b> = aposta sobretudo em tier 3+ (70%+ dos jogos dela), tem 10+ jogos resolvidos lá e acerta 20+ pontos acima das odds que paga. Quem aposta muito em tier 1 não entra (é atualizado sozinho, a cada scan). <b style="color:#e8edf3">Lista</b> = escolhidas por ti. Quando uma afiada aposta ao vivo (CS2 ou Dota, desde $200), é sinal para apostar.</p>
     <div class="wl" id="wallets"></div>
   </div>
 
@@ -287,14 +297,20 @@ function timeline(d) {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl" role="img" aria-label="Dinheiro por equipa ao longo do tempo">${bars}${line}</svg>`;
 }
 
+const OPEN = new Set();
 function gameCard(m) {
-  if (m.quiet) return `<article class="game quiet"><div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
-      <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))} · ainda sem apostas suspeitas</div></div>
-      <div class="when">${startText(m)}</div></div></article>`;
+  if (m.quiet) {
+    const id = "q" + m.event_id;
+    const has = m.detail && m.detail.trades;
+    return `<article class="game quiet ${OPEN.has(id) ? "opened" : ""}" data-tog="${id}"><div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
+      <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))} · ${has ? `${k$(m.detail.totals[m.detail.teams[0]] + m.detail.totals[m.detail.teams[1]])} apostados, nada suspeito` : "ainda sem apostas"}</div></div>
+      <div class="when">${startText(m)}</div><span class="chev">${has ? "▾" : ""}</span></div>
+      ${has ? `<div class="qbody" ${OPEN.has(id) ? "" : "hidden"}>${liveBlock(m.detail)}</div>` : ""}</article>`;
+  }
   const d = m.detail, r = m.rec;
   const state = m.live ? `<span class="pill live">● a decorrer</span>` : `<span class="pill soon">começa ${startText(m).replace(/<br>.*/, "")}</span>`;
   const head = `<div class="mh">${ring(m.score || 0)}
-    <div class="mt"><div class="t1"><img class="gm" src="img/${m.game}-64.png" alt="" width="18" height="18"><span class="gp">${NAME[m.game]}</span><span class="tt">${esc(m.match)} - ${esc(m.event)}</span></div>
+    <div class="mt"><div class="t1"><img class="gm" src="img/${m.game}-64.png" alt="" width="18" height="18"><span class="gp">${NAME[m.game]}</span><span class="tt">${esc(m.match)} - ${esc(m.event)}</span>${r ? `<span class="fixtag">MATCH FIXING</span>` : ""}</div>
     <div class="t2">Jogo · tier ${esc(m.tier.replace("T", ""))} · começa ${when(m.start)}${m.alert ? ` · alerta ${when(m.alert)}` : ""}</div></div>${state}</div>`;
   let box;
   if (m.bet) {
@@ -314,7 +330,11 @@ function gameCard(m) {
     box = `<div class="betbox no"><div class="bl"><div class="cap2">NÃO APOSTAR</div><div class="side dim">${esc(m.no || "")}</div></div>
       <a class="cta ghost" href="${esc(m.url)}" target="_blank" rel="noopener">Ver na Polymarket ↗</a></div>`;
   }
-  if (!d) return `<article class="game full">${head}${box}</article>`;
+  if (!d) return `<article class="game full ${r ? "fix" : ""}">${head}${box}</article>`;
+  return `<article class="game full ${r ? "fix" : m.bet ? "go" : ""}">${head}${box}${liveBlock(d)}</article>`;
+}
+
+function liveBlock(d) {
   const [A, B] = d.teams;
   const teamCls = t => t === A ? "ta" : "tb";
   const oa = d.odds_from != null && d.odds_now != null ? `${odd(d.odds_from)} → ${odd(d.odds_now)}` : "–";
@@ -339,7 +359,7 @@ function gameCard(m) {
     <div class="cols"><div><div class="cap2">MAIORES CARTEIRAS</div><table>${tops}</table></div>
       <div><div class="cap2">MAIORES APOSTAS</div><table>${bigs}</table></div></div>
   </section>`;
-  return `<article class="game full ${r || m.bet ? "go" : ""}">${head}${box}${live}</article>`;
+  return live;
 }
 
 function betCard(b) {
@@ -374,7 +394,7 @@ function walletCard(x) {
   const tags = (x.sharp ? `<span class="tg sharp">AFIADA</span>` : "") + (x.listed ? `<span class="tg list">TUA LISTA</span>` : "");
   const bar = Math.max(0, Math.min(100, (x.edge + 0.1) / 0.5 * 100));
   return `<div class="w"><div><div class="nm"><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(nm)}</a>${tags}</div>
-    <div class="sub">${x.n ? `${x.wins}/${x.n} acertos em tier 3+ · ${x.edge >= 0 ? "+" : ""}${Math.round(x.edge * 100)} pp acima das odds · retorno ${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%` : "sem apostas em tier 3+ nos últimos 75 dias"}${x.last ? ` · última ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
+    <div class="sub">${x.n ? `${x.wins}/${x.n} acertos em tier 3+ · ${Math.round((x.low ?? 1) * 100)}% dos jogos dela são tier 3+ · ${x.edge >= 0 ? "+" : ""}${Math.round(x.edge * 100)} pp acima das odds · retorno ${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%` : "sem apostas em tier 3+ nos últimos 75 dias"}${x.last ? ` · última ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
     <div class="bar"><i style="width:${bar}%;background:${x.edge >= 0.2 ? "var(--green)" : x.edge >= 0 ? "var(--amber)" : "var(--red)"}"></i></div></div>
     <div class="st num"><b class="${x.roi >= 0 ? "pos" : "neg"}">${x.n ? (x.roi >= 0 ? "+" : "") + Math.round(x.roi * 100) + "%" : "–"}</b><div class="sub">${x.open ? `${x.open} em jogo` : ""}</div></div></div>`;
 }
@@ -420,6 +440,15 @@ function showTab() {
   for (const v of ["next", "mine", "wallets", "mirror"]) $("v-" + v).hidden = tab !== v;
   $("tabs").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === tab));
 }
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-tog]");
+  if (!a || e.target.closest("a")) return;
+  const id = a.dataset.tog, body = a.querySelector(".qbody");
+  if (!body) return;
+  if (OPEN.has(id)) OPEN.delete(id); else OPEN.add(id);
+  body.hidden = !OPEN.has(id); a.classList.toggle("opened", OPEN.has(id));
+  a.querySelector(".chev").textContent = OPEN.has(id) ? "▴" : "▾";
+});
 $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.v; store.set("fh-tab2", tab); showTab(); });
 showTab();
 

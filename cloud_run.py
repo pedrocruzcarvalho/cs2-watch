@@ -30,6 +30,8 @@ BUNDLE = "state:bundle"
 HEALTH = "health"
 FRESH = "2026-11-13"            # Pedro: clear all history, start the hunter at $63.47 (his real balance)
 FAIL_REPEAT = 3 * 3600
+NL = chr(10)
+BOOK_V = 2                     # v2: tier 1/2 matches kept too (a fixer bets 70%+ on tier 3+)
 
 
 def tick(store, log=print):
@@ -49,11 +51,12 @@ def tick(store, log=print):
     C.TEAMS = TM.refresh(json.loads(parts.get("state:vrs") or "{}"), ts, log=log)   # Valve ranking: CS2 tiers
     parts["state:vrs"] = json.dumps(C.TEAMS)
     bst = json.loads(parts.get("state:book") or "{}")       # every wallet's tier 3+ record (book.py)
-    if not bst.get("book"):
+    if bst.get("v") != BOOK_V:                               # (re)seed once per book format
         seed = store.get("seed:book")
         if seed:
             bst = json.loads(seed)
-            log(f"book: seeded {len(bst['book'])} wallets from history")
+            bst["v"] = BOOK_V
+            log(f"book: seeded {len(bst['book'])} wallets from history (v{BOOK_V})")
     bst.setdefault("book", {}); bst.setdefault("names", {})
     listed = {w.lower(): v for w, v in json.loads(store.get("watchlist") or b"{}").items()}   # your hand-picked wallets
     details = {}
@@ -65,6 +68,7 @@ def tick(store, log=print):
         if w:
             wins[cid] = w
     BK.resolve(bst["book"], wins, ts)
+    BK.prune(bst["book"])
     board = BK.board(bst["book"], ts, bst["names"], listed)
     bst["names"] = {w: n for w, n in bst["names"].items() if w in bst["book"]}
     parts["state:book"] = json.dumps(bst, separators=(",", ":"))
@@ -81,6 +85,7 @@ def tick(store, log=print):
     H.follow(st, sigs, ts, log=log)                          # the fixer sold: we sell too (and get a push)
     H.place(st, sigs, ts, log=log)
     view = H.view(st, sigs, ts, infos, details)
+    fix_push = new_fixes(st, view, ts)                       # marked now, saved with the state, pushed after the save
     parts["state:hunter"] = json.dumps(st)
     mst = json.loads(parts.get("state:mirror") or "{}")      # paper copy of one wallet, no alerts (mirror.py)
     mview = None
@@ -94,10 +99,32 @@ def tick(store, log=print):
     dash = dict(at=ts, took=round(time.time() - t0, 1), scanned=len(infos), hunter=view, mirror=mview, wallets=board)
     store.put("dashboard", json.dumps(dash, default=str).encode())
     N.send([("Caçador", st)], ts, log=log, balance=view["stats"]["balance"])   # after the save: never alert twice
+    if fix_push:
+        N.push(fix_push[0], fix_push[1], log=log, click=fix_push[2])
     s = view["stats"]
     log(f"tick done in {time.time() - t0:.0f}s: {len(infos)} markets, {len(sigs)} wallet bets of ${H.WALLET_MIN}+, "
         f"{sum(not u['no'] and not u['top'] for u in sigs)} APOSTAR, {len(st.get('signals', {}))} signals kept; balance ${s['balance']:.2f} ({s['wins']}W/{s['losses']}L, "
         f"{s['open']} open)")
+
+
+def new_fixes(st, view, ts):
+    """(title, text, click) for the matches flagged APOSTA for the first time, or None. One push per match and side,
+    whether or not the bank can bet it; marked as sent in the state that is saved before the push."""
+    sent = st.setdefault("alerted", {})
+    for k in [k for k, t in sent.items() if ts - t > 7 * 86400]:
+        del sent[k]
+    new = [m for m in view["upcoming"] if m.get("rec") and f"{m['event_id']}|{m['rec']['side']}" not in sent]
+    if not new:
+        return None
+    lines = []
+    for m in new:
+        r = m["rec"]
+        mk = "" if r["kind"] == "match" else f" ({r['market']})"
+        lines.append(" · ".join([f"APOSTA em {r['side']}{mk}", f"odd {r['odds']}"]) + NL +
+                     f"{m['match']} · {m['event']} · tier {m['tier'][1:]}" + NL + r["why"])
+        sent[f"{m['event_id']}|{r['side']}"] = ts
+    title = "🚨 Match fixing: 1 jogo" if len(new) == 1 else f"🚨 Match fixing: {len(new)} jogos"
+    return title, (NL + NL).join(lines), new[0]["url"] if len(new) == 1 else None
 
 
 def health(store, ok, err=None, log=print):

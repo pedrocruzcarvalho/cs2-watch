@@ -364,12 +364,12 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                                 hedge=held.get((p["w"], p["cid"], other), 0) >= 0.3 * usd,
                                 sharp=is_sharp, rec=BK.record(book, p["w"], now, e["id"]) if (is_sharp or p["w"] in listed) else None,
                                 listed=(listed.get(p["w"]) or {}).get("note")))
-        if tier not in TOP_TIERS:                       # the book: each wallet's biggest bet on this match
+        if True:                                        # the book: each wallet's biggest bet on every match (tier kept)
             for p in pos:
                 tot = p["pre"] + p["live"]
                 sh = p["pre_sh"] + p["live_sh"]
                 if sh and tot >= BK.MIN_USD and not held.get((p["w"], p["cid"], next(o for o in mk[p["cid"]]["outcomes"] if o != p["o"])), 0) >= 0.3 * tot:
-                    BK.note(book, p["w"], e["id"], p["cid"], p["o"], tot / sh, tot, start)
+                    BK.note(book, p["w"], e["id"], p["cid"], p["o"], tot / sh, tot, start, top=tier in TOP_TIERS)
                     if names is not None and p["name"] and not p["name"].startswith("0x"):
                         names[p["w"]] = p["name"]
         out += combos(game, e, mk, pos, out, start, url, evol, tier)
@@ -609,7 +609,8 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
             match, event = split_title(i["title"])
             out.append(dict(game=i["game"], tier=i["tier"], match=match, event=event, start=i["start"],
                             live=now >= i["start"], url=i["url"], rec=None, no="ainda sem apostas suspeitas",
-                            bet=None, items=[], money=0, quiet=True, score=0, detail=None, alert=None))
+                            bet=None, items=[], money=0, quiet=True, score=0, detail=(details or {}).get(ev), alert=None,
+                            event_id=ev))
             continue
         u0 = us[0]
         match, event = split_title(u0["title"])
@@ -643,7 +644,8 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
                         bet=dict(side=mine["side"], stake=mine["stake"], price=mine["price"], status=mine["status"])
                         if mine else None, items=items[:8], money=round(sum(u["usd"] for u in us)), quiet=False,
                         score=max(u["score"] for u in us), detail=(details or {}).get(ev),
-                        alert=min(u["first"] if u["phase"] == "pre" else max(u["first"], u["start"]) for u in us)))
+                        alert=min(u["first"] if u["phase"] == "pre" else max(u["first"], u["start"]) for u in us),
+                        event_id=ev))
     return sorted(out, key=lambda m: (not m["rec"] and not m["bet"], m["quiet"], m["start"]))
 
 

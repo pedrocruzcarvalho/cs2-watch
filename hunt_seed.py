@@ -58,16 +58,18 @@ def seed_book():
     import book as BK
     best = {}
     for u in R.units(BK.MIN_USD, "all"):
-        if u["top"] or u["hedge"] or not 0.2 <= u["px"] <= 0.97:
+        if u["hedge"] or not 0.2 <= u["px"] <= 0.97:
             continue
         k = (u["w"], u["ev"])
         if k not in best or u["usd"] > best[k]["usd"]:
             best[k] = u
     bk, names = {}, {}
     for (w, ev), u in best.items():
-        bk.setdefault(w, []).append([ev, u["cid"], round(u["px"], 3), round(u["usd"]), u["start"], int(u["won"]), u["o"]])
+        bk.setdefault(w, []).append([ev, "", 0, 0, u["start"], 0, "", 1] if u["top"] else
+                                    [ev, u["cid"], round(u["px"], 3), round(u["usd"]), u["start"], int(u["won"]), u["o"], 0])
         if u["name"] and not u["name"].startswith("0x"):
             names[w] = u["name"]
+    bk = {w: es for w, es in bk.items() if any(not e[7] for e in es)}      # only wallets that bet tier 3+ matter
     now = time.time()
     sharp = [w for w in bk if BK.sharp(bk, w, now)]
     names = {w: n for w, n in names.items() if w in sharp}
