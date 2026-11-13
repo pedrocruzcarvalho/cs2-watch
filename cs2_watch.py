@@ -36,6 +36,7 @@ so "do flagged sides beat their price?" is measured on predictions that were mad
 """
 
 import argparse
+import gzip
 import json
 import math
 import re
@@ -84,6 +85,17 @@ _kalshi_lock, _kalshi_next = threading.Lock(), [0.0]
 KALSHI_GAP = 0.25            # public API rate-limits bursts; ~4 req/s across threads never hit 429
 
 
+def read_json(url, headers=None, timeout=20):
+    """GET a JSON url, gzip accepted. Since Nov 12 2026 Gamma answers 406 to /events pages above 50 rows
+    unless the request says Accept-Encoding: gzip."""
+    req = urllib.request.Request(url, headers=dict(UA, **(headers or {}), **{"Accept-Encoding": "gzip"}))
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        body = r.read()
+        if r.headers.get("Content-Encoding") == "gzip" or body[:2] == bytes((0x1F, 0x8B)):
+            body = gzip.decompress(body)
+    return json.loads(body)
+
+
 def get(url, tries=5):
     for i in range(tries):
         if url.startswith(KALSHI):
@@ -92,7 +104,7 @@ def get(url, tries=5):
                 _kalshi_next[0] = t + KALSHI_GAP
             time.sleep(max(0.0, t - time.time()))
         try:
-            return json.loads(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=20).read())
+            return read_json(url)
         except Exception as e:
             if i == tries - 1 or (isinstance(e, urllib.error.HTTPError) and e.code not in (429, 500, 502, 503, 504)):
                 raise

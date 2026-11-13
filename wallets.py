@@ -35,7 +35,8 @@ VERDICT_TEXT = {
 
 
 def get(url):
-    return json.loads(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30).read())
+    import cs2_watch
+    return cs2_watch.read_json(url, UA, timeout=30)
 
 
 def resolved_positions(w):

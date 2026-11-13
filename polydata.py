@@ -20,8 +20,8 @@ def get(path, params, tries=6):
     url = f"{V2}/{path}?{urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})}"
     for k in range(tries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40) as r:
-                return json.loads(r.read())
+            import cs2_watch
+            return cs2_watch.read_json(url, UA, timeout=40)
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and k < tries - 1:
                 time.sleep(float(e.headers.get("Retry-After") or 2 + 2 * k))
