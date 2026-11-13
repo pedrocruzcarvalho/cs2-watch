@@ -72,8 +72,12 @@ def resolve(book, winners, now):
             del book[w]
 
 
+ACTIVE = 14 * DAY              # the page lists only wallets that bet in this window (Pedro: no dead wallets)
+
+
 def board(book, now, names, listed, limit=60):
-    """The page's wallet list: sharp wallets and hand-picked ones, best record first."""
+    """The page's wallet list: sharp and hand-picked wallets that bet on a tier 3+ match in the last ACTIVE days,
+    best record first."""
     out = []
     for w in set(book) | set(listed):
         n, wins, edge, roi = record(book, w, now)
@@ -81,6 +85,8 @@ def board(book, now, names, listed, limit=60):
         if not is_sharp and w not in listed:
             continue
         last = max((e[4] for e in book.get(w, [])), default=None)
+        if not last or now - last > ACTIVE:
+            continue
         out.append(dict(wallet=w, name=names.get(w) or (listed.get(w) or {}).get("name"), n=n, wins=wins,
                         edge=round(edge, 3), roi=round(roi, 3), sharp=is_sharp, listed=w in listed,
                         note=(listed.get(w) or {}).get("note"), last=last,

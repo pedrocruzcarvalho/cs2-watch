@@ -56,7 +56,8 @@ def tick(store, log=print):
             log(f"book: seeded {len(bst['book'])} wallets from history")
     bst.setdefault("book", {}); bst.setdefault("names", {})
     listed = {w.lower(): v for w, v in json.loads(store.get("watchlist") or b"{}").items()}   # your hand-picked wallets
-    sigs, infos = H.signals(now, cache, log=log, book=bst["book"], listed=listed, names=bst["names"])
+    details = {}
+    sigs, infos = H.signals(now, cache, log=log, book=bst["book"], listed=listed, names=bst["names"], details=details)
     wins = {i["cid"]: i["winner"] for i in infos if i.get("winner")}
     need = BK.pending(bst["book"], ts) - set(wins)
     for cid, m in H.market_states(list(need)[:400]).items():
@@ -79,7 +80,7 @@ def tick(store, log=print):
     H.track(st, sigs, infos, ts, log=log)
     H.follow(st, sigs, ts, log=log)                          # the fixer sold: we sell too (and get a push)
     H.place(st, sigs, ts, log=log)
-    view = H.view(st, sigs, ts, infos)
+    view = H.view(st, sigs, ts, infos, details)
     parts["state:hunter"] = json.dumps(st)
     mst = json.loads(parts.get("state:mirror") or "{}")      # paper copy of one wallet, no alerts (mirror.py)
     mview = None

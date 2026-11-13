@@ -157,11 +157,16 @@ def top_tier(game, title, vol=0):
 #   F  a sharp wallet (book.py: 10+ resolved tier 3+ matches, +20 pp over its prices) betting in-play on CS2 / Dota 2,
 #      from $200, series or maps                                            n=339  +11%  (halves +14% / +9%)
 #      (walk-forward: judged only on the record it had before each bet)
-RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.03, 75)}
+#   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
+#                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
+RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.03, 75),
+         "G": (0.02, 60)}
+TEAM_LIVE_MIN = 2000
 RULE_TEXT = {"A": "dinheiro ao vivo, ≥10% do mercado", "B": "dinheiro ao vivo em Dota",
              "C": "dinheiro pré-jogo em Dota, jogo < $100k", "D": "conta CS2 fresca pré-jogo: apostar contra",
              "E": "dinheiro pré-jogo em LoL, ≥10% do mercado",
-             "F": "carteira com historial que ganha, a apostar ao vivo"}
+             "F": "carteira com historial que ganha, a apostar ao vivo",
+             "G": "a mesma carteira já pôs $2k+ ao vivo nesta equipa"}
 
 
 def classify(u):
@@ -175,6 +180,8 @@ def classify(u):
         return None, "conta CS2 com menos de 3 dias (perdem)"
     if u.get("sharp") and live and u["game"] != "lol":
         return "F", None
+    if live and u["game"] != "lol" and u.get("team_live", 0) >= TEAM_LIVE_MIN and share < 0.10:
+        return "G", None
     if u["usd"] < WALLET_MIN:                                   # small bets count only for sharp wallets
         return None, ("carteira afiada, mas só conta ao vivo em CS2/Dota" if u.get("sharp") else
                       "carteira da lista, mas o historial em tier baixo não ganha")
@@ -304,7 +311,7 @@ def combos(game, e, mk, pos, singles, start, url, evol, tier):
     return out
 
 
-def signals(now_dt, cache, log=print, book=None, listed=None, names=None):
+def signals(now_dt, cache, log=print, book=None, listed=None, names=None, details=None):
     """Every $1k+ wallet bet on the CS2 / Dota 2 / LoL matches from 5 h ago to 36 h ahead (from $200 for sharp or
     hand-picked wallets), classified. Also writes each wallet's biggest bet per tier 3+ match into the book."""
     now = now_dt.timestamp()
@@ -366,6 +373,16 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None):
                     if names is not None and p["name"] and not p["name"].startswith("0x"):
                         names[p["w"]] = p["name"]
         out += combos(game, e, mk, pos, out, start, url, evol, tier)
+        team_live = {}
+        for p in pos:
+            team_live[(p["w"], p["o"])] = team_live.get((p["w"], p["o"]), 0) + p["live"]
+        for u in out:
+            if u["event"] == e["id"]:
+                u["team_live"] = team_live.get((u["w"], u["o"]), 0)
+        if details is not None and tier not in TOP_TIERS and trades:
+            d = detail(e, mk, trades, start, now, listed, book)
+            if d:
+                details[e["id"]] = d
     for u in out:
         c = created_at(u["w"], cache, now) if not u["top"] else None
         u["age"] = (u["first"] - c) / DAY if c else None
@@ -540,7 +557,7 @@ def short(title):
     return split_title(title)[0]
 
 
-def view(state, sigs, now, infos=()):
+def view(state, sigs, now, infos=(), details=None):
     acct = state.get("account") or dict(opened_at=now, start=START, bets={})
     bets = sorted(acct["bets"].values(), key=lambda b: b["placed_at"], reverse=True)
     done = [b for b in bets if b["status"] in ("won", "lost", "sold")]
@@ -566,11 +583,11 @@ def view(state, sigs, now, infos=()):
                                                    "status", "stake", "price", "pnl", "winner", "url", "exit_reason",
                                                    "proceeds")},
                             match=match, event=event))
-    return dict(stats=stats, series=series, bets=bet_out, upcoming=upcoming(sigs, bets, now, infos),
+    return dict(stats=stats, series=series, bets=bet_out, upcoming=upcoming(sigs, bets, now, infos, details, state.get("signals")),
                 opened_at=acct.get("opened_at"))
 
 
-def upcoming(sigs, bets, now, infos=()):
+def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
     """The page's main list: one card per tier 3+ match still to play or being played, with one plain
     recommendation (bet X at these odds, or don't, and why). Matches without suspicious money yet are listed too."""
     games, meta = {}, {}
@@ -592,7 +609,7 @@ def upcoming(sigs, bets, now, infos=()):
             match, event = split_title(i["title"])
             out.append(dict(game=i["game"], tier=i["tier"], match=match, event=event, start=i["start"],
                             live=now >= i["start"], url=i["url"], rec=None, no="ainda sem apostas suspeitas",
-                            bet=None, items=[], money=0, quiet=True))
+                            bet=None, items=[], money=0, quiet=True, score=0, detail=None, alert=None))
             continue
         u0 = us[0]
         match, event = split_title(u0["title"])
@@ -602,8 +619,13 @@ def upcoming(sigs, bets, now, infos=()):
         if go:
             g = go[0]
             px = g["prices"].get(g["side"])
-            rec = dict(side=g["side"], odds=round(1 / px, 2) if px else None, market=g["market"],
-                       why=RULE_TEXT[g["rule"]], fade=g["side"] != g["o"])
+            first = (ledger or {}).get(f"{g['cid']}|{g['o']}|{g['phase']}" + ("|combo" if g.get("combo") else "")) or {}
+            a_px = first.get("price") or px
+            rec = dict(side=g["side"], other=g["other"] if g["side"] == g["o"] else g["o"], odds=round(1 / a_px, 2) if a_px else None,
+                       now=round(1 / px, 2) if px else None, implied=round(a_px, 2) if a_px else None, at=first.get("seen", now),
+                       market=g["market"], kind=g["kind"], rule=g["rule"], why=RULE_TEXT[g["rule"]], fade=g["side"] != g["o"],
+                       listed=bool(g.get("listed")), sharp=bool(g.get("sharp")),
+                       fresh=g["age"] is not None and g["age"] < 14)
             no = None
         else:
             late = next((u for u in us if u["rule"] and not u["no"] and u.get("late")), None)
@@ -619,5 +641,109 @@ def upcoming(sigs, bets, now, infos=()):
         out.append(dict(game=u0["game"], tier=u0["tier"], match=match, event=event, start=u0["start"],
                         live=now >= u0["start"], url=u0["url"], rec=rec, no=no,
                         bet=dict(side=mine["side"], stake=mine["stake"], price=mine["price"], status=mine["status"])
-                        if mine else None, items=items[:8], money=round(sum(u["usd"] for u in us)), quiet=False))
+                        if mine else None, items=items[:8], money=round(sum(u["usd"] for u in us)), quiet=False,
+                        score=max(u["score"] for u in us), detail=(details or {}).get(ev),
+                        alert=min(u["first"] if u["phase"] == "pre" else max(u["first"], u["start"]) for u in us)))
     return sorted(out, key=lambda m: (not m["rec"] and not m["bet"], m["quiet"], m["start"]))
+
+
+# --------------------------------------------------------------------------------------------- match detail
+
+BUCKETS = 12
+
+
+def detail(e, mk, trades, start, now, listed=None, book=None):
+    """What the page shows for one match: where the money is going (before kickoff: the last 12 h; in-play: since
+    the start), a timeline of money per team with the first team's odds, the last 30 minutes, how concentrated the
+    money is, wallets that switched sides, the top wallets and the biggest single bets."""
+    listed, book = listed or {}, book or {}
+    match_m = next((m for m in mk.values() if m["kind"] == "match"), None) or next(iter(mk.values()))
+    teams = match_m["outcomes"]
+    if len(teams) != 2:
+        return None
+    a, b = teams
+    live = now >= start
+    lo = start if live else max(start - 12 * 3600, min((t["timestamp"] for t in trades), default=now))
+    hi = now
+    if hi - lo < 600:
+        lo = hi - 600
+    buys = [t for t in trades if t["side"] == "BUY" and t["conditionId"] in mk and t["outcome"] in teams]
+    win = [t for t in buys if lo <= t["timestamp"] <= hi]
+    if not win:
+        return None
+    step = (hi - lo) / BUCKETS
+    bars = [[0.0, 0.0, None] for _ in range(BUCKETS)]
+    price_a = None
+    for t in sorted(win, key=lambda t: t["timestamp"]):
+        i = min(BUCKETS - 1, int((t["timestamp"] - lo) / step))
+        usd = t["size"] * t["price"]
+        bars[i][0 if t["outcome"] == a else 1] += usd
+        if t["conditionId"] == match_m["cid"]:
+            price_a = t["price"] if t["outcome"] == a else 1 - t["price"]
+            bars[i][2] = round(price_a, 3)
+    last = None
+    for bar in bars:                                    # carry the odds line through buckets without a trade
+        if bar[2] is None:
+            bar[2] = last
+        last = bar[2]
+    first_px = next((x[2] for x in bars if x[2] is not None), None)
+    now_px = match_m["prices"].get(a)
+    tot = {a: 0.0, b: 0.0}
+    wallets = {}
+    for t in win:
+        usd = t["size"] * t["price"]
+        tot[t["outcome"]] += usd
+        w = t["proxyWallet"].lower()
+        x = wallets.setdefault((w, t["outcome"]), dict(wallet=w, name=t["name"] or t["pseudonym"] or w[:8], side=t["outcome"],
+                                                        usd=0.0, n=0, first=t["timestamp"]))
+        x["usd"] += usd
+        x["n"] += 1
+        x["first"] = min(x["first"], t["timestamp"])
+    recent = [t for t in win if t["timestamp"] >= now - 1800]
+    r = {a: sum(t["size"] * t["price"] for t in recent if t["outcome"] == a),
+         b: sum(t["size"] * t["price"] for t in recent if t["outcome"] == b)}
+    going = a if r[a] >= r[b] else b
+    rsum = r[a] + r[b]
+    total = tot[a] + tot[b]
+    top = sorted(wallets.values(), key=lambda x: -x["usd"])
+    per_wallet = {}
+    for x in top:
+        per_wallet[x["wallet"]] = per_wallet.get(x["wallet"], 0) + x["usd"]
+    conc = max(per_wallet.values()) / total if total else 0
+    switched = []
+    if live:
+        pre = {}
+        for t in buys:
+            if t["timestamp"] < start:
+                k = (t["proxyWallet"].lower(), t["outcome"])
+                pre[k] = pre.get(k, 0) + t["size"] * t["price"]
+        for x in top:
+            other = b if x["side"] == a else a
+            if x["usd"] >= 100 and pre.get((x["wallet"], other), 0) >= 100:
+                switched.append(dict(name=x["name"], wallet=x["wallet"], pre_side=other, pre_usd=round(pre[(x["wallet"], other)]),
+                                     side=x["side"], usd=round(x["usd"])))
+    pre_side = {}
+    for t in buys:
+        if t["timestamp"] < start:
+            pre_side.setdefault(t["proxyWallet"].lower(), t["outcome"])
+
+    def tag(w):
+        return dict(listed=w in listed, sharp=bool(book) and BK.sharp(book, w, now))
+
+    def minute(t):
+        return round((t - start) / 60)
+
+    biggest = sorted(win, key=lambda t: -t["size"] * t["price"])[:6]
+    return dict(
+        live=live, teams=teams, since=lo, mins=minute(now) if live else None,
+        totals={a: round(tot[a]), b: round(tot[b])}, trades=len(win), wallets=len(per_wallet),
+        bars=[[round(x[0]), round(x[1]), x[2]] for x in bars], odds_from=first_px, odds_now=now_px,
+        recent=dict(side=going, usd=round(r[going]), net=round((r[going] - (rsum - r[going])) / rsum, 2) if rsum else 0),
+        conc=round(conc, 2), switched=switched[:6],
+        top=[dict(name=x["name"], wallet=x["wallet"], side=x["side"], usd=round(x["usd"]), n=x["n"], at=minute(x["first"]),
+                  pre=pre_side.get(x["wallet"]) if live and pre_side.get(x["wallet"]) else None, **tag(x["wallet"]))
+             for x in top[:6]],
+        big=[dict(at=minute(t["timestamp"]), name=t["name"] or t["pseudonym"] or t["proxyWallet"][:8],
+                  wallet=t["proxyWallet"].lower(), side=t["outcome"], usd=round(t["size"] * t["price"]),
+                  px=round(t["price"], 2), market=mk[t["conditionId"]]["label"], **tag(t["proxyWallet"].lower()))
+             for t in biggest])

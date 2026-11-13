@@ -117,6 +117,69 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   .sig { grid-template-columns: 26px minmax(0, 1fr); }
   .res { grid-column: 2; text-align: left; }
 }
+
+/* match card (full) */
+:root { --teamA: #2fae6b; --teamB: #c2453f; }
+.game.full { padding: 0; }
+.game.full.go { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); }
+.mh { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.ring text { font: 800 15px "Inter", sans-serif; fill: var(--ink); }
+.mt { min-width: 0; flex: 1; }
+.t1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.gp { font-size: 10.5px; font-weight: 800; color: var(--amber); background: var(--amber-bg); border-radius: 4px; padding: 1px 6px; }
+.tt { font-weight: 800; font-size: 15px; }
+.t2 { color: var(--mute); font-size: 12.5px; margin-top: 2px; }
+.pill { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.pill.live { color: var(--red); background: var(--red-bg); border: 1px solid color-mix(in srgb, var(--red) 40%, transparent); }
+.pill.soon { color: var(--ink-2); background: var(--card-2); border: 1px solid var(--line-2); }
+.betbox { display: flex; align-items: center; gap: 14px; margin: 0 12px 12px; padding: 12px 14px; border-radius: 10px; flex-wrap: wrap; }
+.betbox.go { background: var(--green-bg); border: 1px solid color-mix(in srgb, var(--green) 45%, transparent); }
+.betbox.no { background: var(--card-2); border: 1px solid var(--line); }
+.bl { min-width: 0; flex: 1; }
+.cap2 { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+.betbox.go .cap2 { color: var(--green); }
+.mkp { color: var(--blue); background: var(--blue-bg); border-radius: 4px; padding: 1px 6px; text-transform: none; letter-spacing: 0; }
+.side { font-weight: 800; font-size: 22px; margin: 4px 0 6px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.side.dim { font-size: 14px; color: var(--ink-2); font-weight: 600; }
+.side .o { font-size: 17px; }
+.side .imp { font-size: 12.5px; color: var(--mute); font-weight: 500; }
+.nowc { font-size: 13px; font-weight: 700; color: var(--blue); background: var(--blue-bg); border-radius: 999px; padding: 3px 10px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { font-size: 11.5px; color: var(--ink-2); background: var(--card-2); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 9px; }
+.chip.warn { color: var(--amber); background: var(--amber-bg); border-color: transparent; }
+.vs { font-size: 12.5px; color: var(--mute); margin-right: 4px; }
+.vs b { color: var(--ink); }
+.cta { background: var(--blue); color: #fff; font-weight: 700; font-size: 13.5px; border-radius: 999px; padding: 10px 18px; white-space: nowrap; }
+.cta.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line-2); }
+.lv { margin: 0 12px 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; }
+.lv.on { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.lh { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; }
+.mute { color: var(--mute); font-weight: 500; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0 14px; }
+.sv { font-weight: 800; font-size: 16px; margin: 3px 0 1px; }
+.stats .mute { font-size: 12px; }
+.ta { color: var(--teamA); } .tb { color: var(--teamB); }
+.sv.ta { color: var(--green); }
+.tlh { border-top: 1px solid var(--line); padding-top: 10px; }
+.tlh .mute { text-transform: none; letter-spacing: 0; margin-left: 6px; }
+.tl { display: block; width: 100%; height: 130px; margin-top: 8px; background: var(--card-2); border-radius: 6px; }
+.leg { display: flex; justify-content: space-between; gap: 8px; color: var(--mute); font-size: 11.5px; margin-top: 4px; flex-wrap: wrap; }
+.leg .sq { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 4px 0 10px; vertical-align: -1px; }
+.leg .sq.ta { background: var(--teamA); } .leg .sq.tb { background: var(--teamB); }
+.leg .ln { display: inline-block; width: 14px; height: 2px; background: var(--amber); margin: 0 4px 0 10px; vertical-align: 3px; }
+.swr { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
+.cols table td { padding: 6px 4px; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+.cols table tr:last-child td { border-bottom: 0; }
+.cols .tg { font-size: 9px; padding: 1px 4px; border-radius: 3px; display: inline-block; vertical-align: 1px; margin-left: 4px; }
+.cols > div { overflow-x: auto; }
+.cols table td { white-space: nowrap; }
+@media (max-width: 700px) {
+  .stats { grid-template-columns: 1fr 1fr; }
+  .cols { grid-template-columns: 1fr; }
+  .cta { width: 100%; text-align: center; }
+  .mh .pill { display: none; }
+}
 </style>
 </head>
 <body>
@@ -195,27 +258,88 @@ function startText(m) {
   return `${day} às ${hour(m.start)}<br><span style="color:var(--mute);font-weight:500">${mins < 60 ? `daqui a ${mins} min` : mins < 1440 ? `daqui a ${Math.round(mins / 60)} h` : ""}</span>`;
 }
 
-function gameCard(m) {
-  let rec;
-  if (m.bet) {
-    rec = `<div class="rec go"><div><div class="big">Apostado: ${esc(m.bet.side)}</div><div class="small">${usd(m.bet.stake)} a odd ${(1 / m.bet.price).toFixed(2)} · ${m.bet.status === "sold" ? "já saímos" : "em jogo"}</div></div><a class="open" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
-  } else if (m.rec) {
-    const mk = m.rec.market && m.rec.market !== "Match Winner" && !m.rec.market.startsWith("Várias") ? ` (${esc(m.rec.market)})` : "";
-    rec = `<div class="rec go"><div><div class="big">APOSTA em ${esc(m.rec.side)}${mk}${m.rec.odds ? ` · odd ${m.rec.odds}` : ""}</div><div class="small">${m.rec.fade ? "contra uma conta nova que apostou no outro lado · " : ""}${esc(m.rec.why)}</div></div><a class="open" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
-  } else {
-    rec = `<div class="rec no"><div><div class="big">Não apostes</div><div class="small">${esc(m.no || "")}</div></div><a class="open" href="${esc(m.url)}" target="_blank" rel="noopener">Ver ↗</a></div>`;
+const odd = p => p ? (1 / p).toFixed(2) : "–";
+const k$ = v => v >= 1000 ? "$" + (v / 1000).toFixed(1) + "k" : "$" + Math.round(v);
+const minTxt = m => m == null ? "" : m >= 0 ? `${m}'` : `${-m >= 60 ? Math.round(-m / 60) + "h" : -m + " min"} antes`;
+
+function ring(score) {
+  const r = 22, c = 2 * Math.PI * r, f = Math.max(0, Math.min(100, score)) / 100;
+  const col = score >= 60 ? "var(--green)" : score >= 40 ? "var(--amber)" : "var(--mute)";
+  return `<svg class="ring" viewBox="0 0 54 54" width="54" height="54" aria-label="pontuação ${score}"><circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--line-2)" stroke-width="5"/><circle cx="27" cy="27" r="${r}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 27 27)"/><text x="27" y="32" text-anchor="middle">${score}</text></svg>`;
+}
+
+function timeline(d) {
+  const W = 1000, H = 150, n = d.bars.length, bw = W / n;
+  const max = Math.max(1, ...d.bars.map(b => b[0] + b[1]));
+  let bars = "", pts = [];
+  d.bars.forEach((b, i) => {
+    const ha = b[0] / max * (H - 14), hb = b[1] / max * (H - 14), x = i * bw + bw * 0.06, w = bw * 0.88;
+    if (ha) bars += `<rect x="${x.toFixed(1)}" y="${(H - ha).toFixed(1)}" width="${w.toFixed(1)}" height="${ha.toFixed(1)}" fill="var(--teamA)" rx="2"/>`;
+    if (hb) bars += `<rect x="${x.toFixed(1)}" y="${(H - ha - hb).toFixed(1)}" width="${w.toFixed(1)}" height="${hb.toFixed(1)}" fill="var(--teamB)" rx="2"/>`;
+    if (b[2] != null) pts.push([i * bw + bw / 2, b[2]]);
+  });
+  let line = "";
+  if (pts.length > 1) {
+    const ps = pts.map(p => p[1]), lo = Math.min(...ps), hi = Math.max(...ps), span = Math.max(0.05, hi - lo);
+    const Y = v => 10 + (1 - (v - lo) / span) * (H * 0.55);
+    line = `<path d="${pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ")}" fill="none" stroke="var(--amber)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
   }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl" role="img" aria-label="Dinheiro por equipa ao longo do tempo">${bars}${line}</svg>`;
+}
+
+function gameCard(m) {
   if (m.quiet) return `<article class="game quiet"><div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
       <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))} · ainda sem apostas suspeitas</div></div>
       <div class="when">${startText(m)}</div></div></article>`;
-  const rows = m.items.map(x => `<div class="row"><b>${usd0(x.usd)}</b> em <b>${esc(x.side)}</b> · ${esc(x.market === "Match Winner" ? "jogo" : x.market)} · <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name)}</a>${x.age != null && x.age < 30 ? ` · conta com ${Math.max(0, Math.round(x.age))} dias` : ""}${x.share >= 0.1 ? ` · ${Math.round(x.share * 100)}% do mercado` : ""}${x.rel != null ? ` · ${x.rel >= 1 ? (x.rel).toFixed(1) + "x" : Math.round(x.rel * 100) + "%"} do normal no tier` : ""}${x.live ? ` <span class="tg live">AO VIVO</span>` : ""}${x.sold >= 0.5 ? ` <span class="tg sold">JÁ VENDEU</span>` : ""}${x.sharp ? ` <span class="tg sharp">AFIADA${x.rec ? ` ${x.rec[1]}/${x.rec[0]}` : ""}</span>` : ""}${x.listed ? ` <span class="tg list">TUA LISTA</span>` : ""}${x.good ? ` <span class="tg good">SINAL</span>` : ""}</div>`).join("");
-  return `<article class="game ${m.rec || m.bet ? "go" : ""}">
-    <div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
-      <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))}</div></div>
-      <div class="when">${startText(m)}</div></div>
-    ${rec}
-    <details class="who"><summary>Quem apostou forte (${usd0(m.money)} no total) ▾</summary><div class="rows">${rows}</div></details>
-  </article>`;
+  const d = m.detail, r = m.rec;
+  const state = m.live ? `<span class="pill live">● a decorrer</span>` : `<span class="pill soon">começa ${startText(m).replace(/<br>.*/, "")}</span>`;
+  const head = `<div class="mh">${ring(m.score || 0)}
+    <div class="mt"><div class="t1"><img class="gm" src="img/${m.game}-64.png" alt="" width="18" height="18"><span class="gp">${NAME[m.game]}</span><span class="tt">${esc(m.match)} - ${esc(m.event)}</span></div>
+    <div class="t2">Jogo · tier ${esc(m.tier.replace("T", ""))} · começa ${when(m.start)}${m.alert ? ` · alerta ${when(m.alert)}` : ""}</div></div>${state}</div>`;
+  let box;
+  if (m.bet) {
+    box = `<div class="betbox go"><div class="bl"><div class="cap2">APOSTADO PELA BANCA</div><div class="side">${esc(m.bet.side)} <span class="o">${odd(m.bet.price)}</span></div>
+      <div class="chips"><span class="chip">${usd(m.bet.stake)} · ${m.bet.status === "sold" ? "já saímos" : "em jogo"}</span></div></div>
+      <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
+  } else if (r) {
+    const mk = r.kind === "match" ? "Vencedor (série)" : esc(r.market);
+    const tags = [r.why, r.listed ? "carteira da tua lista" : "", r.sharp ? "carteira afiada" : "", r.fade ? "contra conta nova" : (r.fresh ? "conta nova" : "")].filter(Boolean)
+      .map(t => `<span class="chip warn">${esc(t)}</span>`).join("");
+    box = `<div class="betbox go"><div class="bl"><div class="cap2">APOSTA EM · ${r.fade ? "CONTRA A CONTA NOVA" : "LADO DO DINHEIRO"} · <span class="mkp">${mk}</span></div>
+      <div class="side">${esc(r.side)} <span class="o">${r.odds ?? "–"}</span> <span class="imp">${r.implied ? Math.round(r.implied * 100) + "%" : ""} · no alerta</span>
+        ${r.now ? `<span class="nowc">⚡ agora ${r.now}</span>` : ""}</div>
+      <div class="chips"><span class="vs">vs ${esc(r.other)}</span>${tags}</div></div>
+      <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
+  } else {
+    box = `<div class="betbox no"><div class="bl"><div class="cap2">NÃO APOSTAR</div><div class="side dim">${esc(m.no || "")}</div></div>
+      <a class="cta ghost" href="${esc(m.url)}" target="_blank" rel="noopener">Ver na Polymarket ↗</a></div>`;
+  }
+  if (!d) return `<article class="game full">${head}${box}</article>`;
+  const [A, B] = d.teams;
+  const teamCls = t => t === A ? "ta" : "tb";
+  const oa = d.odds_from != null && d.odds_now != null ? `${odd(d.odds_from)} → ${odd(d.odds_now)}` : "–";
+  const pp = d.odds_from != null && d.odds_now != null ? Math.round((d.odds_now - d.odds_from) * 100) : null;
+  const tagw = x => (x.listed ? `<span class="tg list">LISTA</span>` : "") + (x.sharp ? `<span class="tg sharp">AFIADA</span>` : "");
+  const tops = d.top.map(x => `<tr><td><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name.slice(0, 18))}</a>${tagw(x)}${x.pre && x.pre !== x.side ? ` <span class="mute">antes: ${esc(x.pre)}</span>` : ""}</td><td class="${teamCls(x.side)}">${esc(x.side)}</td><td class="r num"><b>${k$(x.usd)}</b></td><td class="r mute num">${d.live ? "desde " + minTxt(x.at) : minTxt(x.at)} · ${x.n} tr</td></tr>`).join("");
+  const bigs = d.big.map(x => `<tr><td class="mute num">${minTxt(x.at)}</td><td><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name.slice(0, 18))}</a>${tagw(x)}</td><td class="${teamCls(x.side)}">${esc(x.side)}${x.market !== "Match Winner" ? ` <span class="mute">${esc(x.market.replace(/Map |Game /, "M").replace(" Winner", ""))}</span>` : ""}</td><td class="r num"><b>${k$(x.usd)}</b></td><td class="r mute num">@ ${odd(x.px)}</td></tr>`).join("");
+  const sw = d.switched.length ? d.switched.map(x => `<div class="swr"><b>${esc(x.name)}</b> apostou ${k$(x.pre_usd)} em <span class="${teamCls(x.pre_side)}">${esc(x.pre_side)}</span> antes do jogo e agora ${k$(x.usd)} em <span class="${teamCls(x.side)}">${esc(x.side)}</span></div>`).join("")
+    : `<div class="mute">Nenhuma carteira trocou de lado${d.live ? " desde o início" : ""}.</div>`;
+  const live = `<section class="lv ${d.live ? "on" : ""}">
+    <div class="lh">${d.live ? `<span class="pill live">● ao vivo</span><b>${d.mins} min de jogo</b>` : `<span class="pill soon">pré-jogo</span><b>últimas ${Math.round((Date.now() / 1000 - d.since) / 3600) || 1} h</b>`}<span class="mute">dinheiro dos últimos 30 min</span></div>
+    <div class="stats">
+      <div><div class="cap2">DINHEIRO VAI PARA</div><div class="sv ${teamCls(d.recent.side)}">● ${esc(d.recent.side)}</div><div class="mute">${k$(d.recent.usd)} · ${Math.round(d.recent.net * 100)}% líquido</div></div>
+      <div><div class="cap2">ODD ${esc(A.toUpperCase())}</div><div class="sv">${oa}</div><div class="mute">${pp != null ? (pp >= 0 ? "+" : "") + pp + " pp " + (d.live ? "desde o início" : "nas últimas horas") : ""}</div></div>
+      <div><div class="cap2">CONCENTRAÇÃO</div><div class="sv">${Math.round(d.conc * 100)}%</div><div class="mute">maior carteira · ${d.wallets} carteiras</div></div>
+      <div><div class="cap2">TROCARAM DE LADO</div><div class="sv">${d.switched.length}</div><div class="mute">${d.switched.length ? "ver abaixo" : "nenhuma carteira"}</div></div>
+    </div>
+    <div class="cap2 tlh">LINHA DO TEMPO <span class="mute">${d.live ? "desde o início" : "antes do jogo"}: ${esc(A)} ${k$(d.totals[A])} vs ${esc(B)} ${k$(d.totals[B])} · ${d.trades} apostas · ${d.wallets} carteiras</span></div>
+    ${timeline(d)}
+    <div class="leg"><span>${d.live ? "início" : "há " + Math.round((Date.now() / 1000 - d.since) / 3600) + " h"}</span><span><i class="sq ta"></i>${esc(A)} <i class="sq tb"></i>${esc(B)} <i class="ln"></i>odd ${esc(A)}</span><span>agora</span></div>
+    <div class="cap2" style="margin-top:12px">TROCARAM DE LADO <span class="mute">apostaram numa equipa antes do jogo e na outra ao vivo (≥ $100)</span></div>${sw}
+    <div class="cols"><div><div class="cap2">MAIORES CARTEIRAS</div><table>${tops}</table></div>
+      <div><div class="cap2">MAIORES APOSTAS</div><table>${bigs}</table></div></div>
+  </section>`;
+  return `<article class="game full ${r || m.bet ? "go" : ""}">${head}${box}${live}</article>`;
 }
 
 function betCard(b) {
