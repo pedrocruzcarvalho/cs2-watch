@@ -6,163 +6,201 @@
 <title>Fix Hunter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   color-scheme: dark;
-  --bg: #0f141b; --panel: #161d27; --panel-2: #1c2531; --line: #263140; --line-2: #33404f;
-  --ink: #e9edf2; --ink-2: #b4bfcc; --mute: #7d8a9b;
-  --win: #4fc283; --loss: #e5675d; --open: #7ea4d9; --amber: #e0a43a; --live: #b07ce8;
-  --win-soft: rgba(79,194,131,.12); --loss-soft: rgba(229,103,93,.12); --open-soft: rgba(126,164,217,.12);
+  --bg: #0b0f15; --card: #111821; --card-2: #0e141c; --row: #121a24; --line: #1d2734; --line-2: #2a3646;
+  --ink: #e8edf3; --ink-2: #b3bfcd; --mute: #6f7d8f;
+  --green: #34d47c; --green-bg: rgba(52,212,124,.10); --red: #f0605a; --red-bg: rgba(240,96,90,.10);
+  --blue: #3d8bfd; --blue-bg: rgba(61,139,253,.12); --amber: #f2b33d; --amber-bg: rgba(242,179,61,.14);
+  --violet: #a77bf3;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: #eef1f5; --panel: #ffffff; --panel-2: #f4f6f9; --line: #dde3ea; --line-2: #c9d2dd;
-    --ink: #121821; --ink-2: #3c4757; --mute: #6b7787;
-    --win: #1d8a52; --loss: #c63f35; --open: #2f63a8; --amber: #a8700f; --live: #7a3fc4;
-    --win-soft: rgba(29,138,82,.10); --loss-soft: rgba(198,63,53,.10); --open-soft: rgba(47,99,168,.10);
+    --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --row: #ffffff; --line: #e2e7ee; --line-2: #ccd5e0;
+    --ink: #111821; --ink-2: #3b4757; --mute: #6b7787;
+    --green: #16924f; --green-bg: rgba(22,146,79,.09); --red: #cf3b35; --red-bg: rgba(207,59,53,.08);
+    --blue: #2563eb; --blue-bg: rgba(37,99,235,.09); --amber: #a86d06; --amber-bg: rgba(168,109,6,.10); --violet: #7340c9;
   }
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #eef1f5; --panel: #ffffff; --panel-2: #f4f6f9; --line: #dde3ea; --line-2: #c9d2dd;
-  --ink: #121821; --ink-2: #3c4757; --mute: #6b7787;
-  --win: #1d8a52; --loss: #c63f35; --open: #2f63a8; --amber: #a8700f; --live: #7a3fc4;
-  --win-soft: rgba(29,138,82,.10); --loss-soft: rgba(198,63,53,.10); --open-soft: rgba(47,99,168,.10);
+  --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --row: #ffffff; --line: #e2e7ee; --line-2: #ccd5e0;
+  --ink: #111821; --ink-2: #3b4757; --mute: #6b7787;
+  --green: #16924f; --green-bg: rgba(22,146,79,.09); --red: #cf3b35; --red-bg: rgba(207,59,53,.08);
+  --blue: #2563eb; --blue-bg: rgba(37,99,235,.09); --amber: #a86d06; --amber-bg: rgba(168,109,6,.10); --violet: #7340c9;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "Barlow", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-a { color: var(--open); text-decoration: none; } a:hover { text-decoration: underline; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--blue); text-decoration: none; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cap { font: 600 11px/1.2 "Barlow", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
-.pos { color: var(--win); } .neg { color: var(--loss); }
-.wrap { max-width: 1240px; margin: 0 auto; padding: 18px 16px 64px; }
+.pos { color: var(--green); } .neg { color: var(--red); }
+.wrap { max-width: 1340px; margin: 0 auto; padding: 14px 16px 60px; }
 
-.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.top h1 { margin: 0; font: 700 18px/1 "Chakra Petch", sans-serif; letter-spacing: .03em; }
-.status { font-size: 13px; color: var(--mute); display: flex; align-items: center; gap: 7px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--win); }
-.dot.stale { background: var(--loss); }
-.filters { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
-.seg button { font: 600 12.5px/1 "Barlow", sans-serif; color: var(--ink-2); background: none; border: 0; border-radius: 999px; padding: 7px 12px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--open); color: #fff; }
+.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.brand { font-weight: 800; font-size: 15px; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.brand i { width: 9px; height: 9px; border-radius: 2px; background: var(--green); transform: rotate(45deg); }
+.status { font-size: 12px; color: var(--mute); display: flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.dot.stale { background: var(--red); }
+.pills { display: inline-flex; background: var(--card-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; max-width: 100%; overflow-x: auto; }
+.pills button { font: 600 12px/1 "Inter", sans-serif; color: var(--ink-2); background: none; border: 0; border-radius: 999px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+.pills button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.pills button:focus-visible, .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.tabs { margin-left: auto; }
 
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-.kpis { display: grid; grid-template-columns: repeat(5, 1fr); }
-.kpi { padding: 14px 18px; border-left: 1px solid var(--line); min-width: 0; }
+.bank { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; flex-wrap: wrap; }
+.bank > div { padding: 10px 16px; border-right: 1px solid var(--line); min-width: 0; }
+.bank > div:last-child { border-right: 0; margin-left: auto; display: flex; align-items: center; }
+.bank .k { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+.bank .v { font-weight: 700; font-size: 17px; margin-top: 2px; }
+.bank .v small { font-weight: 500; font-size: 12px; color: var(--mute); margin-left: 6px; }
+
+.sim { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 10px; }
+.sim-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sim-head h1 { margin: 0; font-size: 13.5px; font-weight: 700; }
+.sim-head .sub { color: var(--mute); font-size: 12px; }
+.sim-head .ctl { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.stake { display: inline-flex; align-items: center; gap: 4px; background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-weight: 600; }
+.stake input { width: 54px; background: none; border: 0; color: var(--ink); font: 600 13px "Inter", sans-serif; outline: none; }
+.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12px; cursor: pointer; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card-2); }
+.kpi { padding: 10px 14px; border-left: 1px solid var(--line); }
 .kpi:first-child { border-left: 0; }
-.kpi .v { font: 700 24px/1.2 "Chakra Petch", sans-serif; margin: 5px 0 2px; }
-.kpi .d { font-size: 12.5px; color: var(--mute); }
-.chart { padding: 6px 18px 12px; border-top: 1px solid var(--line); }
-.chart svg { width: 100%; height: 130px; display: block; }
-.chart .foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); gap: 8px; }
+.kpi .k { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+.kpi .v { font-weight: 800; font-size: 22px; margin: 2px 0 0; letter-spacing: -.01em; }
+.kpi .d { font-size: 11.5px; color: var(--mute); }
+.chart { margin-top: 8px; }
+.chart svg { display: block; width: 100%; height: 96px; }
+.chart .foot { display: flex; justify-content: space-between; gap: 10px; color: var(--mute); font-size: 11px; }
+.seeall { display: block; text-align: center; margin-top: 6px; font-size: 12.5px; color: var(--blue); background: none; border: 0; cursor: pointer; width: 100%; font-family: inherit; }
 
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.tbl { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line); }
-th { font: 600 11px/1.2 "Barlow", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); background: var(--panel-2); }
+th, td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+th { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+td { font-size: 12.5px; }
 tr:last-child td { border-bottom: 0; }
-td.r, th.r { text-align: right; }
-.tbl { overflow: hidden; }
+.r { text-align: right; }
+.hl td { background: var(--amber-bg); }
+.tagpill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: var(--amber-bg); color: var(--amber); margin-left: 6px; vertical-align: 1px; }
 
-h2 { font: 700 15px/1.2 "Chakra Petch", sans-serif; margin: 22px 0 10px; display: flex; align-items: baseline; gap: 10px; }
-h2 .cap { font-weight: 600; }
-.note { color: var(--mute); font-size: 13px; margin: -4px 0 10px; }
+.list { display: grid; gap: 6px; margin-top: 12px; }
+.sig { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--row); border: 1px solid var(--line); border-left: 3px solid var(--line-2); border-radius: 8px; padding: 9px 12px; }
+.sig.won { border-left-color: var(--green); } .sig.lost { border-left-color: var(--red); } .sig.open { border-left-color: var(--blue); } .sig.sold { border-left-color: var(--amber); }
+.sold .ic { background: var(--amber-bg); color: var(--amber); } .sold .res { color: var(--amber); }
+.out { font-size: 10px; font-weight: 800; letter-spacing: .05em; color: var(--amber); background: var(--amber-bg); border-radius: 4px; padding: 1px 5px; }
+.ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.won .ic { background: var(--green-bg); color: var(--green); } .lost .ic { background: var(--red-bg); color: var(--red); } .open .ic { background: var(--blue-bg); color: var(--blue); }
+.l1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-weight: 700; font-size: 13.5px; }
+.gm { min-width: 18px; height: 16px; border-radius: 4px; display: inline-grid; place-items: center; font-size: 8.5px; font-weight: 800; color: #fff; flex: none; padding: 0 3px; }
+.gm.cs2 { background: #e38a1d; } .gm.dota { background: #c23c2a; } .gm.lol { background: #1f7fbf; }
+.mk { font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--card-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+.lv { font-size: 10.5px; font-weight: 700; color: var(--violet); }
+.tr { font-size: 10.5px; font-weight: 600; color: var(--mute); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.l2 { color: var(--mute); font-size: 12px; margin-top: 2px; }
+.l2 b { color: var(--ink-2); font-weight: 600; }
+.right { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.res { font-weight: 700; font-size: 12.5px; text-align: right; white-space: nowrap; }
+.won .res { color: var(--green); } .lost .res { color: var(--red); } .open .res { color: var(--blue); }
+.dec { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; padding: 3px 7px; border-radius: 5px; white-space: nowrap; }
+.dec.yes { background: var(--green-bg); color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); }
+.dec.no { background: var(--card-2); color: var(--mute); border: 1px solid var(--line); }
+.btn { font: 600 11.5px "Inter", sans-serif; color: var(--ink-2); background: var(--card-2); border: 1px solid var(--line-2); border-radius: 7px; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
+.btn.sq { width: 28px; padding: 5px 0; text-align: center; display: inline-block; }
+.ana { grid-column: 2 / -1; font-size: 12px; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 8px; }
+.ana ul { margin: 0; padding-left: 16px; }
+.ana .no { color: var(--mute); margin-top: 4px; }
+.more { display: block; margin: 10px auto 0; }
+.empty { padding: 16px; text-align: center; color: var(--mute); background: var(--card); border: 1px dashed var(--line-2); border-radius: 10px; }
+h2 { font-size: 13.5px; font-weight: 700; margin: 18px 0 8px; display: flex; gap: 8px; align-items: baseline; }
+h2 small { color: var(--mute); font-weight: 500; font-size: 12px; }
+.note { color: var(--mute); font-size: 12px; margin: 10px 0 0; }
 
-.list { display: grid; gap: 8px; }
-.bet { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line-2); border-radius: 10px; padding: 10px 14px; }
-.bet.won { border-left-color: var(--win); } .bet.lost { border-left-color: var(--loss); } .bet.open { border-left-color: var(--open); }
-.ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
-.won .ic { background: var(--win-soft); color: var(--win); } .lost .ic { background: var(--loss-soft); color: var(--loss); } .open .ic, .watch .ic { background: var(--open-soft); color: var(--open); }
-.t1 { font-weight: 700; font-size: 14.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.g { font: 700 10px/1 "Barlow", sans-serif; letter-spacing: .06em; padding: 3px 6px; border-radius: 4px; background: var(--panel-2); color: var(--ink-2); border: 1px solid var(--line-2); }
-.g.dota { color: var(--loss); } .g.cs2 { color: var(--amber); }
-.tag { font-size: 11.5px; color: var(--mute); font-weight: 600; }
-.tag.live { color: var(--live); }
-.t2 { font-size: 12.5px; color: var(--mute); margin-top: 2px; }
-.t2 b { color: var(--ink-2); font-weight: 600; }
-.res { text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap; }
-.res small { display: block; font-weight: 500; font-size: 12px; color: var(--mute); }
-.won .res { color: var(--win); } .lost .res { color: var(--loss); } .open .res { color: var(--open); }
-details.why { grid-column: 2 / -1; font-size: 12.5px; color: var(--ink-2); }
-details.why summary { cursor: pointer; color: var(--mute); list-style: none; }
-details.why summary::-webkit-details-marker { display: none; }
-details.why ul { margin: 6px 0 0; padding-left: 18px; }
-.watch { opacity: .85; }
-.watch.skip { opacity: .55; }
-.more { display: block; margin: 10px auto 0; background: var(--panel); color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font: 600 13px "Barlow", sans-serif; cursor: pointer; }
-.empty { padding: 18px; text-align: center; color: var(--mute); background: var(--panel); border: 1px dashed var(--line-2); border-radius: 10px; }
-
-@media (max-width: 820px) {
-  .kpis { grid-template-columns: repeat(2, 1fr); }
-  .kpi { border-left: 0; border-top: 1px solid var(--line); }
-  .kpi:first-child { grid-column: 1 / -1; border-top: 0; }
+@media (max-width: 860px) {
   .two { grid-template-columns: 1fr; }
-  .filters { margin-left: 0; }
-  .bet { grid-template-columns: 28px 1fr; }
-  .res { grid-column: 2; text-align: left; }
-  th, td { padding: 8px 10px; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpi:nth-child(3) { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .sim-head .ctl { margin-left: 0; }
+  .tabs { margin-left: 0; }
+  .sig { grid-template-columns: 26px minmax(0, 1fr); }
+  .right { grid-column: 2; justify-content: flex-start; flex-wrap: wrap; }
+  .bank > div:last-child { margin-left: 0; }
+  th, td { padding: 7px 8px; }
 }
 </style>
 </head>
 <body>
 <main class="wrap">
   <div class="top">
-    <h1>Fix Hunter</h1>
+    <div class="brand"><i></i>Fix Hunter</div>
     <div class="status" id="status"><span class="dot"></span><span>a carregar…</span></div>
-    <div class="seg" id="tabs"><button data-v="hunter" aria-pressed="true">Caçador</button><button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button></div>
-    <div class="filters" id="filters">
-      <div class="seg" id="f-game"><button data-v="all" aria-pressed="true">Todos</button><button data-v="cs2" aria-pressed="false">CS2</button><button data-v="dota" aria-pressed="false">Dota 2</button></div>
-      <div class="seg" id="f-kind"><button data-v="all" aria-pressed="true">Tudo</button><button data-v="match" aria-pressed="false">Séries</button><button data-v="map" aria-pressed="false">Mapas</button></div>
-    </div>
+    <div class="pills tabs" id="tabs"><button data-v="hunter" aria-pressed="true">Sinais</button><button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button></div>
   </div>
 
   <div id="v-hunter">
-  <section class="panel">
-    <div class="kpis">
-      <div class="kpi"><div class="cap">Banca</div><div class="v num" id="k-bal">–</div><div class="d num" id="k-bal-d"></div></div>
-      <div class="kpi"><div class="cap">Resultado</div><div class="v num" id="k-pnl">–</div><div class="d num" id="k-pnl-d"></div></div>
-      <div class="kpi"><div class="cap">Retorno</div><div class="v num" id="k-roi">–</div><div class="d">sobre o apostado</div></div>
-      <div class="kpi"><div class="cap">Greens</div><div class="v num pos" id="k-w">–</div><div class="d num" id="k-w-d"></div></div>
-      <div class="kpi"><div class="cap">Reds</div><div class="v num neg" id="k-l">–</div><div class="d num" id="k-l-d"></div></div>
+    <div class="bank" aria-label="A tua banca">
+      <div><div class="k">Banca</div><div class="v num" id="b-bal">–</div></div>
+      <div><div class="k">Resultado</div><div class="v num" id="b-pnl">–</div></div>
+      <div><div class="k">Greens / Reds</div><div class="v num" id="b-wl">–</div></div>
+      <div><div class="k">Em jogo</div><div class="v num" id="b-open">–</div></div>
+      <div><button class="btn" id="b-show">Ver apostas da banca</button></div>
     </div>
-    <div class="chart"><div id="chart"></div><div class="foot"><span id="c-a"></span><span id="c-m"></span><span>agora</span></div></div>
-  </section>
+    <div class="list" id="bank-bets" hidden style="margin:-4px 0 12px"></div>
 
-  <div class="two">
-    <section class="panel tbl"><table><thead><tr><th>Dia</th><th class="r">Apostas</th><th class="r">Greens</th><th class="r">Reds</th><th class="r">Lucro</th></tr></thead><tbody id="t-day"></tbody></table></section>
-    <section class="panel tbl"><table><thead><tr><th>Pontuação</th><th class="r">Casos</th><th class="r">Ganhou</th><th class="r">Odd média</th><th class="r">ROI</th></tr></thead><tbody id="t-score"></tbody></table></section>
-  </div>
+    <section class="sim">
+      <div class="sim-head">
+        <h1>Simulação: stake fixa em cada sinal</h1>
+        <span class="sub">temporária, só no ecrã · uma aposta por jogo + equipa · tier 3 ou pior</span>
+        <div class="ctl">
+          <div class="pills" id="f-dec"><button data-v="all" aria-pressed="true">Todos os sinais</button><button data-v="yes" aria-pressed="false">Só APOSTAR</button></div>
+          <div class="pills" id="f-kind"><button data-v="all" aria-pressed="true">Tudo</button><button data-v="match" aria-pressed="false">Séries</button><button data-v="map" aria-pressed="false">Mapas</button></div>
+          <div class="pills" id="f-game"><button data-v="all" aria-pressed="true">Todos</button><button data-v="cs2" aria-pressed="false">CS2</button><button data-v="dota" aria-pressed="false">Dota</button><button data-v="lol" aria-pressed="false">LoL</button></div>
+          <label class="stake">$ <input id="f-stake" type="number" min="1" step="1" value="10" aria-label="Stake por sinal"></label>
+          <label class="chk"><input type="checkbox" id="f-slip"> derrapagem</label>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">Resultado</div><div class="v num" id="s-res">–</div><div class="d num" id="s-res-d"></div></div>
+        <div class="kpi"><div class="k">Retorno</div><div class="v num" id="s-roi">–</div><div class="d">sobre o total apostado</div></div>
+        <div class="kpi"><div class="k">Greens</div><div class="v num pos" id="s-w">–</div><div class="d num" id="s-w-d"></div></div>
+        <div class="kpi"><div class="k">Reds</div><div class="v num neg" id="s-l">–</div><div class="d num" id="s-l-d"></div></div>
+      </div>
+      <div class="chart"><div id="chart"></div><div class="foot"><span>1ª aposta</span><span id="c-mid"></span><span>última</span></div></div>
+      <button class="seeall" id="seeall">Ver os sinais</button>
+    </section>
 
-  <h2>Apostas <span class="cap" id="n-bets"></span></h2>
-  <div class="list" id="bets"></div>
-  <button class="more" id="more" hidden>Ver mais</button>
+    <div class="two">
+      <section class="tbl"><table><thead><tr><th>Dia</th><th class="r">Sinais</th><th class="r">Apostar</th><th class="r">Acertos</th><th class="r">Edge</th></tr></thead><tbody id="t-day"></tbody></table></section>
+      <section class="tbl"><table><thead><tr><th>Pontuação</th><th class="r">Casos</th><th class="r">Ganhou</th><th class="r">Odd</th><th class="r">Edge</th></tr></thead><tbody id="t-score"></tbody></table></section>
+    </div>
 
-  <h2>Em vigia <span class="cap" id="n-watch"></span></h2>
-  <p class="note">Dinheiro grande nos jogos de hoje. Os que cumprem as regras são apostados; os outros mostram porque não.</p>
-  <div class="list" id="watch"></div>
+    <div class="list" id="sigs"></div>
+    <button class="btn more" id="more" hidden>Ver mais</button>
+    <p class="note">Sinal = uma carteira com $1.000+ num lado de um mercado (série ou mapa) num jogo tier 3 ou pior. A odd é a do momento em que o sinal apareceu (nos sinais marcados como histórico, a média da carteira). APOSTAR = passa as regras testadas; a banca aposta esses quando ainda dá para entrar.</p>
   </div>
 
   <div id="v-mirror" hidden>
-    <section class="panel">
-      <div class="kpis">
-        <div class="kpi"><div class="cap">Valor</div><div class="v num" id="m-eq">–</div><div class="d num" id="m-eq-d"></div></div>
-        <div class="kpi"><div class="cap">Resultado</div><div class="v num" id="m-pnl">–</div><div class="d num" id="m-pnl-d"></div></div>
-        <div class="kpi"><div class="cap">Dinheiro livre</div><div class="v num" id="m-cash">–</div><div class="d num" id="m-cash-d"></div></div>
-        <div class="kpi"><div class="cap">Greens / Reds</div><div class="v num" id="m-wl">–</div><div class="d" id="m-wl-d"></div></div>
-        <div class="kpi"><div class="cap">Cópia</div><div class="v num" id="m-until">–</div><div class="d" id="m-until-d"></div></div>
-      </div>
-    </section>
-    <p class="note" style="margin-top:12px" id="m-note"></p>
-    <h2>Posições abertas <span class="cap" id="m-n-open"></span></h2>
-    <section class="panel tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th class="r">Custo</th><th class="r">Preço</th><th class="r">Valor</th></tr></thead><tbody id="m-open"></tbody></table></section>
-    <h2>Movimentos <span class="cap">compras e vendas dele, e o que copiámos</span></h2>
-    <section class="panel tbl"><table><thead><tr><th>Quando</th><th>Mercado</th><th>Ele</th><th>Nós</th><th class="r">Preço</th></tr></thead><tbody id="m-trades"></tbody></table></section>
-    <h2>Fechadas <span class="cap" id="m-n-closed"></span></h2>
-    <section class="panel tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th>Fim</th><th class="r">Custo</th><th class="r">P&amp;L</th></tr></thead><tbody id="m-closed"></tbody></table></section>
+    <div class="bank">
+      <div><div class="k">Valor</div><div class="v num" id="m-eq">–</div></div>
+      <div><div class="k">Resultado</div><div class="v num" id="m-pnl">–</div></div>
+      <div><div class="k">Dinheiro livre</div><div class="v num" id="m-cash">–</div></div>
+      <div><div class="k">Greens / Reds</div><div class="v num" id="m-wl">–</div></div>
+      <div><div class="k">Cópia</div><div class="v num" id="m-until">–</div></div>
+    </div>
+    <p class="note" id="m-note"></p>
+    <h2>Posições abertas <small id="m-n-open"></small></h2>
+    <section class="tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th class="r">Custo</th><th class="r">Preço</th><th class="r">Valor</th></tr></thead><tbody id="m-open"></tbody></table></section>
+    <h2>Movimentos <small>compras e vendas dele, e o que copiámos</small></h2>
+    <section class="tbl"><table><thead><tr><th>Quando</th><th>Mercado</th><th>Ele</th><th>Nós</th><th class="r">Preço</th></tr></thead><tbody id="m-trades"></tbody></table></section>
+    <h2>Fechadas <small id="m-n-closed"></small></h2>
+    <section class="tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th>Fim</th><th class="r">Custo</th><th class="r">P&amp;L</th></tr></thead><tbody id="m-closed"></tbody></table></section>
   </div>
 </main>
 
@@ -171,61 +209,99 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const usd = v => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
 const usd0 = v => "$" + Math.round(v).toLocaleString("en-US");
-const pct = v => v == null ? "–" : (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+const pct = v => v == null || !isFinite(v) ? "–" : (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
 const when = t => new Date(t * 1000).toLocaleString("pt-PT", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"});
-const odds = p => p ? (1 / p).toFixed(2) : "–";
-let D = null, game = "all", kind = "all", shown = 30;
-try { game = localStorage.getItem("fh-game") || "all"; kind = localStorage.getItem("fh-kind") || "all"; } catch {}
+const dayOf = t => new Date(t * 1000).toLocaleDateString("pt-PT", {day: "2-digit", month: "2-digit"});
+const GM = {cs2: "CS", dota: "D2", lol: "LoL"};
+const store = {get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }};
+let D = null, shown = 40, tab = store.get("fh-tab", "hunter");
+const F = {dec: "all", kind: "all", game: "all", stake: 10, slip: false};
+for (const k of ["dec", "kind", "game"]) F[k] = store.get("fh-" + k, F[k]);
+F.stake = +store.get("fh-stake", 10) || 10; F.slip = store.get("fh-slip", "0") === "1";
 
-function keep(b) {
-  if (game !== "all" && b.game !== game) return false;
-  if (kind === "match" && b.market !== "Match Winner") return false;
-  if (kind === "map" && b.market === "Match Winner") return false;
-  return true;
+function keep(x) {
+  if (F.dec === "yes" && !x.rule) return false;
+  if (F.kind === "match" && x.kind !== "match") return false;
+  if (F.kind === "map" && x.kind === "match") return false;
+  if (F.game !== "all" && x.game !== F.game) return false;
+  return x.price != null;
 }
 
-function gameTag(g) { return `<span class="g ${g}">${g === "dota" ? "DOTA 2" : "CS2"}</span>`; }
-
-function betCard(b) {
-  const st = b.status;
-  const icon = st === "won" ? "✓" : st === "lost" ? "✗" : "•";
-  const res = st === "won" ? `+${usd(b.pnl).slice(1)}<small>${esc(b.winner)} ganhou</small>`
-            : st === "lost" ? `${usd(b.pnl)}<small>${esc(b.winner)} ganhou</small>`
-            : `aberta<small>${usd(b.stake)} em jogo</small>`;
-  const mk = b.market === "Match Winner" ? "" : `<span class="tag">${esc(b.market)}</span>`;
-  const ph = b.phase === "live" ? `<span class="tag live">ao vivo</span>` : "";
-  const why = (b.why || []).map(x => `<li>${esc(x)}</li>`).join("");
-  const who = b.name && !b.name.startsWith("0x") ? b.name : (b.wallet || "").slice(0, 8);
-  return `<div class="bet ${st}"><div class="ic">${icon}</div>
-    <div><div class="t1">${gameTag(b.game)}${esc(b.match)}${mk}${ph}</div>
-      <div class="t2">${b.their_side && b.their_side !== b.side ? `Contra conta fresca: aposta em <b>${esc(b.side)}</b>` : `Dinheiro em <b>${esc(b.side)}</b>`} · regra <b>${esc(b.rule || "–")}</b> · pontuação <b>${b.score}</b> · odd <b>${odds(b.price)}</b> · ${usd(b.stake)} · ${when(b.placed_at)}</div></div>
-    <div class="res num">${res}</div>
-    <details class="why"><summary>porquê ▾</summary><ul><li>Carteira: <a href="https://polymarket.com/profile/${esc(b.wallet)}" target="_blank" rel="noopener">${esc(who)}</a></li>${why}<li><a href="${esc(b.url)}" target="_blank" rel="noopener">abrir mercado ↗</a></li></ul></details></div>`;
+// one bet per match + team: the first signal (by time) for each
+function simulate(list) {
+  const seen = new Set(), bets = [];
+  let dup = 0;
+  for (const x of [...list].sort((a, b) => a.seen - b.seen)) {
+    const k = x.match + "|" + x.side + "|" + Math.round(x.start / 3600);
+    if (seen.has(k)) { dup++; continue; }
+    seen.add(k); bets.push(x);
+  }
+  const S = F.stake, out = {dup, n: 0, staked: 0, pnl: 0, w: 0, l: 0, wUsd: 0, lUsd: 0, series: [[0, 0]], lo: 0, hi: 0};
+  let run = 0;
+  for (const x of bets) {
+    if (x.status !== "won" && x.status !== "lost") continue;
+    const p = Math.min(0.97, x.price + (F.slip ? 0.03 : 0));
+    const r = x.status === "won" ? S * (1 / p - 1) : -S;
+    out.n++; out.staked += S; out.pnl += r; run += r;
+    if (r > 0) { out.w++; out.wUsd += r; } else { out.l++; out.lUsd -= r; }
+    out.series.push([out.n, run]); out.lo = Math.min(out.lo, run); out.hi = Math.max(out.hi, run);
+  }
+  return out;
 }
 
-function watchCard(w) {
-  const who = w.name && !w.name.startsWith("0x") ? w.name : (w.wallet || "").slice(0, 8);
-  const mk = w.market === "Match Winner" ? "" : `<span class="tag">${esc(w.market)}</span>`;
-  const ph = w.phase === "live" ? `<span class="tag live">ao vivo</span>` : "";
-  const tgt = w.bet_side && w.bet_side !== w.side ? ` → contra: ${esc(w.bet_side)}` : "";
-  const res = w.bet ? `apostado${tgt}<small>regra ${esc(w.rule)} · pontuação ${w.score}</small>` : w.no ? `não<small>${esc(w.no)}</small>` : `a apostar${tgt}<small>regra ${esc(w.rule)} · pontuação ${w.score}</small>`;
-  return `<div class="bet watch ${w.no ? "skip" : "open"}"><div class="ic">${w.no ? "–" : "!"}</div>
-    <div><div class="t1">${gameTag(w.game)}${esc(w.match)}${mk}${ph}</div>
-      <div class="t2"><b>${usd0(w.usd)}</b> em <b>${esc(w.side)}</b> a ${w.px.toFixed(2)} · ${esc(who)} · início ${when(w.start)}</div></div>
-    <div class="res num">${res}</div>
-    <details class="why"><summary>porquê ▾</summary><ul>${(w.why || []).map(x => `<li>${esc(x)}</li>`).join("")}<li><a href="${esc(w.url)}" target="_blank" rel="noopener">abrir mercado ↗</a></li></ul></details></div>`;
+function chart(series, lo, hi) {
+  if (series.length < 2) { $("chart").innerHTML = `<svg viewBox="0 0 1000 96"></svg>`; return; }
+  const W = 1000, H = 96, n = series.length - 1, span = (hi - lo) || 1;
+  const X = i => i / n * W, Y = v => H - 6 - (v - lo) / span * (H - 12);
+  const d = series.map(([i, v], k) => (k ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" ");
+  const col = series[series.length - 1][1] >= 0 ? "var(--green)" : "var(--red)";
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Resultado acumulado"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
-function chart(series) {
-  if (!series || series.length < 2) { $("chart").innerHTML = ""; return; }
-  const W = 1000, H = 130, xs = series.map(p => p[0]), ys = series.map(p => p[1]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const X = x => (x1 === x0 ? 0 : (x - x0) / (x1 - x0)) * W, Y = y => H - 8 - (y1 === y0 ? .5 : (y - y0) / (y1 - y0)) * (H - 16);
-  const d = series.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
-  const up = ys[ys.length - 1] >= ys[0];
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução da banca"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="var(${up ? "--win" : "--loss"})" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
-  $("c-a").textContent = "início " + usd(ys[0]);
-  $("c-m").textContent = `pior ${usd(y0)} · melhor ${usd(y1)}`;
+function edge(g) {
+  const s = g.filter(x => x.status === "won" || x.status === "lost");
+  if (!s.length) return null;
+  return s.filter(x => x.status === "won").length / s.length - s.reduce((a, x) => a + x.price, 0) / s.length;
+}
+const pp = e => e == null ? "–" : `<span class="${e >= 0 ? "pos" : "neg"}">${e >= 0 ? "+" : ""}${Math.round(e * 100)} pp</span>`;
+
+function tables(list) {
+  const days = new Map();
+  for (const x of list) { const d = dayOf(x.seen); if (!days.has(d)) days.set(d, []); days.get(d).push(x); }
+  $("t-day").innerHTML = [...days.entries()].slice(0, 10).map(([d, g]) => {
+    const yes = g.filter(x => x.rule), done = g.filter(x => x.status === "won" || x.status === "lost");
+    const hits = done.filter(x => x.status === "won").length;
+    return `<tr><td>${d}</td><td class="r num">${g.length}</td><td class="r num">${yes.length || "–"}</td><td class="r num">${done.length ? hits + "/" + done.length : "–"}</td><td class="r num">${pp(edge(g))}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" style="color:var(--mute)">sem sinais</td></tr>`;
+  const B = [[0, 20], [20, 40], [40, 60], [60, 101]];
+  $("t-score").innerHTML = B.map(([a, b]) => {
+    const g = list.filter(x => x.score >= a && x.score < b), done = g.filter(x => x.status === "won" || x.status === "lost");
+    const won = done.length ? Math.round(100 * done.filter(x => x.status === "won").length / done.length) + "%" : "–";
+    const odd = done.length ? (done.reduce((s, x) => s + 1 / x.price, 0) / done.length).toFixed(2) : "–";
+    return `<tr class="${a >= 60 ? "hl" : ""}"><td>${a}–${Math.min(b, 100)}${a >= 60 ? '<span class="tagpill">apostar</span>' : ""}</td><td class="r num">${g.length}</td><td class="r num">${won}</td><td class="r num">${odd}</td><td class="r num">${pp(edge(g))}</td></tr>`;
+  }).join("");
+}
+
+function card(x, i, bank) {
+  const st = x.status;
+  const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
+  const res = st === "won" || st === "lost" ? `${esc(x.winner)} ganhou` : st === "sold" ? `saiu ${x.pnl >= 0 ? "+" : ""}${usd(x.pnl)}` : (x.start > Date.now() / 1000 ? "por jogar" : "a decorrer");
+  const out = x.exited ? `<span class="out" title="a carteira vendeu a posição">VENDEU</span>` : "";
+  const mk = x.kind === "match" || x.market === "Match Winner" ? "" : `<span class="mk">${esc(x.market)}</span>`;
+  const lv = x.phase === "live" ? `<span class="lv">AO VIVO</span>` : "";
+  const fade = x.their_side && x.their_side !== x.side;
+  const money = fade ? `Contra conta fresca: <b>${esc(x.side)}</b>` : `Dinheiro em <b>${esc(x.side)}</b>`;
+  const extra = bank ? ` · apostado ${usd(x.stake)}${x.pnl != null ? ` · <b class="${x.pnl >= 0 ? "pos" : "neg"}">${x.pnl >= 0 ? "+" : ""}${usd(x.pnl)}</b>` : ""}` : "";
+  const dec = bank ? `<span class="dec yes">REGRA ${esc(x.rule)}</span>`
+            : x.rule ? `<span class="dec yes" title="regra ${esc(x.rule)}">APOSTAR</span>` : `<span class="dec no" title="${esc(x.no || "")}">NÃO</span>`;
+  const who = x.name && !x.name.startsWith("0x") ? x.name : (x.wallet || "").slice(0, 10);
+  const why = (x.why || []).map(w => `<li>${esc(w)}</li>`).join("");
+  const id = (bank ? "b" : "s") + i;
+  return `<div class="sig ${st}"><div class="ic">${icon}</div>
+    <div style="min-width:0"><div class="l1"><span class="gm ${x.game}">${GM[x.game] || "?"}</span>${esc(x.match)}${mk}${lv}${out}<span class="tr">${esc(x.tier || "")}</span></div>
+      <div class="l2">🏆 ${esc(x.event)} · ${money} · pontuação <b>${x.score}</b> · odd <b>${x.price ? (1 / x.price).toFixed(2) : "–"}</b> · ${usd0(x.usd)} da carteira · ${when(bank ? x.placed_at : x.seen)}${extra}</div></div>
+    <div class="right"><span class="res">${res}</span>${dec}<button class="btn" data-ana="${id}">Análise</button><a class="btn sq" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="Abrir mercado">↗</a></div>
+    <div class="ana" id="${id}" hidden><ul>${bank && x.exit_reason ? `<li><b>Saiu:</b> ${esc(x.exit_reason)}, vendido por ${usd(x.proceeds)}</li>` : ""}<li>Carteira: <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(who)}</a>${x.seed ? " · histórico (odd = preço médio da carteira)" : ""}</li>${why}</ul>${!bank && x.no ? `<div class="no">Não apostar: ${esc(x.no)}</div>` : ""}</div></div>`;
 }
 
 function render() {
@@ -233,64 +309,71 @@ function render() {
   const H = D.hunter, s = H.stats;
   const age = (Date.now() / 1000 - D.at) / 60;
   $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>último scan há ${Math.round(age)} min · ${D.scanned ?? "?"} mercados</span>`;
-  $("k-bal").textContent = usd(s.balance);
-  $("k-bal-d").textContent = `começou em ${usd(s.start)}` + (s.open ? ` · ${usd(s.at_risk)} em ${s.open} abertas` : "");
-  const p = $("k-pnl"); p.textContent = (s.profit >= 0 ? "+" : "") + usd(s.profit); p.className = "v num " + (s.profit >= 0 ? "pos" : "neg");
-  $("k-pnl-d").textContent = `${s.wins + s.losses} apostas · ${usd(s.staked)} apostado`;
-  const r = $("k-roi"); r.textContent = pct(s.roi); r.className = "v num " + ((s.roi || 0) >= 0 ? "pos" : "neg");
-  $("k-w").textContent = s.wins; $("k-w-d").textContent = `+${usd(s.won_usd).slice(1)} de lucro`;
-  $("k-l").textContent = s.losses; $("k-l-d").textContent = `−${usd(s.lost_usd).slice(1)} perdido`;
-  chart(H.series);
-  $("t-day").innerHTML = (H.days || []).slice(0, 10).map(d => `<tr><td>${d.day}</td><td class="r num">${d.bets}</td><td class="r num pos">${d.won || "–"}</td><td class="r num neg">${d.lost || "–"}</td><td class="r num ${d.pnl >= 0 ? "pos" : "neg"}">${d.won + d.lost ? usd(d.pnl) : "–"}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">sem apostas ainda</td></tr>`;
-  $("t-score").innerHTML = (H.buckets || []).map(b => `<tr><td>${b.range}</td><td class="r num">${b.n}</td><td class="r num">${b.n ? Math.round(100 * b.won / b.n) + "%" : "–"}</td><td class="r num">${b.odds ?? "–"}</td><td class="r num ${(b.roi || 0) >= 0 ? "pos" : "neg"}">${pct(b.roi)}</td></tr>`).join("");
-  const bets = (H.bets || []).filter(keep);
-  $("n-bets").textContent = bets.length;
-  $("bets").innerHTML = bets.slice(0, shown).map(betCard).join("") || `<div class="empty">Ainda nenhuma aposta. O caçador aposta mal uma regra dispare.</div>`;
-  $("more").hidden = bets.length <= shown;
-  const w = (H.watch || []).filter(keep);
-  $("n-watch").textContent = w.length;
-  $("watch").innerHTML = w.map(watchCard).join("") || `<div class="empty">Nada de dinheiro grande nos jogos de agora.</div>`;
+  $("b-bal").innerHTML = `${usd(s.balance)}<small>de ${usd(s.start)}</small>`;
+  $("b-pnl").innerHTML = `<span class="${s.profit >= 0 ? "pos" : "neg"}">${s.profit >= 0 ? "+" : ""}${usd(s.profit)}</span><small>${pct(s.roi)}</small>`;
+  $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
+  $("b-open").innerHTML = `${s.open}<small>${usd(s.at_risk)}</small>`;
+  $("bank-bets").innerHTML = (H.bets || []).map((b, i) => card(b, i, true)).join("") || `<div class="empty">A banca ainda não apostou. Aposta os sinais APOSTAR quando ainda dá para entrar.</div>`;
+
+  const list = (H.signals || []).filter(keep);
+  const sim = simulate(list);
+  const res = $("s-res"); res.textContent = (sim.pnl >= 0 ? "$" : "−$") + Math.abs(sim.pnl).toFixed(2); res.className = "v num " + (sim.pnl >= 0 ? "pos" : "neg");
+  $("s-res-d").textContent = `${sim.n} apostas · ${usd(sim.staked)} apostado`;
+  const roi = $("s-roi"); roi.textContent = sim.staked ? pct(sim.pnl / sim.staked) : "–"; roi.className = "v num " + (sim.pnl >= 0 ? "pos" : "neg");
+  $("s-w").textContent = sim.w; $("s-w-d").textContent = `+${usd(sim.wUsd).slice(1)} de lucro`;
+  $("s-l").textContent = sim.l; $("s-l-d").textContent = `−${usd(sim.lUsd).slice(1)} perdido`;
+  chart(sim.series, sim.lo, sim.hi);
+  $("c-mid").textContent = `pior ponto ${usd(sim.lo)} · melhor ${usd(sim.hi)}` + (sim.dup ? ` · ${sim.dup} sinais repetidos do mesmo jogo + equipa não contados` : "");
+  $("seeall").textContent = `Ver os ${list.length} sinais`;
+  tables(list);
+  $("sigs").innerHTML = list.slice(0, shown).map((x, i) => card(x, i, false)).join("") || `<div class="empty">Sem sinais neste filtro.</div>`;
+  $("more").hidden = list.length <= shown;
 }
 
-let tab = "hunter";
-try { tab = localStorage.getItem("fh-tab") || "hunter"; } catch {}
 function renderMirror() {
   const M = D && D.mirror;
   if (!M) { $("m-note").textContent = "O espelho abre no próximo scan."; return; }
-  const k = (id, v, cls) => { const e = $(id); e.textContent = v; if (cls !== undefined) e.className = "v num " + cls; };
-  k("m-eq", usd(M.equity)); $("m-eq-d").textContent = `orçamento ${usd(M.budget)}`;
-  k("m-pnl", (M.pnl >= 0 ? "+" : "") + usd(M.pnl), M.pnl >= 0 ? "pos" : "neg"); $("m-pnl-d").textContent = `realizado ${usd(M.realized)}`;
-  k("m-cash", usd(M.cash)); $("m-cash-d").textContent = `${usd(M.value)} em ${M.open.length} posições`;
-  k("m-wl", `${M.won} / ${M.lost}`); $("m-wl-d").textContent = `${M.sold} vendidas antes do fim`;
-  k("m-until", M.copying ? "ativa" : "terminou"); $("m-until-d").textContent = `até ${when(M.until)}`;
+  $("m-eq").innerHTML = `${usd(M.equity)}<small>de ${usd(M.budget)}</small>`;
+  $("m-pnl").innerHTML = `<span class="${M.pnl >= 0 ? "pos" : "neg"}">${M.pnl >= 0 ? "+" : ""}${usd(M.pnl)}</span><small>realizado ${usd(M.realized)}</small>`;
+  $("m-cash").innerHTML = `${usd(M.cash)}<small>${usd(M.value)} em ${M.open.length}</small>`;
+  $("m-wl").innerHTML = `<span class="pos">${M.won}</span> / <span class="neg">${M.lost}</span><small>${M.sold} vendidas</small>`;
+  $("m-until").innerHTML = `${M.copying ? "ativa" : "terminou"}<small>até ${when(M.until)}</small>`;
   $("m-note").innerHTML = `Copia <a href="https://polymarket.com/@cutjalenhurts" target="_blank" rel="noopener">@cutjalenhurts</a> em todos os mercados, à escala 1:${Math.round(1 / M.scale).toLocaleString("en-US")} (ele compra ~${usd0(M.his_daily)}/dia). Compras e vendas ao preço real do order book, até 10 min depois dele. Sem notificações.`;
   $("m-n-open").textContent = M.open.length;
-  $("m-open").innerHTML = M.open.map(p => `<tr><td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td><td>${esc(p.outcome)}</td><td class="r num">${usd(p.cost)}</td><td class="r num">${p.price != null ? p.price.toFixed(2) : "–"}</td><td class="r num ${p.value >= p.cost ? "pos" : "neg"}">${usd(p.value)}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">nenhuma</td></tr>`;
+  $("m-open").innerHTML = M.open.map(p => `<tr><td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td><td>${esc(p.outcome)}</td><td class="r num">${usd(p.cost)}</td><td class="r num">${p.price != null ? p.price.toFixed(2) : "–"}</td><td class="r num ${p.value >= p.cost ? "pos" : "neg"}">${usd(p.value)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">nenhuma</td></tr>`;
   const kind = {buy: "comprou", sell: "vendeu", merge: "fundiu (vendeu)", skip: "não copiado"};
-  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "compra" : "venda"} ${usd0(t.his_usd)} a ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}${t.note && t.kind !== "skip" ? " · " + esc(t.note) : ""}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">ainda sem movimentos</td></tr>`;
+  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "compra" : "venda"} ${usd0(t.his_usd)} a ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}${t.note && t.kind !== "skip" ? " · " + esc(t.note) : ""}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">ainda sem movimentos</td></tr>`;
   $("m-n-closed").textContent = M.closed.length;
   const fim = {won: "ganhou", lost: "perdeu", void: "anulado", sold: "vendida"};
-  $("m-closed").innerHTML = M.closed.map(c => `<tr><td>${esc(c.title)}</td><td>${esc(c.outcome)}</td><td>${fim[c.how]}</td><td class="r num">${usd(c.cost)}</td><td class="r num ${(c.pnl || 0) >= 0 ? "pos" : "neg"}">${c.pnl == null ? "–" : usd(c.pnl)}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">nenhuma ainda</td></tr>`;
-}
-function showTab() {
-  $("v-hunter").hidden = tab !== "hunter"; $("v-mirror").hidden = tab !== "mirror"; $("filters").hidden = tab !== "hunter";
+  $("m-closed").innerHTML = M.closed.map(c => `<tr><td>${esc(c.title)}</td><td>${esc(c.outcome)}</td><td>${fim[c.how]}</td><td class="r num">${usd(c.cost)}</td><td class="r num ${(c.pnl || 0) >= 0 ? "pos" : "neg"}">${c.pnl == null ? "–" : usd(c.pnl)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">nenhuma ainda</td></tr>`;
 }
 
-function seg(id, get, set) {
+function pills(id, key) {
   const el = $(id);
-  el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === get()));
+  const sync = () => el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === F[key]));
+  sync();
   el.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    set(b.dataset.v);
-    el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
-    shown = 30; render();
+    F[key] = b.dataset.v; store.set("fh-" + key, F[key]); sync(); shown = 40; render();
   });
 }
-seg("f-game", () => game, v => { game = v; try { localStorage.setItem("fh-game", v); } catch {} });
-seg("f-kind", () => kind, v => { kind = v; try { localStorage.setItem("fh-kind", v); } catch {} });
-seg("tabs", () => tab, v => { tab = v; try { localStorage.setItem("fh-tab", v); } catch {} showTab(); });
+pills("f-dec", "dec"); pills("f-kind", "kind"); pills("f-game", "game");
+$("f-stake").value = F.stake; $("f-slip").checked = F.slip;
+$("f-stake").addEventListener("input", e => { F.stake = Math.max(1, +e.target.value || 1); store.set("fh-stake", F.stake); render(); });
+$("f-slip").addEventListener("change", e => { F.slip = e.target.checked; store.set("fh-slip", F.slip ? "1" : "0"); render(); });
+$("more").onclick = () => { shown += 40; render(); };
+$("seeall").onclick = () => $("sigs").scrollIntoView({behavior: "smooth"});
+$("b-show").onclick = () => { const l = $("bank-bets"); l.hidden = !l.hidden; $("b-show").textContent = l.hidden ? "Ver apostas da banca" : "Esconder apostas da banca"; };
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-ana]"); if (!b) return;
+  const a = $(b.dataset.ana); if (a) a.hidden = !a.hidden;
+});
+function showTab() {
+  $("v-hunter").hidden = tab !== "hunter"; $("v-mirror").hidden = tab !== "mirror";
+  $("tabs").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === tab));
+}
+$("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.v; store.set("fh-tab", tab); showTab(); });
 showTab();
-$("more").onclick = () => { shown += 30; render(); };
 
 async function load() {
   try {

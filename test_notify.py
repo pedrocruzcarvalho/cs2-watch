@@ -15,12 +15,12 @@ def acct(**bets):
 def test_only_this_ticks_bets_count():
     evs = N.events([("Radar", acct(a=bet(), old=bet(placed_at=NOW - 600), won=bet(status="won"), skip=bet(status="skipped")))], NOW)
     assert len(evs) == 1
-    assert evs[0][0] == "Radar: bet $6.00 on Alpha at 0.42 (odd 2.38)\nCS2 · Alpha vs Beta (Match Winner)"
+    assert evs[0][0] == "Radar: APOSTA $6.00 em Alpha a 0.42 (odd 2.38)\nCS2 · Alpha vs Beta (Match Winner)"
 
 
 def test_exit_counts():
     sold = bet(status="sold", placed_at=NOW - 600, settled_at=NOW, proceeds=7.5)
-    assert "sold Alpha for $7.50 (paid $6.00)" in N.events([("Radar", acct(a=sold))], NOW)[0][0]
+    assert "SAI de Alpha por $7.50 (pagou $6.00)" in N.events([("Radar", acct(a=sold))], NOW)[0][0]
 
 
 def test_accounts_without_bets():
@@ -29,12 +29,12 @@ def test_accounts_without_bets():
 
 def test_one_event_links_to_market():
     p = N.payload("t", [("x", "https://u")])
-    assert p["title"] == "1 new paper bet" and p["click"] == "https://u"
+    assert p["title"] == "1 movimento" and p["click"] == "https://u"
 
 
 def test_many_events_no_link_and_trimmed():
     p = N.payload("t", [("y" * 100, "https://u")] * 100)
-    assert p["title"] == "100 new paper bets" and "click" not in p
+    assert p["title"] == "100 movimentos" and "click" not in p
     assert len(p["message"]) < N.MAX_CHARS + 50 and p["message"].endswith("(more on the dashboard)")
 
 

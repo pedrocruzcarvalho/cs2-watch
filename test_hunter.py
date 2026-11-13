@@ -7,7 +7,8 @@ def sig(**kw):
     u = dict(game="cs2", event="e1", slug="s", title="Counter-Strike: A vs B (BO3) - Cup", start=NOW + 3600, url="u",
              cid="c1", market="Match Winner", kind="match", w="0xw", name="n", o="A", other="B", phase="pre",
              usd=5000, px=0.6, vol=50000, share=0.1, last=NOW - 60, first=NOW - 600, prices={"A": 0.6, "B": 0.4},
-             tokens={"A": "ta", "B": "tb"}, age=2.0, score=70, why=["x"], no=None, rule="A", side="A")
+             tokens={"A": "ta", "B": "tb"}, age=2.0, score=70, why=["x"], no=None, rule="A", side="A",
+             exited=False, sold_frac=0.0, sold_usd=0.0, sold_at=None, hedge=False)
     u.update(kw)
     return u
 
@@ -45,7 +46,7 @@ def test_settle_and_balance():
     assert b["status"] == "won" and b["pnl"] > 0
     assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
     v = H.view(st, [], NOW + 7200)
-    assert v["stats"]["wins"] == 1 and v["bets"][0]["match"] == "A vs B (BO3) - Cup"
+    assert v["stats"]["wins"] == 1 and v["bets"][0]["match"] == "A vs B (BO3)" and v["bets"][0]["event"] == "Cup"
 
 
 def test_cancelled_match_refunds():
@@ -70,7 +71,9 @@ def test_rules():
     assert H.classify(u(phase="pre"))[0] is None                 # CS2 pre-match money: no edge
     assert H.classify(u(phase="pre", age=5))[0] == "D"           # fresh CS2 account pre-match: bet against
     assert H.classify(u(phase="pre", game="dota", vol=80000))[0] == "C"
-    assert H.classify(u(kind="map"))[0] is None
+    assert H.classify(u(kind="map"))[0] is None                  # map, small share
+    assert H.classify(u(kind="map", share=0.2, game="lol"))[0] == "A"
+    assert H.classify(u(kind="map", share=0.2, phase="pre"))[0] is None
 
 
 def test_fade_bets_the_other_team():
@@ -84,3 +87,27 @@ def test_lol_rules():
     assert H.classify(u(game="lol"))[0] is None                                  # LoL in-play: no edge
     assert H.classify(u(game="lol", phase="pre", share=0.15))[0] == "E"
     assert H.classify(u(game="lol", phase="pre", share=0.05))[0] is None
+
+
+def test_every_low_tier_signal_is_tracked_and_resolved():
+    st = {}
+    sigs = [sig(rule=None, no="pré-jogo sem vantagem no teste", tier="T4", top=False),
+            sig(cid="c9", tier="T1", top=True)]
+    H.track(st, sigs, [], NOW)
+    assert list(st["signals"]) == ["c1|A|pre"]                    # tier 1 left out
+    x = st["signals"]["c1|A|pre"]
+    assert x["price"] == 0.6 and x["no"] and x["match"] == "A vs B (BO3)"
+    H.track(st, [], [dict(cid="c1", winner="B")], NOW + 9000)
+    assert x["status"] == "lost" and x["winner"] == "B"
+
+
+def test_follow_the_wallet_out():
+    st = {}
+    H.place(st, [sig()], NOW, log=lambda *_: None, book_asks=book, fill=fill)
+    H.follow(st, [sig(exited=True)], NOW + 600, log=lambda *_: None, book_bids=lambda _: [[0.7, 1000]],
+             sell=lambda n, bids: (n, n * 0.7, 0.7, 1))
+    b = st["account"]["bets"]["e1|A"]
+    assert b["status"] == "sold" and b["pnl"] > 0 and b["exit_reason"] == "a carteira vendeu"
+    assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
+    import notify as N
+    assert "SAI de A" in N.events([("Caçador", st)], NOW + 600)[0][0]

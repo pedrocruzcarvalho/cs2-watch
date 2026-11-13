@@ -47,11 +47,12 @@ def units(min_usd, kind):
                     continue
                 c = created.get(p["w"])
                 age = (p["first"] - c) / DAY if c else None
-                out.append(dict(game=e["game"], ev=e["id"], title=e["title"], start=e["start"], cid=p["cid"],
+                out.append(dict(game=e["game"], ev=e["id"], title=e["title"], slug=e["slug"], q=m["q"], outcomes=m["outcomes"],
+                                winner=m["winner"], o=p["o"], last=p["last"], start=e["start"], cid=p["cid"],
                                 w=p["w"], name=p["name"], phase=phase, first=p["first"] if phase == "pre" else max(p["first"], e["start"]), usd=usd, px=px, won=p["o"] == m["winner"],
                                 age=age, vol=evol, mvol=m["vol"], share=usd / m["vol"] if m["vol"] else 0,
                                 hedge=both[(p["w"], p["cid"], other)] >= 0.3 * usd, kind=m["kind"],
-                                top=hunter.top_tier(e["game"], e["title"])))
+                                top=hunter.top_tier(e["game"], e["title"], evol), tier=hunter.tier_of(e["game"], e["title"], evol)))
     return out
 
 

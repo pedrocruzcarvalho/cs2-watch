@@ -49,6 +49,16 @@ def tick(store, log=print):
     parts["state:vrs"] = json.dumps(C.TEAMS)
     sigs, infos = H.signals(now, cache, log=log)
     H.settle(st, infos, ts, log=log)
+    if not st.get("seeded"):                                 # once: 14 days of history for the list (hunt_seed.py)
+        seed = store.get("seed:signals")
+        if seed:
+            led = st.setdefault("signals", {})
+            for k, x in json.loads(seed).items():
+                led.setdefault(k, x)
+            st["seeded"] = True
+            log(f"signals: seeded {len(led)} from history")
+    H.track(st, sigs, infos, ts, log=log)
+    H.follow(st, sigs, ts, log=log)                          # the fixer sold: we sell too (and get a push)
     H.place(st, sigs, ts, log=log)
     view = H.view(st, sigs, ts)
     parts["state:hunter"] = json.dumps(st)
@@ -63,10 +73,10 @@ def tick(store, log=print):
     store.put(BUNDLE, gzip.compress(json.dumps(parts).encode()))
     dash = dict(at=ts, took=round(time.time() - t0, 1), scanned=len(infos), hunter=view, mirror=mview)
     store.put("dashboard", json.dumps(dash, default=str).encode())
-    N.send([("Hunter", st)], ts, log=log, balance=view["stats"]["balance"])   # after the save: never alert twice
+    N.send([("Caçador", st)], ts, log=log, balance=view["stats"]["balance"])   # after the save: never alert twice
     s = view["stats"]
     log(f"tick done in {time.time() - t0:.0f}s: {len(infos)} markets, {len(sigs)} wallet bets of ${H.WALLET_MIN}+, "
-        f"{sum(not u['no'] for u in sigs)} pass the rules; balance ${s['balance']:.2f} ({s['wins']}W/{s['losses']}L, "
+        f"{sum(not u['no'] and not u['top'] for u in sigs)} APOSTAR, {len(st.get('signals', {}))} signals kept; balance ${s['balance']:.2f} ({s['wins']}W/{s['losses']}L, "
         f"{s['open']} open)")
 
 
