@@ -227,7 +227,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   </div>
 
   <div id="v-mine" hidden>
-    <div class="gf" id="gf"><button data-g="all" aria-pressed="true">All</button><button data-g="cs2" aria-pressed="false">CS2</button><button data-g="dota" aria-pressed="false">Dota</button><button data-g="lol" aria-pressed="false">LoL</button></div>
+    <div class="gf" id="gf"><button data-g="all" aria-pressed="true">All</button><button data-g="cs2" aria-pressed="false">CS2</button><button data-g="dota" aria-pressed="false">Dota</button><button data-g="lol" aria-pressed="false">LoL</button><button id="only" aria-pressed="false" style="margin-left:auto">Only my bets</button></div>
     <div class="cap2" style="margin:14px 2px 6px">IF WE PUT $1 ON EVERY FLAGGED BET <span class="mute" id="c-t"></span></div><div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
     <div class="cap2" style="margin:14px 2px 6px">MY PLACED BETS ($1 EACH) <span class="mute" id="x-c-t"></span></div><div class="chartbox"><div id="x-chart"></div><div class="foot"><span id="x-c-a">start</span><span id="x-c-m"></span><span>now</span></div></div>
     <p class="note" style="margin:8px 2px">Tap "I bet this" on the bets you actually placed. Saved in this browser.</p>
@@ -374,7 +374,7 @@ function liveBlock(d) {
   return live;
 }
 
-let GAME = "all", PICKED = new Set();
+let GAME = "all", ONLY = false, PICKED = new Set();
 try { PICKED = new Set(JSON.parse(localStorage.getItem("picked") || "[]")); } catch (e) {}
 const bkey = b => `${b.event}|${b.market}|${b.side}`;
 function curve(bets, P) {
@@ -389,9 +389,10 @@ function curve(bets, P) {
 function drawBets() {
   const all = ((D && D.hunter && D.hunter.bets) || []).filter(b => GAME === "all" || b.game === GAME);
   curve(all, ""); curve(all.filter(b => PICKED.has(bkey(b))), "x-");
-  $("mine").innerHTML = all.map(betCard).join("") || `<div class="empty">No bets here yet.</div>`;
+  $("mine").innerHTML = (ONLY ? all.filter(b => PICKED.has(bkey(b))) : all).map(betCard).join("") || `<div class="empty">${ONLY ? "You haven't marked any bets here yet." : "No bets here yet."}</div>`;
 }
 document.addEventListener("click", e => {
+  if (e.target.closest("#only")) { ONLY = !ONLY; $("only").setAttribute("aria-pressed", ONLY); drawBets(); return; }
   const g = e.target.closest("[data-g]");
   if (g) { GAME = g.dataset.g; document.querySelectorAll("#gf button").forEach(x => x.setAttribute("aria-pressed", x === g)); drawBets(); return; }
   const k = e.target.closest("[data-pick]");
