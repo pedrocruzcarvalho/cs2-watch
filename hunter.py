@@ -602,7 +602,7 @@ def view(state, sigs, now, infos=(), details=None):
         match, event = split_title(b["match"])
         bet_out.append(dict({k: b.get(k) for k in ("game", "tier", "market", "side", "their_side", "rule", "phase",
                                                    "score", "name", "wallet", "usd", "why", "placed_at", "start",
-                                                   "status", "stake", "price", "pnl", "winner", "url", "exit_reason",
+                                                   "status", "stake", "price", "pnl", "winner", "url", "exit_reason", "settled_at",
                                                    "proceeds")},
                             match=match, event=event))
     return dict(stats=stats, series=series, bets=bet_out, upcoming=upcoming(sigs, bets, now, infos, details, state.get("signals")),

@@ -208,7 +208,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
     <div><div class="k">In play</div><div class="v num" id="b-open">–</div></div>
   </div>
 
-  <div class="chartbox" hidden><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
+  <div class="cap2" style="margin:14px 2px 6px">IF WE PUT $1 ON EVERY FLAGGED BET <span class="mute" id="c-t"></span></div><div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
 
   <nav class="tabs" id="tabs">
     <button data-v="next" aria-pressed="true">Upcoming matches</button>
@@ -381,16 +381,16 @@ function betCard(b) {
 function chart(series) {
   if (!series || series.length < 2) {
     $("chart").innerHTML = `<svg viewBox="0 0 1000 110" preserveAspectRatio="none"><line x1="0" x2="1000" y1="55" y2="55" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/></svg>`;
-    $("c-m").textContent = "a linha aparece quando as primeiras apostas acabarem"; return;
+    $("c-m").textContent = "the line shows up once the first bets settle"; return;
   }
   const W = 1000, H = 110, xs = series.map(p => p[0]), ys = series.map(p => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), span = (hi - lo) || 1;
   const X = x => (x1 === x0 ? 0 : (x - x0) / (x1 - x0)) * W, Y = y => H - 6 - (y - lo) / span * (H - 12);
   const d = series.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
   const col = ys[ys.length - 1] >= ys[0] ? "var(--green)" : "var(--red)";
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Bankroll over time"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
-  $("c-a").textContent = "start " + usd(ys[0]);
-  $("c-m").textContent = `pior ponto ${usd(lo)} · melhor ${usd(hi)}`;
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Profit with $1 on every bet"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+  $("c-a").textContent = "start $0";
+  $("c-m").textContent = `low ${lo < 0 ? "−" : ""}$${Math.abs(lo).toFixed(2)} · high $${hi.toFixed(2)}`;
 }
 
 function walletCard(x) {
@@ -412,7 +412,12 @@ function render() {
   $("b-pnl").innerHTML = s.wins + s.losses ? `${Math.round(100 * s.wins / (s.wins + s.losses))}%` : "–";
   $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
   $("b-open").innerHTML = `${s.open}`;
-  chart(H.series);
+  { const done = (H.bets || []).filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake)
+      .sort((a, b) => (a.settled_at || a.start || a.placed_at) - (b.settled_at || b.start || b.placed_at));
+    let u = 0; const ser = [[(done[0] || {}).placed_at || 0, 0]];
+    done.forEach(b => { u += b.pnl / b.stake; ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
+    chart(ser);
+    $("c-t").textContent = done.length ? `· ${done.length} settled · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / done.length)}% per bet)` : ""; }
   $("wallets").innerHTML = (D.wallets || []).map(walletCard).join("") || `<div class="empty">No wallets yet.</div>`;
   const up = H.upcoming || [];
   $("games").innerHTML = up.map(gameCard).join("") || `<div class="empty">No tier 3+ matches in the next 36 hours.</div>`;
