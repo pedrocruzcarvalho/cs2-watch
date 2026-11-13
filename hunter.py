@@ -156,10 +156,10 @@ def top_tier(game, title, vol=0):
 # (-13% to -40%), following fresh CS2 accounts (-24% to -36%).
 #   F  a sharp wallet (book.py: 10+ resolved tier 3+ matches, +20 pp over its prices) betting in-play on CS2 / Dota 2,
 #      from $200, series or maps                                            n=339  +11%  (halves +14% / +9%)
-#      (walk-forward: judged only on the record it had before each bet)
+#      (re-tested Nov 13 with REAL P&L per match, the way Pedro counts a win: only +3.9%, so it bets 1%)
 #   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
-RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.03, 75),
+RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
          "G": (0.02, 60)}
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
 # (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);
@@ -375,14 +375,18 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                                 hedge=held.get((p["w"], p["cid"], other), 0) >= 0.3 * usd,
                                 sharp=is_sharp, rec=BK.record(book, p["w"], now, e["id"]) if (is_sharp or p["w"] in listed) else None,
                                 listed=(listed.get(p["w"]) or {}).get("note")))
-        if True:                                        # the book: each wallet's biggest bet on every match (tier kept)
-            for p in pos:
-                tot = p["pre"] + p["live"]
-                sh = p["pre_sh"] + p["live_sh"]
-                if sh and tot >= BK.MIN_USD and not held.get((p["w"], p["cid"], next(o for o in mk[p["cid"]]["outcomes"] if o != p["o"])), 0) >= 0.3 * tot:
-                    BK.note(book, p["w"], e["id"], p["cid"], p["o"], tot / sh, tot, start, top=tier in TOP_TIERS)
-                    if names is not None and p["name"] and not p["name"].startswith("0x"):
-                        names[p["w"]] = p["name"]
+        agg = {}                                        # the book: each wallet's real money on this match
+        for p in pos:
+            x = agg.setdefault(p["w"], dict(h={}, spent=0.0, sold=0.0, name=p["name"]))
+            x["spent"] += p["pre"] + p["live"]
+            x["sold"] += p["sold_usd"]
+            left = p["pre_sh"] + p["live_sh"] - p["sold_sh"]
+            if left > 0.01:
+                x["h"][BK.key(p["cid"], p["o"])] = round(left, 2)
+        for w, x in agg.items():
+            BK.note(book, w, e["id"], start, tier in TOP_TIERS, x["h"], x["spent"], x["sold"])
+            if names is not None and x["name"] and not x["name"].startswith("0x") and w in book:
+                names[w] = x["name"]
         out += combos(game, e, mk, pos, out, start, url, evol, tier)
         team_live = {}
         for p in pos:
@@ -402,8 +406,8 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
         u["score"] = score(u, r)
         u["why"] = why(u) + u.get("extra", []) + ([f"regra {r}: {RULE_TEXT[r]}"] if r else [])
         if u.get("rec") and u["rec"][0]:
-            n, wins, edge, roi = u["rec"]
-            u["why"].insert(1, f"historial em tier 3+: {wins}/{n} acertos, {edge * 100:+.0f} pp acima das odds")
+            n, wins, rate, roi = u["rec"]
+            u["why"].insert(1, f"historial em tier 3+: ganhou dinheiro em {wins} de {n} jogos, lucro real {roi * 100:+.0f}%")
         if u.get("listed"):
             u["why"].insert(1, f"da tua lista: {u['listed'][:80]}")
         u["no"] = "a carteira apostou nas duas equipas" if u.get("hedge") else no

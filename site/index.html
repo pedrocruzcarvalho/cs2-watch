@@ -225,7 +225,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   </div>
 
   <div id="v-wallets" hidden>
-    <p class="note" style="margin:0 2px 10px">Carteiras a seguir em jogos tier 3+. <b style="color:#e8edf3">Afiada</b> = aposta sobretudo em tier 3+ (70%+ dos jogos dela), tem 10+ jogos resolvidos lá e acerta 20+ pontos acima das odds que paga. Quem aposta muito em tier 1 não entra (é atualizado sozinho, a cada scan). <b style="color:#e8edf3">Lista</b> = escolhidas por ti. Quando uma afiada aposta ao vivo (CS2 ou Dota, desde $200), é sinal para apostar.</p>
+    <p class="note" style="margin:0 2px 10px">Carteiras a seguir em jogos tier 3+. <b style="color:#e8edf3">Afiada</b> = aposta sobretudo em tier 3+ (70%+ dos jogos dela), tem 5+ jogos resolvidos lá, ganhou dinheiro em 60%+ deles e tem lucro real de 10%+. Um jogo só conta como ganho se o saldo dela subiu (compras, vendas e pagamento final). Quem aposta muito em tier 1 não entra (é atualizado sozinho, a cada scan). <b style="color:#e8edf3">Lista</b> = escolhidas por ti. Quando uma afiada aposta ao vivo (CS2 ou Dota, desde $200), é sinal para apostar.</p>
     <div class="wl" id="wallets"></div>
   </div>
 
@@ -392,10 +392,10 @@ function chart(series) {
 function walletCard(x) {
   const nm = x.name || (x.note || "").split(/[:,]/)[0] || x.wallet.slice(0, 10);
   const tags = (x.sharp ? `<span class="tg sharp">AFIADA</span>` : "") + (x.listed ? `<span class="tg list">TUA LISTA</span>` : "");
-  const bar = Math.max(0, Math.min(100, (x.edge + 0.1) / 0.5 * 100));
+  const bar = Math.max(0, Math.min(100, (x.rate || 0) * 100));
   return `<div class="w"><div><div class="nm"><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(nm)}</a>${tags}</div>
-    <div class="sub">${x.n ? `${x.wins}/${x.n} acertos em tier 3+ · ${Math.round((x.low ?? 1) * 100)}% dos jogos dela são tier 3+ · ${x.edge >= 0 ? "+" : ""}${Math.round(x.edge * 100)} pp acima das odds · retorno ${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%` : "sem apostas em tier 3+ nos últimos 75 dias"}${x.last ? ` · última ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
-    <div class="bar"><i style="width:${bar}%;background:${x.edge >= 0.2 ? "var(--green)" : x.edge >= 0 ? "var(--amber)" : "var(--red)"}"></i></div></div>
+    <div class="sub">${x.n ? `ganhou dinheiro em ${x.wins} de ${x.n} jogos tier 3+ · lucro real ${x.pnl >= 0 ? "+" : "−"}$${Math.abs(x.pnl).toLocaleString("en-US")} (${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%) · ${Math.round((x.low ?? 1) * 100)}% dos jogos dela são tier 3+` : "sem jogos tier 3+ resolvidos nos últimos 75 dias"}${x.last ? ` · última ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
+    <div class="bar"><i style="width:${bar}%;background:${x.roi >= 0.2 ? "var(--green)" : x.roi >= 0 ? "var(--amber)" : "var(--red)"}"></i></div></div>
     <div class="st num"><b class="${x.roi >= 0 ? "pos" : "neg"}">${x.n ? (x.roi >= 0 ? "+" : "") + Math.round(x.roi * 100) + "%" : "–"}</b><div class="sub">${x.open ? `${x.open} em jogo` : ""}</div></div></div>`;
 }
 

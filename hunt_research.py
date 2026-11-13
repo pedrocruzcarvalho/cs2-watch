@@ -173,3 +173,58 @@ def bankroll(us, start=63.47, slip=0.03, log=True):
             print(f"  rule {k[0]} {k[1]:5} n={n:4} won {w / n:4.0%} staked ${st:8.2f} pnl ${pnl:+8.2f} ROI {pnl / st:+.1%}")
         print(f"  ${start:.2f} -> ${bal:.2f} over {len(picks)} bets; worst dip ${dd:.2f}")
     return bal
+
+
+def book_matches(root="local_state/hunt2"):
+    """Per wallet and finished match (hunt_collect with sells): real P&L over all the match's team markets, tier,
+    and its biggest in-play position (cid, outcome, avg price, dollars, won) to copy."""
+    import cs2_watch as C
+    import hunter
+    if not C.TEAMS and Path("local_state/state_vrs").exists():
+        C.TEAMS = json.loads(Path("local_state/state_vrs").read_text())
+    out = []
+    for f in Path(root).glob("*/*.json"):
+        if f.name == "created.json":
+            continue
+        e = json.loads(f.read_text())
+        mk = {m["cid"]: m for m in e["markets"]}
+        if any(m["winner"] is None for m in mk.values()):
+            continue
+        evol = max([m["vol"] for m in e["markets"] if m["kind"] == "match"] or [0])
+        top = hunter.top_tier(e["game"], e["title"], evol)
+        per = {}
+        for p in e["positions"]:
+            m = mk[p["cid"]]
+            pay = 0.5 if m["winner"] == "void" else (1.0 if p["o"] == m["winner"] else 0.0)
+            x = per.setdefault(p["w"], dict(w=p["w"], ev=e["id"], game=e["game"], start=e["start"], top=top,
+                                            spent=0.0, back=0.0, live=None))
+            x["spent"] += p["pre"] + p["live"]
+            x["back"] += p.get("sold", 0.0) + max(0.0, p["pre_sh"] + p["live_sh"] - p.get("sold_sh", 0.0)) * pay
+            if p["live"] >= 200 and p["live_sh"] and (x["live"] is None or p["live"] > x["live"]["usd"]):
+                px = p["live"] / p["live_sh"]
+                x["live"] = dict(usd=p["live"], px=px, won=pay == 1.0, first=max(p["first"], e["start"]))
+        for x in per.values():
+            if x["spent"] >= 20:
+                x["pnl"] = x["back"] - x["spent"]
+                out.append(x)
+    return out
+
+
+def walk_book(n_min=10, win_min=0.7, roi_min=0.2, low_min=0.7, slip=0.03, root="local_state/hunt2"):
+    """Follow wallets in-play (CS2/Dota, tier 3+) when their REAL record before that match qualifies."""
+    import collections
+    ms = sorted(book_matches(root), key=lambda x: x["start"])
+    hist = collections.defaultdict(list)
+    picks, seen = [], set()
+    for x in ms:
+        h = [y for y in hist[x["w"]] if y["start"] + 3 * 3600 <= x["start"]]
+        low = [y for y in h if not y["top"]]
+        if (x["live"] and not x["top"] and x["game"] != "lol" and len(low) >= n_min and x["ev"] not in seen
+                and len(low) / len(h) >= low_min and 0.2 <= x["live"]["px"] <= 0.95):
+            rate = sum(y["pnl"] > 0 for y in low) / len(low)
+            roi = sum(y["pnl"] for y in low) / sum(y["spent"] for y in low)
+            if rate >= win_min and roi >= roi_min:
+                seen.add(x["ev"])
+                picks.append(dict(px=min(0.97, x["live"]["px"] + slip), won=x["live"]["won"], start=x["start"]))
+        hist[x["w"]].append(x)
+    return picks

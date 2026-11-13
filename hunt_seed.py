@@ -76,3 +76,17 @@ def seed_book():
     with open("local_state/seed_book.json", "w", encoding="utf-8") as f:
         json.dump(dict(book=bk, names=names), f, separators=(",", ":"))
     print(f"book: {len(bk)} wallets, {sum(len(v) for v in bk.values())} matches, {len(sharp)} sharp now")
+
+
+def seed_book3():
+    """Book v3 (real P&L per match) from the recollection with sells (local_state/hunt2)."""
+    import book as BK
+    bk, now = {}, time.time()
+    for x in R.book_matches():
+        e = [x["ev"], {}, 0, 0, x["start"], 0, 1] if x["top"] else [x["ev"], {}, round(x["spent"], 2), 0, x["start"], round(x["pnl"], 2), 0]
+        bk.setdefault(x["w"], []).append(e)
+    bk = {w: es for w, es in bk.items() if any(not e[6] for e in es)}
+    sharp = [w for w in bk if BK.sharp(bk, w, now)]
+    with open("local_state/seed_book.json", "w", encoding="utf-8") as f:
+        json.dump(dict(book=bk, names={}, v=3), f, separators=(",", ":"))
+    print(f"book v3: {len(bk)} wallets, {len(sharp)} sharp now")

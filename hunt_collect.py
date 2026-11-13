@@ -16,9 +16,9 @@ from pathlib import Path
 import cs2_watch as C
 import polydata as P
 
-OUT = Path("local_state/hunt")
+OUT = Path(__import__("os").environ.get("HUNT_OUT", "local_state/hunt"))
 GAMES = {"cs2": 10310, "dota": 10309, "lol": 10311}
-MIN_TRADE = 200
+MIN_TRADE = 20
 
 
 def events(series, days):
@@ -83,19 +83,24 @@ def one(e, game):
     if not mk:
         return
     try:
-        trades = P.event_trades(e["id"], cap=4000, min_cash=MIN_TRADE)
+        trades = P.event_trades(e["id"], cap=8000, min_cash=MIN_TRADE)
     except Exception as x:
         print("trades failed", e["slug"], x)
         return
     by = {m["cid"]: m for m in mk}
     pos = {}
     for t in trades:
-        if t["side"] != "BUY" or t["conditionId"] not in by:
+        if t["conditionId"] not in by:
             continue
         k = (t["proxyWallet"].lower(), t["conditionId"], t["outcome"])
         p = pos.setdefault(k, dict(w=k[0], cid=k[1], o=k[2], name=t["name"] or t["pseudonym"], pre=0.0, pre_sh=0.0,
-                                   live=0.0, live_sh=0.0, first=t["timestamp"], last=t["timestamp"]))
+                                   live=0.0, live_sh=0.0, first=t["timestamp"], last=t["timestamp"],
+                                   sold=0.0, sold_sh=0.0))
         usd = t["size"] * t["price"]
+        if t["side"] == "SELL":                         # money back before the end: counts in the wallet's real P&L
+            p["sold"] += usd
+            p["sold_sh"] += t["size"]
+            continue
         if t["timestamp"] < start:
             p["pre"] += usd; p["pre_sh"] += t["size"]
         else:

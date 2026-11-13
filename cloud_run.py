@@ -31,7 +31,7 @@ HEALTH = "health"
 FRESH = "2026-11-13"            # Pedro: clear all history, start the hunter at $63.47 (his real balance)
 FAIL_REPEAT = 3 * 3600
 NL = chr(10)
-BOOK_V = 2                     # v2: tier 1/2 matches kept too (a fixer bets 70%+ on tier 3+)
+BOOK_V = 3                     # v3: real P&L per match (a win = the wallet's money went up)
 
 
 def tick(store, log=print):
@@ -61,13 +61,22 @@ def tick(store, log=print):
     listed = {w.lower(): v for w, v in json.loads(store.get("watchlist") or b"{}").items()}   # your hand-picked wallets
     details = {}
     sigs, infos = H.signals(now, cache, log=log, book=bst["book"], listed=listed, names=bst["names"], details=details)
-    wins = {i["cid"]: i["winner"] for i in infos if i.get("winner")}
-    need = BK.pending(bst["book"], ts) - set(wins)
-    for cid, m in H.market_states(list(need)[:400]).items():
+    pay = {}
+
+    def payout(cid, outcomes, winner):
+        for o in outcomes:
+            pay[BK.key(cid, o)] = 0.5 if winner == C.CANCELLED else (1.0 if o == winner else 0.0)
+
+    for i in infos:
+        if i.get("winner"):
+            payout(i["cid"], i["outcomes"], i["winner"])
+    done = {k.rsplit("|", 1)[0] for k in pay}
+    need = [c for c in BK.pending(bst["book"], ts) if c not in done]
+    for cid, m in H.market_states(need[:400]).items():
         w = C.winner_of(m, False)
         if w:
-            wins[cid] = w
-    BK.resolve(bst["book"], wins, ts)
+            payout(cid, json.loads(m.get("outcomes") or "[]"), w)
+    BK.resolve(bst["book"], pay, ts)
     BK.prune(bst["book"])
     board = BK.board(bst["book"], ts, bst["names"], listed)
     bst["names"] = {w: n for w, n in bst["names"].items() if w in bst["book"]}
