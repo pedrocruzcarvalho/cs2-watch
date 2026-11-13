@@ -209,6 +209,16 @@ def rule(u):
     return classify(u)[1]
 
 
+# median money on one match, by tier (60 days to Nov 13 2026, hunt_collect data): what "a lot" means in each tier.
+# A bet's size against this did NOT predict winners on its own (tested), so it is shown, not used as a trigger.
+TIER_MEDIAN = {"cs2|T1": 577731, "cs2|T2": 87624, "cs2|T3": 20305, "cs2|T2*": 36553, "cs2|T4": 10137, "cs2|T5": 5590, "cs2|T6": 2863, "dota|T3+": 23273, "dota|T1-2": 378971, "lol|T3+": 73674, "lol|T1-2": 674372}
+
+
+def rel_size(u):
+    m = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}")
+    return u["usd"] / m if m else None
+
+
 LIVE_FRESH = 15 * 60           # an in-play signal is only copyable right after the buy
 CHASE = 0.08                   # don't buy when the price has already run this far past what the wallet paid
 KEEP_SIGNALS = 30 * DAY
@@ -232,6 +242,10 @@ def late(u, now):
 def why(u):
     out = [f"${u['usd']:,.0f} em {u['o']} a {u['px']:.2f} ({'ao vivo' if u['phase'] == 'live' else 'antes do jogo'})",
            f"{u['share']:.0%} do dinheiro deste mercado (jogo com ${u['vol']:,.0f} no total)"]
+    r = rel_size(u)
+    if r is not None:
+        m = TIER_MEDIAN[f"{u['game']}|{u['tier']}"]
+        out.append(f"{r:.0%} do dinheiro normal de um jogo {u['tier'].replace('T', 'tier ')} (mediana ${m:,.0f})")
     if u["age"] is not None:
         out.append(f"conta com {u['age']:.0f} dias quando apostou" if u["age"] >= 1 else
                    f"conta criada {u['age'] * 24:.0f} h antes de apostar")
@@ -600,7 +614,7 @@ def upcoming(sigs, bets, now, infos=()):
                               wallet=u["w"], usd=round(u["usd"]), side=u["o"], market=u["market"],
                               live=u["phase"] == "live", px=round(u["px"], 2), age=u["age"],
                               share=round(u["share"], 3), sold=round(u["sold_frac"], 2), good=bool(u["rule"] and not u["no"]),
-                              sharp=bool(u.get("sharp")), listed=bool(u.get("listed")),
+                              sharp=bool(u.get("sharp")), listed=bool(u.get("listed")), rel=rel_size(u),
                               rec=list(u["rec"][:3]) if u.get("rec") else None))
         out.append(dict(game=u0["game"], tier=u0["tier"], match=match, event=event, start=u0["start"],
                         live=now >= u0["start"], url=u0["url"], rec=rec, no=no,
