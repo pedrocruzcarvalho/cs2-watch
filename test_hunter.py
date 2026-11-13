@@ -111,3 +111,18 @@ def test_follow_the_wallet_out():
     assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
     import notify as N
     assert "SAI de A" in N.events([("Caçador", st)], NOW + 600)[0][0]
+
+
+def test_several_small_bets_add_up():
+    mk = {"m": dict(cid="m", kind="match", label="Match Winner", outcomes=["A", "B"], prices={"A": 0.6, "B": 0.4},
+                    tokens={}, vol=40000),
+          "k1": dict(cid="k1", kind="map", label="Map 1 Winner", outcomes=["A", "B"], prices={}, tokens={}, vol=5000)}
+    trades = [dict(side="BUY", conditionId=c, proxyWallet="0xW", outcome="A", size=usd / 0.5, price=0.5, timestamp=ts,
+                   name="w", pseudonym="") for c, usd, ts in (("m", 400, 10), ("k1", 300, 20), ("m", 350, 200))]
+    pos = H.positions(trades, mk, start=100)
+    e = dict(id="e1", slug="s", title="Counter-Strike: A vs B (BO3) - Cup")
+    out = H.combos("cs2", e, mk, pos, [], 100, "u", 40000, "T4")
+    assert len(out) == 1
+    c = out[0]
+    assert c["usd"] == 1050 and c["cid"] == "m" and c["phase"] == "live" and c["combo"]
+    assert c["market"].endswith("(3)") and "soma de 3 apostas" in c["extra"][0]

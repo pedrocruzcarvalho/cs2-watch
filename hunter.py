@@ -19,7 +19,7 @@ import polydata as P
 
 GAMES = {"cs2": 10310, "dota": 10309, "lol": 10311}
 START = 63.47
-MIN_TRADE = 200
+MIN_TRADE = 50                 # read every buy from $50, so a bet split into small pieces still adds up
 WALLET_MIN = 1000              # a wallet needs this much on one side to be looked at
 DAY = 86400
 MAX_PRICE = 0.90               # never buy above this (nothing left to win)
@@ -237,6 +237,49 @@ def split_title(title):
     return match.strip(), event.strip()
 
 
+def combos(game, e, mk, pos, singles, start, url, evol, tier):
+    """One wallet's bets on the same team across this match's markets (series, maps; before and in-play), added up.
+    Total >= WALLET_MIN with no single piece that big: one 'several bets' signal on the team's series market.
+    Where a single piece is already a signal, its analysis gets the match total instead."""
+    groups = {}
+    for p in pos:
+        if p["pre"] + p["live"] <= 0:
+            continue
+        groups.setdefault((p["w"], p["o"]), []).append(p)
+    total_on = {k: sum(p["pre"] + p["live"] for p in g) for k, g in groups.items()}
+    out = []
+    for (w, team), g in groups.items():
+        total = total_on[(w, team)]
+        pieces = sum((p["pre"] > 0) + (p["live"] > 0) for p in g)
+        if total < WALLET_MIN or pieces < 2:
+            continue
+        mine = [u for u in singles if u["event"] == e["id"] and u["w"] == w and u["o"] == team]
+        if mine:
+            for u in mine:
+                u.setdefault("extra", []).append(f"no total ${total:,.0f} em {team} neste jogo, em {pieces} apostas")
+            continue
+        m = next((m for m in mk.values() if m["kind"] == "match" and team in m["outcomes"]), None) or             mk[max(g, key=lambda p: p["pre"] + p["live"])["cid"]]
+        if team not in m["outcomes"]:
+            continue
+        other = next(o for o in m["outcomes"] if o != team)
+        sh = sum(p["pre_sh"] + p["live_sh"] for p in g)
+        bought = sh or 1
+        sold = sum(p["sold_sh"] for p in g)
+        live = any(p["live"] > 0 for p in g)
+        parts = ", ".join(f"${p['pre'] + p['live']:,.0f} em {mk[p['cid']]['label']}" for p in
+                          sorted(g, key=lambda p: -(p["pre"] + p["live"])))
+        out.append(dict(game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
+                        cid=m["cid"], market=f"Várias apostas ({pieces})", kind=m["kind"], w=w, name=g[0]["name"],
+                        o=team, other=other, phase="live" if live else "pre", usd=total, px=total / sh if sh else 0.5,
+                        vol=evol, share=total / max(m["vol"], 1), last=max(p["last"] for p in g),
+                        first=min(p["first"] for p in g), prices=m["prices"], tokens=m["tokens"], tier=tier,
+                        top=tier in TOP_TIERS, sold_frac=min(1.0, sold / bought),
+                        sold_usd=sum(p["sold_usd"] for p in g), sold_at=max((p["sold_at"] or 0) for p in g) or None,
+                        hedge=total_on.get((w, other), 0) >= 0.3 * total, combo=True,
+                        extra=[f"soma de {pieces} apostas: {parts}"]))
+    return out
+
+
 def signals(now_dt, cache, log=print):
     """Every $1k+ wallet bet on the CS2 / Dota 2 / LoL matches from 5 h ago to 36 h ahead, classified."""
     now = now_dt.timestamp()
@@ -248,7 +291,7 @@ def signals(now_dt, cache, log=print):
         if not mk:
             return game, e, mk, []
         try:
-            return game, e, mk, P.event_trades(e["id"], cap=3000, min_cash=MIN_TRADE)
+            return game, e, mk, P.event_trades(e["id"], cap=6000, min_cash=MIN_TRADE)
         except Exception as x:
             log(f"hunter: trades failed for {e['slug']}: {type(x).__name__}")
             return game, e, mk, []
@@ -282,13 +325,14 @@ def signals(now_dt, cache, log=print):
                                 prices=m["prices"], tokens=m["tokens"], tier=tier, top=tier in TOP_TIERS,
                                 sold_frac=p["sold_frac"], sold_usd=p["sold_usd"], sold_at=p["sold_at"],
                                 hedge=held.get((p["w"], p["cid"], other), 0) >= 0.3 * usd))
+        out += combos(game, e, mk, pos, out, start, url, evol, tier)
     for u in out:
         c = created_at(u["w"], cache, now) if not u["top"] else None
         u["age"] = (u["first"] - c) / DAY if c else None
         r, no = classify(u)
         u["rule"], u["side"] = r, (u["other"] if r == "D" else u["o"])
         u["score"] = score(u, r)
-        u["why"] = why(u) + ([f"regra {r}: {RULE_TEXT[r]}"] if r else [])
+        u["why"] = why(u) + u.get("extra", []) + ([f"regra {r}: {RULE_TEXT[r]}"] if r else [])
         u["no"] = "a carteira apostou nas duas equipas" if u.get("hedge") else no
         u["exited"] = u["sold_frac"] >= EXIT
         if u["sold_frac"] > 0.05:
@@ -309,7 +353,7 @@ def track(state, sigs, infos, now, log=print):
     for u in sigs:
         if u["top"]:
             continue
-        key = f"{u['cid']}|{u['o']}|{u['phase']}"
+        key = f"{u['cid']}|{u['o']}|{u['phase']}" + ("|combo" if u.get("combo") else "")
         x = led.get(key)
         px_now = u["prices"].get(u["side"])
         if x is None:
