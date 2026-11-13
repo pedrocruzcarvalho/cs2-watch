@@ -51,3 +51,26 @@ def main(days=14):
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     main()
+
+
+def seed_book():
+    """The wallet book (book.py) from the research data: each wallet's biggest bet per tier 3+ match, resolved."""
+    import book as BK
+    best = {}
+    for u in R.units(BK.MIN_USD, "all"):
+        if u["top"] or u["hedge"] or not 0.2 <= u["px"] <= 0.97:
+            continue
+        k = (u["w"], u["ev"])
+        if k not in best or u["usd"] > best[k]["usd"]:
+            best[k] = u
+    bk, names = {}, {}
+    for (w, ev), u in best.items():
+        bk.setdefault(w, []).append([ev, u["cid"], round(u["px"], 3), round(u["usd"]), u["start"], int(u["won"]), u["o"]])
+        if u["name"] and not u["name"].startswith("0x"):
+            names[w] = u["name"]
+    now = time.time()
+    sharp = [w for w in bk if BK.sharp(bk, w, now)]
+    names = {w: n for w, n in names.items() if w in sharp}
+    with open("local_state/seed_book.json", "w", encoding="utf-8") as f:
+        json.dump(dict(book=bk, names=names), f, separators=(",", ":"))
+    print(f"book: {len(bk)} wallets, {sum(len(v) for v in bk.values())} matches, {len(sharp)} sharp now")

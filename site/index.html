@@ -15,22 +15,6 @@
   --green: #34d47c; --green-bg: rgba(52,212,124,.10); --red: #f0605a; --red-bg: rgba(240,96,90,.10);
   --blue: #3d8bfd; --blue-bg: rgba(61,139,253,.12); --amber: #f2b33d; --amber-bg: rgba(242,179,61,.14); --violet: #a77bf3;
 }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --line: #e2e7ee; --line-2: #ccd5e0;
-    --ink: #111821; --ink-2: #3b4757; --mute: #6b7787;
-    --green: #16924f; --green-bg: rgba(22,146,79,.09); --red: #cf3b35; --red-bg: rgba(207,59,53,.08);
-    --blue: #2563eb; --blue-bg: rgba(37,99,235,.09); --amber: #a86d06; --amber-bg: rgba(168,109,6,.10); --violet: #7340c9;
-  }
-}
-:root[data-theme="light"] {
-  color-scheme: light;
-  --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --line: #e2e7ee; --line-2: #ccd5e0;
-  --ink: #111821; --ink-2: #3b4757; --mute: #6b7787;
-  --green: #16924f; --green-bg: rgba(22,146,79,.09); --red: #cf3b35; --red-bg: rgba(207,59,53,.08);
-  --blue: #2563eb; --blue-bg: rgba(37,99,235,.09); --amber: #a86d06; --amber-bg: rgba(168,109,6,.10); --violet: #7340c9;
-}
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
@@ -58,6 +42,18 @@ a { color: var(--blue); text-decoration: none; }
 .v { font-weight: 800; font-size: 20px; margin-top: 2px; }
 .v small { font-weight: 500; font-size: 12px; color: var(--mute); margin-left: 6px; }
 
+.chartbox { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 8px; margin-top: 10px; }
+.chartbox svg { display: block; width: 100%; height: 110px; }
+.chartbox .foot { display: flex; justify-content: space-between; gap: 10px; color: var(--mute); font-size: 11.5px; margin-top: 4px; }
+.tg.sharp { color: #fff; background: #b4532a; } .tg.list { color: #fff; background: #7340c9; }
+.wl { display: grid; gap: 6px; }
+.w { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.w .nm { font-weight: 700; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.w .sub { color: var(--mute); font-size: 12.5px; margin-top: 2px; }
+.w .bar { width: 160px; height: 6px; border-radius: 3px; background: var(--card-2); overflow: hidden; margin-top: 6px; }
+.w .bar i { display: block; height: 100%; background: var(--green); }
+.w .st { text-align: right; white-space: nowrap; }
+.w .st b { font-size: 16px; }
 .games { display: grid; gap: 10px; margin-top: 14px; }
 .game { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .game.quiet { opacity: .62; }
@@ -137,9 +133,12 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
     <div><div class="k">Em jogo</div><div class="v num" id="b-open">–</div></div>
   </div>
 
+  <div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">início</span><span id="c-m"></span><span>agora</span></div></div>
+
   <nav class="tabs" id="tabs">
     <button data-v="next" aria-pressed="true">Próximos jogos</button>
     <button data-v="mine" aria-pressed="false">As minhas apostas</button>
+    <button data-v="wallets" aria-pressed="false">Carteiras sus</button>
     <button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button>
   </nav>
 
@@ -150,6 +149,11 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 
   <div id="v-mine" hidden>
     <div class="list" id="mine"></div>
+  </div>
+
+  <div id="v-wallets" hidden>
+    <p class="note" style="margin:0 2px 10px">Carteiras a seguir em jogos tier 3+. <b style="color:#e8edf3">Afiada</b> = 10+ jogos resolvidos em tier 3+ e acerta 20+ pontos acima das odds que paga (é atualizado sozinho, a cada scan). <b style="color:#e8edf3">Lista</b> = escolhidas por ti. Quando uma afiada aposta ao vivo (CS2 ou Dota, desde $200), é sinal para apostar.</p>
+    <div class="wl" id="wallets"></div>
   </div>
 
   <div id="v-mirror" hidden>
@@ -204,7 +208,7 @@ function gameCard(m) {
   if (m.quiet) return `<article class="game quiet"><div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
       <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))} · ainda sem apostas suspeitas</div></div>
       <div class="when">${startText(m)}</div></div></article>`;
-  const rows = m.items.map(x => `<div class="row"><b>${usd0(x.usd)}</b> em <b>${esc(x.side)}</b> · ${esc(x.market === "Match Winner" ? "jogo" : x.market)} · <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name)}</a>${x.age != null && x.age < 30 ? ` · conta com ${Math.max(0, Math.round(x.age))} dias` : ""}${x.share >= 0.1 ? ` · ${Math.round(x.share * 100)}% do mercado` : ""}${x.live ? ` <span class="tg live">AO VIVO</span>` : ""}${x.sold >= 0.5 ? ` <span class="tg sold">JÁ VENDEU</span>` : ""}${x.good ? ` <span class="tg good">SINAL</span>` : ""}</div>`).join("");
+  const rows = m.items.map(x => `<div class="row"><b>${usd0(x.usd)}</b> em <b>${esc(x.side)}</b> · ${esc(x.market === "Match Winner" ? "jogo" : x.market)} · <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name)}</a>${x.age != null && x.age < 30 ? ` · conta com ${Math.max(0, Math.round(x.age))} dias` : ""}${x.share >= 0.1 ? ` · ${Math.round(x.share * 100)}% do mercado` : ""}${x.live ? ` <span class="tg live">AO VIVO</span>` : ""}${x.sold >= 0.5 ? ` <span class="tg sold">JÁ VENDEU</span>` : ""}${x.sharp ? ` <span class="tg sharp">AFIADA${x.rec ? ` ${x.rec[1]}/${x.rec[0]}` : ""}</span>` : ""}${x.listed ? ` <span class="tg list">TUA LISTA</span>` : ""}${x.good ? ` <span class="tg good">SINAL</span>` : ""}</div>`).join("");
   return `<article class="game ${m.rec || m.bet ? "go" : ""}">
     <div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
       <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))}</div></div>
@@ -226,6 +230,31 @@ function betCard(b) {
     <div class="res num">${res}</div></div>`;
 }
 
+function chart(series) {
+  if (!series || series.length < 2) {
+    $("chart").innerHTML = `<svg viewBox="0 0 1000 110" preserveAspectRatio="none"><line x1="0" x2="1000" y1="55" y2="55" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/></svg>`;
+    $("c-m").textContent = "a linha aparece quando as primeiras apostas acabarem"; return;
+  }
+  const W = 1000, H = 110, xs = series.map(p => p[0]), ys = series.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), span = (hi - lo) || 1;
+  const X = x => (x1 === x0 ? 0 : (x - x0) / (x1 - x0)) * W, Y = y => H - 6 - (y - lo) / span * (H - 12);
+  const d = series.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
+  const col = ys[ys.length - 1] >= ys[0] ? "var(--green)" : "var(--red)";
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução da banca"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+  $("c-a").textContent = "início " + usd(ys[0]);
+  $("c-m").textContent = `pior ponto ${usd(lo)} · melhor ${usd(hi)}`;
+}
+
+function walletCard(x) {
+  const nm = x.name || (x.note || "").split(/[:,]/)[0] || x.wallet.slice(0, 10);
+  const tags = (x.sharp ? `<span class="tg sharp">AFIADA</span>` : "") + (x.listed ? `<span class="tg list">TUA LISTA</span>` : "");
+  const bar = Math.max(0, Math.min(100, (x.edge + 0.1) / 0.5 * 100));
+  return `<div class="w"><div><div class="nm"><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(nm)}</a>${tags}</div>
+    <div class="sub">${x.n ? `${x.wins}/${x.n} acertos em tier 3+ · ${x.edge >= 0 ? "+" : ""}${Math.round(x.edge * 100)} pp acima das odds · retorno ${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%` : "sem apostas em tier 3+ nos últimos 75 dias"}${x.last ? ` · última ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
+    <div class="bar"><i style="width:${bar}%;background:${x.edge >= 0.2 ? "var(--green)" : x.edge >= 0 ? "var(--amber)" : "var(--red)"}"></i></div></div>
+    <div class="st num"><b class="${x.roi >= 0 ? "pos" : "neg"}">${x.n ? (x.roi >= 0 ? "+" : "") + Math.round(x.roi * 100) + "%" : "–"}</b><div class="sub">${x.open ? `${x.open} em jogo` : ""}</div></div></div>`;
+}
+
 function render() {
   if (!D || !D.hunter) return;
   const H = D.hunter, s = H.stats;
@@ -235,6 +264,8 @@ function render() {
   $("b-pnl").innerHTML = `<span class="${s.profit >= 0 ? "pos" : "neg"}">${s.profit >= 0 ? "+" : ""}${usd(s.profit)}</span>`;
   $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
   $("b-open").innerHTML = `${s.open}<small>${usd(s.at_risk)}</small>`;
+  chart(H.series);
+  $("wallets").innerHTML = (D.wallets || []).map(walletCard).join("") || `<div class="empty">Ainda sem carteiras.</div>`;
   const up = H.upcoming || [];
   $("games").innerHTML = up.map(gameCard).join("") || `<div class="empty">Não há jogos tier 3+ nas próximas 36 horas.</div>`;
   $("mine").innerHTML = (H.bets || []).map(betCard).join("") || `<div class="empty">Ainda não apostámos nada. Quando um jogo ficar verde em "Próximos jogos", a banca aposta e recebes uma notificação.</div>`;
@@ -262,7 +293,7 @@ function renderMirror() {
 }
 
 function showTab() {
-  for (const v of ["next", "mine", "mirror"]) $("v-" + v).hidden = tab !== v;
+  for (const v of ["next", "mine", "wallets", "mirror"]) $("v-" + v).hidden = tab !== v;
   $("tabs").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === tab));
 }
 $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.v; store.set("fh-tab2", tab); showTab(); });

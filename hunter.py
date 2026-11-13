@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import bankroll as B
+import book as BK
 import cs2_watch as C
 import polydata as P
 
@@ -153,10 +154,14 @@ def top_tier(game, title, vol=0):
 #   Low tiers only, 60 days, $63.47 at these stakes: -> $191 (3 cents worse fills) / $136 (5 cents). In-sample.
 # What did NOT work: big bets in big markets (tier 1/2), CS2 big bets before kickoff, long shots under 0.35
 # (-13% to -40%), following fresh CS2 accounts (-24% to -36%).
-RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60)}
+#   F  a sharp wallet (book.py: 10+ resolved tier 3+ matches, +20 pp over its prices) betting in-play on CS2 / Dota 2,
+#      from $200, series or maps                                            n=339  +11%  (halves +14% / +9%)
+#      (walk-forward: judged only on the record it had before each bet)
+RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.03, 75)}
 RULE_TEXT = {"A": "dinheiro ao vivo, ≥10% do mercado", "B": "dinheiro ao vivo em Dota",
              "C": "dinheiro pré-jogo em Dota, jogo < $100k", "D": "conta CS2 fresca pré-jogo: apostar contra",
-             "E": "dinheiro pré-jogo em LoL, ≥10% do mercado"}
+             "E": "dinheiro pré-jogo em LoL, ≥10% do mercado",
+             "F": "carteira com historial que ganha, a apostar ao vivo"}
 
 
 def classify(u):
@@ -168,6 +173,11 @@ def classify(u):
     age, live, share = u.get("age"), u["phase"] == "live", u["share"]
     if u["game"] == "cs2" and age is not None and age < 3 and live:
         return None, "conta CS2 com menos de 3 dias (perdem)"
+    if u.get("sharp") and live and u["game"] != "lol":
+        return "F", None
+    if u["usd"] < WALLET_MIN:                                   # small bets count only for sharp wallets
+        return None, ("carteira afiada, mas só conta ao vivo em CS2/Dota" if u.get("sharp") else
+                      "carteira da lista, mas o historial em tier baixo não ganha")
     if u.get("kind", "match") != "match":                       # maps / games: only rule A held up
         if live and share >= 0.10:
             return "A", None
@@ -280,9 +290,12 @@ def combos(game, e, mk, pos, singles, start, url, evol, tier):
     return out
 
 
-def signals(now_dt, cache, log=print):
-    """Every $1k+ wallet bet on the CS2 / Dota 2 / LoL matches from 5 h ago to 36 h ahead, classified."""
+def signals(now_dt, cache, log=print, book=None, listed=None, names=None):
+    """Every $1k+ wallet bet on the CS2 / Dota 2 / LoL matches from 5 h ago to 36 h ahead (from $200 for sharp or
+    hand-picked wallets), classified. Also writes each wallet's biggest bet per tier 3+ match into the book."""
     now = now_dt.timestamp()
+    book = {} if book is None else book
+    listed = listed or {}
     evs = events(now_dt)
 
     def one(ge):
@@ -316,7 +329,10 @@ def signals(now_dt, cache, log=print):
             other = next(o for o in m["outcomes"] if o != p["o"])
             for ph in ("pre", "live"):
                 usd, sh = p[ph], p[ph + "_sh"]
-                if usd < WALLET_MIN or not sh:
+                if not sh or usd < BK.MIN_USD:
+                    continue
+                is_sharp = tier not in TOP_TIERS and BK.sharp(book, p["w"], now, skip_event=e["id"])
+                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed:
                     continue
                 out.append(dict(game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
                                 cid=m["cid"], market=m["label"], kind=m["kind"], w=p["w"], name=p["name"], o=p["o"],
@@ -324,7 +340,17 @@ def signals(now_dt, cache, log=print):
                                 share=usd / m["vol"] if m["vol"] else 0, last=p["last"], first=p["first"],
                                 prices=m["prices"], tokens=m["tokens"], tier=tier, top=tier in TOP_TIERS,
                                 sold_frac=p["sold_frac"], sold_usd=p["sold_usd"], sold_at=p["sold_at"],
-                                hedge=held.get((p["w"], p["cid"], other), 0) >= 0.3 * usd))
+                                hedge=held.get((p["w"], p["cid"], other), 0) >= 0.3 * usd,
+                                sharp=is_sharp, rec=BK.record(book, p["w"], now, e["id"]) if (is_sharp or p["w"] in listed) else None,
+                                listed=(listed.get(p["w"]) or {}).get("note")))
+        if tier not in TOP_TIERS:                       # the book: each wallet's biggest bet on this match
+            for p in pos:
+                tot = p["pre"] + p["live"]
+                sh = p["pre_sh"] + p["live_sh"]
+                if sh and tot >= BK.MIN_USD and not held.get((p["w"], p["cid"], next(o for o in mk[p["cid"]]["outcomes"] if o != p["o"])), 0) >= 0.3 * tot:
+                    BK.note(book, p["w"], e["id"], p["cid"], p["o"], tot / sh, tot, start)
+                    if names is not None and p["name"] and not p["name"].startswith("0x"):
+                        names[p["w"]] = p["name"]
         out += combos(game, e, mk, pos, out, start, url, evol, tier)
     for u in out:
         c = created_at(u["w"], cache, now) if not u["top"] else None
@@ -333,6 +359,11 @@ def signals(now_dt, cache, log=print):
         u["rule"], u["side"] = r, (u["other"] if r == "D" else u["o"])
         u["score"] = score(u, r)
         u["why"] = why(u) + u.get("extra", []) + ([f"regra {r}: {RULE_TEXT[r]}"] if r else [])
+        if u.get("rec") and u["rec"][0]:
+            n, wins, edge, roi = u["rec"]
+            u["why"].insert(1, f"historial em tier 3+: {wins}/{n} acertos, {edge * 100:+.0f} pp acima das odds")
+        if u.get("listed"):
+            u["why"].insert(1, f"da tua lista: {u['listed'][:80]}")
         u["no"] = "a carteira apostou nas duas equipas" if u.get("hedge") else no
         u["exited"] = u["sold_frac"] >= EXIT
         if u["sold_frac"] > 0.05:
@@ -568,7 +599,9 @@ def upcoming(sigs, bets, now, infos=()):
             items.append(dict(name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],
                               wallet=u["w"], usd=round(u["usd"]), side=u["o"], market=u["market"],
                               live=u["phase"] == "live", px=round(u["px"], 2), age=u["age"],
-                              share=round(u["share"], 3), sold=round(u["sold_frac"], 2), good=bool(u["rule"] and not u["no"])))
+                              share=round(u["share"], 3), sold=round(u["sold_frac"], 2), good=bool(u["rule"] and not u["no"]),
+                              sharp=bool(u.get("sharp")), listed=bool(u.get("listed")),
+                              rec=list(u["rec"][:3]) if u.get("rec") else None))
         out.append(dict(game=u0["game"], tier=u0["tier"], match=match, event=event, start=u0["start"],
                         live=now >= u0["start"], url=u0["url"], rec=rec, no=no,
                         bet=dict(side=mine["side"], stake=mine["stake"], price=mine["price"], status=mine["status"])

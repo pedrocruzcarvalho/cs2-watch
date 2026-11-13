@@ -19,6 +19,7 @@ import traceback
 from datetime import datetime, timezone
 
 import cs2_watch as C
+import book as BK
 import hunter as H
 import mirror as M
 import notify as N
@@ -47,7 +48,25 @@ def tick(store, log=print):
 
     C.TEAMS = TM.refresh(json.loads(parts.get("state:vrs") or "{}"), ts, log=log)   # Valve ranking: CS2 tiers
     parts["state:vrs"] = json.dumps(C.TEAMS)
-    sigs, infos = H.signals(now, cache, log=log)
+    bst = json.loads(parts.get("state:book") or "{}")       # every wallet's tier 3+ record (book.py)
+    if not bst.get("book"):
+        seed = store.get("seed:book")
+        if seed:
+            bst = json.loads(seed)
+            log(f"book: seeded {len(bst['book'])} wallets from history")
+    bst.setdefault("book", {}); bst.setdefault("names", {})
+    listed = {w.lower(): v for w, v in json.loads(store.get("watchlist") or b"{}").items()}   # your hand-picked wallets
+    sigs, infos = H.signals(now, cache, log=log, book=bst["book"], listed=listed, names=bst["names"])
+    wins = {i["cid"]: i["winner"] for i in infos if i.get("winner")}
+    need = BK.pending(bst["book"], ts) - set(wins)
+    for cid, m in H.market_states(list(need)[:400]).items():
+        w = C.winner_of(m, False)
+        if w:
+            wins[cid] = w
+    BK.resolve(bst["book"], wins, ts)
+    board = BK.board(bst["book"], ts, bst["names"], listed)
+    bst["names"] = {w: n for w, n in bst["names"].items() if w in bst["book"]}
+    parts["state:book"] = json.dumps(bst, separators=(",", ":"))
     H.settle(st, infos, ts, log=log)
     if not st.get("seeded"):                                 # once: 14 days of history for the list (hunt_seed.py)
         seed = store.get("seed:signals")
@@ -71,7 +90,7 @@ def tick(store, log=print):
     except Exception as e:                                    # the mirror must never stop the hunter
         log(f"mirror failed: {e!r}")
     store.put(BUNDLE, gzip.compress(json.dumps(parts).encode()))
-    dash = dict(at=ts, took=round(time.time() - t0, 1), scanned=len(infos), hunter=view, mirror=mview)
+    dash = dict(at=ts, took=round(time.time() - t0, 1), scanned=len(infos), hunter=view, mirror=mview, wallets=board)
     store.put("dashboard", json.dumps(dash, default=str).encode())
     N.send([("Caçador", st)], ts, log=log, balance=view["stats"]["balance"])   # after the save: never alert twice
     s = view["stats"]
