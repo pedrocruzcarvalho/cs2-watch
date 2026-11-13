@@ -33,7 +33,7 @@ def test_split_money_tier1_and_kalshi_only_are_not_bet():
 
 
 def test_kalshi_pre_match_order_maps_to_polymarket_and_is_bet():
-    import cloud_run as CR
+    import legacy_run as CR
     import cs2_watch as C
     import sizing as Z
     C.TEAMS = {}

@@ -1,18 +1,21 @@
-# cs2-watch
+# cs2-watch (Fix Hunter)
 
-Every 10 minutes (a Cloudflare cron worker starts the GitHub Actions scan) this checks every Counter-Strike
-market on Polymarket (match, maps, totals, handicaps, rounds) for out-of-place bets: size, share of the money,
-fresh wallets, split bets across fresh wallets, line moves, low-tier events. A paper bankroll ($300) bets the
-flagged side when first flagged ($40 HIGH / $20 MEDIUM / $10 LOW), tops up on escalation, and fills every bet
-against the real order book. Kalshi support remains in cs2_watch.py but is off in the cloud scan.
+Every 10 minutes (a Cloudflare cron worker starts the GitHub Actions scan) the **hunter** reads every CS2, Dota 2 and
+League of Legends match on Polymarket, adds up each wallet's money per side (before kickoff and in-play apart) and
+paper-bets the signals that passed a 60-day test, on low-tier events only. One paper account, started at $63.47.
+A phone push (ntfy) goes out for each new bet, and when the scan fails or recovers.
 
-- `cs2_watch.py`  scanner, scoring, prediction ledger
-- `bankroll.py`   paper staking plan
-- `cloud_run.py`  one tick: scan, ledger, bankroll, publish (state in Cloudflare KV, not in this repo)
-- `explain.py`    plain-English explanation of every bet
-- `oddspapi.py`   bookmaker odds (1xBet/Stake/Pinnacle) as a second opinion; free key, 250 req/month, budgeted to <=200
-- `notify.py`     phone alert (ntfy.sh) for each tick's new paper bets; needs the NTFY_TOPIC secret
-- `cron/`         Cloudflare worker that triggers the scan every 10 minutes
+The **mirror** tab paper-copies one wallet (@cutjalenhurts) in every market it trades, buys and sells, with $100,
+for one week, without pushes.
+
+- `hunter.py`        the rules (`classify`), scan, paper account, page data
+- `hunt_collect.py`  60 days of finished matches and big wallets (local research data)
+- `hunt_research.py` tests the rules on that data (`bankroll()` replays the hunter's own rules)
+- `mirror.py`        the copy account
+- `cloud_run.py`     one tick: hunter + mirror, state in Cloudflare KV, page data, pushes
+- `notify.py`        phone alerts through ntfy.sh; needs the NTFY_TOPIC secret
 - `site/` + `functions/`  dashboard on Cloudflare Pages (behind Cloudflare Access)
+- `legacy_run.py` and the older modules: the previous multi-account scanner (radar, live money, odd shifts, tennis),
+  no longer run
 
 A flag is a reason to look closer, not proof of anything.

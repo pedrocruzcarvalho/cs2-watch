@@ -2,7 +2,7 @@
 Replay the radar account with today's rules over a past period: which bets would it have made, and how did they do?
 
 For every 10-minute scan time since the account opened, the scanner is run on the trade history cut off at that
-moment (cs2_watch.poly_positions / poly_info with a cutoff), the radar is built with today's rules (cloud_run.radar)
+moment (cs2_watch.poly_positions / poly_info with a cutoff), the radar is built with today's rules (legacy_run.radar)
 and the radar account places its bets (radar_account.signals, once per market, before kickoff or in-play). Each bet
 is filled at the last traded price at that moment + 1c, fee included, and settled with the real winner.
 
@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import bankroll as B
-import cloud_run as CR
+import legacy_run as CR
 import cs2_watch as C
 import informed as I
 import radar_account as RA

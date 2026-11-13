@@ -1,784 +1,302 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CS2 Fix Watch</title>
+<title>Fix Hunter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* Palette: dusk slate + the two CS2 sides. Amber (T) = suspicion. Steel (CT) = links/info. Green/red = money only. */
 :root {
   color-scheme: dark;
-  --bg: #121821; --panel: #19212c; --panel-2: #212b38; --line: #2b3646; --line-2: #374456;
+  --bg: #0f141b; --panel: #161d27; --panel-2: #1c2531; --line: #263140; --line-2: #33404f;
   --ink: #e9edf2; --ink-2: #b4bfcc; --mute: #7d8a9b;
-  --t: #e0a43a; --t-soft: rgba(224,164,58,.14);
-  --ct: #7ea4d9; --ct-soft: rgba(126,164,217,.14);
-  --win: #5cc48a; --loss: #e5675d; --live: #b07ce8;
-  --high: #e5675d; --med: #e0a43a; --low: #8f9bab;
-  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.25);
+  --win: #4fc283; --loss: #e5675d; --open: #7ea4d9; --amber: #e0a43a; --live: #b07ce8;
+  --win-soft: rgba(79,194,131,.12); --loss-soft: rgba(229,103,93,.12); --open-soft: rgba(126,164,217,.12);
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
     --bg: #eef1f5; --panel: #ffffff; --panel-2: #f4f6f9; --line: #dde3ea; --line-2: #c9d2dd;
     --ink: #121821; --ink-2: #3c4757; --mute: #6b7787;
-    --t: #a8700f; --t-soft: rgba(196,132,20,.12);
-    --ct: #2f63a8; --ct-soft: rgba(47,99,168,.10);
-    --win: #1d8a52; --loss: #c63f35; --live: #7a3fc4;
-    --high: #c63f35; --med: #a8700f; --low: #6b7787;
-    --shadow: 0 1px 2px rgba(18,24,33,.06);
+    --win: #1d8a52; --loss: #c63f35; --open: #2f63a8; --amber: #a8700f; --live: #7a3fc4;
+    --win-soft: rgba(29,138,82,.10); --loss-soft: rgba(198,63,53,.10); --open-soft: rgba(47,99,168,.10);
   }
 }
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #eef1f5; --panel: #ffffff; --panel-2: #f4f6f9; --line: #dde3ea; --line-2: #c9d2dd;
   --ink: #121821; --ink-2: #3c4757; --mute: #6b7787;
-  --t: #a8700f; --t-soft: rgba(196,132,20,.12);
-  --ct: #2f63a8; --ct-soft: rgba(47,99,168,.10);
-  --win: #1d8a52; --loss: #c63f35; --live: #7a3fc4;
-  --high: #c63f35; --med: #a8700f; --low: #6b7787;
-  --shadow: 0 1px 2px rgba(18,24,33,.06);
+  --win: #1d8a52; --loss: #c63f35; --open: #2f63a8; --amber: #a8700f; --live: #7a3fc4;
+  --win-soft: rgba(29,138,82,.10); --loss-soft: rgba(198,63,53,.10); --open-soft: rgba(47,99,168,.10);
 }
-
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Barlow", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-a { color: var(--ct); text-decoration: none; } a:hover { text-decoration: underline; }
-:focus-visible { outline: 2px solid var(--ct); outline-offset: 2px; border-radius: 4px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "Barlow", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--open); text-decoration: none; } a:hover { text-decoration: underline; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cap { font: 600 11px/1.2 "Barlow Semi Condensed", sans-serif; letter-spacing: .09em; text-transform: uppercase; color: var(--mute); }
+.cap { font: 600 11px/1.2 "Barlow", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
 .pos { color: var(--win); } .neg { color: var(--loss); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 18px 16px 64px; }
 
-/* ---------- top bar: one line, small, sticky ---------- */
-.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-.top-in { max-width: 1240px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; gap: 14px; }
-.mark { font: 700 15px/1 "Chakra Petch", sans-serif; letter-spacing: .04em; display: flex; align-items: center; gap: 9px; white-space: nowrap; }
-.mark i { width: 10px; height: 10px; transform: rotate(45deg); background: var(--t); display: inline-block; }
-.status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--win); box-shadow: 0 0 0 3px color-mix(in srgb, var(--win) 22%, transparent); }
-.dot.stale { background: var(--t); box-shadow: 0 0 0 3px var(--t-soft); }
+.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.top h1 { margin: 0; font: 700 18px/1 "Chakra Petch", sans-serif; letter-spacing: .03em; }
+.status { font-size: 13px; color: var(--mute); display: flex; align-items: center; gap: 7px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--win); }
+.dot.stale { background: var(--loss); }
+.filters { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.seg button { font: 600 12.5px/1 "Barlow", sans-serif; color: var(--ink-2); background: none; border: 0; border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--open); color: #fff; }
 
-.wrap { max-width: 1240px; margin: 0 auto; padding: 22px 24px 64px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); }
+.kpi { padding: 14px 18px; border-left: 1px solid var(--line); min-width: 0; }
+.kpi:first-child { border-left: 0; }
+.kpi .v { font: 700 24px/1.2 "Chakra Petch", sans-serif; margin: 5px 0 2px; }
+.kpi .d { font-size: 12.5px; color: var(--mute); }
+.chart { padding: 6px 18px 12px; border-top: 1px solid var(--line); }
+.chart svg { width: 100%; height: 130px; display: block; }
+.chart .foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); gap: 8px; }
 
-/* ---------- scoreboard ---------- */
-.board { display: grid; grid-template-columns: 1.35fr repeat(4, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
-.cell { padding: 16px 20px; border-left: 1px solid var(--line); min-width: 0; }
-.cell:first-child { border-left: 0; }
-.cell .v { font: 600 26px/1.15 "Chakra Petch", sans-serif; margin: 6px 0 3px; }
-.cell:first-child .v { font-size: 34px; }
-.cell .d { font-size: 13px; color: var(--mute); }
-
-/* ---------- panels ---------- */
-.grid { display: grid; gap: 16px; margin-top: 16px; grid-template-columns: 1.7fr 1fr; align-items: start; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
-.panel > header { display: flex; align-items: baseline; gap: 12px; padding: 16px 20px 0; flex-wrap: wrap; }
-.panel h2 { margin: 0; font: 600 16px/1.3 "Chakra Petch", sans-serif; letter-spacing: .02em; }
-.panel .sub { margin: 4px 20px 0; font-size: 13.5px; color: var(--mute); }
-.panel .body { padding: 14px 20px 18px; }
-.panel.flush .body { padding: 10px 0 6px; }
-
-/* balance line + bet tape (signature) */
-.chart svg { display: block; width: 100%; height: 170px; }
-.chart text { fill: var(--mute); font: 500 11px "Barlow", sans-serif; }
-.tape { margin-top: 8px; border-top: 1px dashed var(--line-2); padding-top: 10px; }
-.tape-row { position: relative; height: 66px; display: flex; gap: 3px; align-items: stretch; }
-.tape-row::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-2); }
-.slot { position: relative; flex: 1 1 0; max-width: 26px; min-width: 7px; border-radius: 3px; }
-.slot:hover { background: var(--panel-2); }
-.slot .bar { position: absolute; left: 18%; right: 18%; border-radius: 2px; }
-.slot.won .bar { bottom: 50%; background: var(--win); }
-.slot.lost .bar { top: 50%; background: var(--loss); }
-.slot.sold.up .bar { bottom: 50%; background: var(--win); } .slot.sold.down .bar { top: 50%; background: var(--loss); }
-.slot.open .bar { top: calc(50% - 5px); height: 10px; border: 1.5px solid var(--ct); background: transparent; }
-.slot.skipped .bar, .slot.void .bar { top: calc(50% - 2px); height: 4px; background: var(--line-2); }
-.slot .tick { position: absolute; top: 0; left: 30%; right: 30%; height: 3px; border-radius: 2px; }
-.tape-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-size: 12.5px; color: var(--mute); }
-.tape-legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--k); border: 1.5px solid var(--b, transparent); }
-
-/* tabs */
-.tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; margin-left: auto; }
-.tabs button { font: 600 12.5px "Barlow", sans-serif; color: var(--mute); background: transparent; border: 0; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
-.sports { display: flex; gap: 8px; margin: 0 0 14px; }
-.sports button { font: 600 15px "Chakra Petch", sans-serif; letter-spacing: .03em; padding: 8px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--mute); cursor: pointer; }
-.sports button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
-.accts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 0 0 16px; }
-.acard { text-align: left; font: inherit; color: inherit; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 18px; cursor: pointer; min-width: 0; }
-.acard[aria-pressed="true"] { border-color: var(--t); }
-.acard .nm { font: 600 15px "Chakra Petch", sans-serif; }
-.acard .nm small { display: block; margin-top: 2px; }
-.acard .nm small { font: 500 12.5px "Barlow", sans-serif; color: var(--mute); }
-.acard .row1 { display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; margin-top: 6px; }
-.acard .big { font: 600 30px/1.1 "Chakra Petch", sans-serif; }
-.acard .d { font-size: 13px; color: var(--mute); margin-top: 4px; }
-.board { display: none !important; }
-details.plan .panel { box-shadow: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; margin-top: 0 !important; }
-.rtag { display: inline-block; font: 600 11px "Barlow", sans-serif; letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; margin: 0 4px 3px 0; background: var(--panel-2); color: var(--mute); border: 1px solid var(--line); }
-.rtag.watched { color: var(--loss); border-color: currentColor; }
-.rtag.informed { color: var(--ct); border-color: currentColor; }
-.rtag.big { color: var(--t); border-color: currentColor; }
-.rtag.kalshi, .rtag.kalshi_pre { color: var(--ink); }
-.rtag.repeat { color: var(--t); }
-.rtag.sniper { color: var(--loss); border-color: currentColor; background: color-mix(in srgb, var(--loss) 8%, transparent); }
-.rtag.rising, .rtag.move { color: var(--ink); }
-.radar-item .who { display: block; font-size: 12.5px; color: var(--mute); margin-top: 1px; }
-.radar-item + .radar-item { margin-top: 6px; }
-.showmore { margin: 6px 20px 12px; font: 600 13px "Barlow", sans-serif; color: var(--ct); background: none; border: 0; padding: 0; cursor: pointer; }
-@media (max-width: 720px) { .accts { grid-template-columns: 1fr; } }
-.acct { margin: 0 0 16px; }
-.acct button { font-size: 14px; padding: 7px 16px; }
-.acct .tabs { margin-left: 0; }
-.acct p { margin: 8px 2px 0; color: var(--mute); font-size: 13.5px; max-width: 900px; }
-.tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
-
-/* tables */
-.scroll { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th:first-child, td:first-child { padding-left: 20px; } th:last-child, td:last-child { padding-right: 20px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+th { font: 600 11px/1.2 "Barlow", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); background: var(--panel-2); }
+tr:last-child td { border-bottom: 0; }
 td.r, th.r { text-align: right; }
-tbody tr:last-child td { border-bottom: 0; }
-.mini td { padding: 8px 12px; }
-tr.row { cursor: pointer; }
-tr.row:hover td { background: var(--panel-2); }
-tr.row td:first-child { box-shadow: inset 3px 0 0 transparent; }
-tr.row.open td:first-child { box-shadow: inset 3px 0 0 var(--t); }
-tr.row.open td { background: var(--panel-2); border-bottom-color: transparent; }
-tr.more td { background: var(--panel-2); padding: 4px 20px 22px 36px; }
-.when { white-space: nowrap; } .when b { font-weight: 600; }
-.when span { font-size: 12.5px; color: var(--mute); }
-.match b { font-weight: 600; display: block; line-height: 1.3; }
-.match .ev { font-size: 12.5px; color: var(--mute); }
-.chev { display: inline-block; width: 16px; color: var(--mute); transition: transform .15s; }
-tr.row.open .chev { transform: rotate(90deg); }
+.tbl { overflow: hidden; }
 
-/* level marks: HUD diamonds */
-.lv { display: inline-flex; align-items: center; gap: 5px; font: 700 11.5px/1 "Chakra Petch", sans-serif; letter-spacing: .06em; white-space: nowrap; }
-.lv::before { content: ""; width: 7px; height: 7px; transform: rotate(45deg); background: currentColor; }
-.lv.HIGH { color: var(--high); } .lv.MEDIUM { color: var(--med); } .lv.LOW { color: var(--low); } .lv.LIVE { color: var(--live); }
-.lv.INFORMED { color: var(--ct); }
-.why-not { font-size: 12.5px; color: var(--mute); }
-.wl { display: grid; gap: 6px; } .wl div { font-size: 13.5px; color: var(--ink-2); }
-.path { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.path .to { color: var(--mute); font-size: 12px; }
-.times { font-size: 12px; color: var(--mute); margin-top: 3px; }
-.tag { display: inline-block; font: 600 11px/1.6 "Barlow Semi Condensed", sans-serif; letter-spacing: .05em; text-transform: uppercase; padding: 0 7px; border-radius: 5px; white-space: nowrap; }
-.tag.esc { background: var(--t-soft); color: var(--t); }
-.tag.mk { background: var(--ct-soft); color: var(--ct); margin-top: 4px; }
-.tag.live { background: color-mix(in srgb, var(--live) 16%, transparent); color: var(--live); }
-.tag.won { color: var(--win); background: color-mix(in srgb, var(--win) 14%, transparent); }
-.tag.lost { color: var(--loss); background: color-mix(in srgb, var(--loss) 14%, transparent); }
-.tag.open { color: var(--ct); background: var(--ct-soft); }
-.tag.sold { color: var(--ink, inherit); background: var(--panel-2); }
-.tag.skipped, .tag.void { color: var(--mute); background: var(--panel-2); }
-@media (prefers-reduced-motion: no-preference) { .tag.live.now { animation: pulse 1.8s ease-in-out infinite; } }
-@keyframes pulse { 50% { opacity: .55; } }
-.side { font-weight: 600; }
-.split { display: block; font-size: 12px; color: var(--mute); margin-top: 2px; font-weight: 400; }
+h2 { font: 700 15px/1.2 "Chakra Petch", sans-serif; margin: 22px 0 10px; display: flex; align-items: baseline; gap: 10px; }
+h2 .cap { font-weight: 600; }
+.note { color: var(--mute); font-size: 13px; margin: -4px 0 10px; }
 
-/* explanation */
-.why { max-width: 860px; }
-.why .head { font: 600 16px/1.4 "Barlow", sans-serif; margin: 12px 0 4px; color: var(--ink); }
-.why section { margin-top: 12px; }
-.why ul { margin: 6px 0 0; padding-left: 18px; } .why li { margin: 0 0 5px; color: var(--ink-2); line-height: 1.5; }
-.why li::marker { color: var(--t); }
-.why .res-won li { color: var(--win); font-weight: 600; } .why .res-lost li { color: var(--loss); font-weight: 600; }
-.evidence { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line-2); }
-.ev-item { margin: 8px 0 0; font-size: 13.5px; color: var(--ink-2); }
-.ev-item .w { font-size: 12.5px; color: var(--mute); }
+.list { display: grid; gap: 8px; }
+.bet { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line-2); border-radius: 10px; padding: 10px 14px; }
+.bet.won { border-left-color: var(--win); } .bet.lost { border-left-color: var(--loss); } .bet.open { border-left-color: var(--open); }
+.ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.won .ic { background: var(--win-soft); color: var(--win); } .lost .ic { background: var(--loss-soft); color: var(--loss); } .open .ic, .watch .ic { background: var(--open-soft); color: var(--open); }
+.t1 { font-weight: 700; font-size: 14.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.g { font: 700 10px/1 "Barlow", sans-serif; letter-spacing: .06em; padding: 3px 6px; border-radius: 4px; background: var(--panel-2); color: var(--ink-2); border: 1px solid var(--line-2); }
+.g.dota { color: var(--loss); } .g.cs2 { color: var(--amber); }
+.tag { font-size: 11.5px; color: var(--mute); font-weight: 600; }
+.tag.live { color: var(--live); }
+.t2 { font-size: 12.5px; color: var(--mute); margin-top: 2px; }
+.t2 b { color: var(--ink-2); font-weight: 600; }
+.res { text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.res small { display: block; font-weight: 500; font-size: 12px; color: var(--mute); }
+.won .res { color: var(--win); } .lost .res { color: var(--loss); } .open .res { color: var(--open); }
+details.why { grid-column: 2 / -1; font-size: 12.5px; color: var(--ink-2); }
+details.why summary { cursor: pointer; color: var(--mute); list-style: none; }
+details.why summary::-webkit-details-marker { display: none; }
+details.why ul { margin: 6px 0 0; padding-left: 18px; }
+.watch { opacity: .85; }
+.watch.skip { opacity: .55; }
+.more { display: block; margin: 10px auto 0; background: var(--panel); color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font: 600 13px "Barlow", sans-serif; cursor: pointer; }
+.empty { padding: 18px; text-align: center; color: var(--mute); background: var(--panel); border: 1px dashed var(--line-2); border-radius: 10px; }
 
-.filters { display: flex; gap: 6px; padding: 12px 20px 2px; flex-wrap: wrap; }
-.filters button { font: 600 12.5px "Barlow", sans-serif; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
-.filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-
-.empty { padding: 34px 20px; text-align: center; color: var(--mute); }
-.err { padding: 60px 20px; text-align: center; color: var(--loss); }
-
-.key { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 22px; margin: 12px 20px 2px; }
-.key div { display: grid; gap: 4px; } .key dt { margin: 0; } .key dd { margin: 0; font-size: 13px; color: var(--mute); line-height: 1.45; }
-@media (max-width: 640px) { .key { margin-left: 16px; margin-right: 16px; } }
-.watch-form { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; padding: 12px 20px 4px; }
-.watch-form input { font: 500 14px "Barlow", sans-serif; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; min-width: 0; }
-.watch-form input:focus { outline: 2px solid var(--ct); outline-offset: 0; border-color: transparent; }
-.watch-form button, .rm { font: 600 13px "Barlow", sans-serif; border-radius: 8px; cursor: pointer; }
-.watch-form button { background: var(--t); color: #1b1407; border: 0; padding: 8px 16px; }
-.rm { background: transparent; color: var(--mute); border: 1px solid var(--line); padding: 3px 10px; }
-.rm:hover { color: var(--loss); border-color: var(--loss); }
-.form-msg { padding: 2px 20px 0; font-size: 13px; min-height: 18px; }
-.betting { font-size: 13px; } .betting div { margin-bottom: 3px; }
-.tag.src { color: var(--mute); background: var(--panel-2); }
-@media (max-width: 640px) { .watch-form { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; } .form-msg { padding-left: 16px; } }
-details.plan { margin-top: 16px; }
-details.plan summary { cursor: pointer; list-style: none; padding: 16px 20px; font: 600 15px "Chakra Petch", sans-serif; display: flex; align-items: center; gap: 10px; }
-details.plan summary::-webkit-details-marker { display: none; }
-details.plan summary::before { content: "▸"; color: var(--mute); transition: transform .15s; }
-details.plan[open] summary::before { transform: rotate(90deg); }
-.rules { columns: 2 320px; column-gap: 32px; padding: 0 20px 18px; margin: 0; list-style: none; }
-.rules li { break-inside: avoid; margin: 0 0 12px; padding-left: 14px; border-left: 2px solid var(--line-2); color: var(--ink-2); font-size: 14px; }
-.rules b { color: var(--ink); }
-
-@media (max-width: 980px) {
-  .grid { grid-template-columns: 1fr; }
-  .board { grid-template-columns: 1fr 1fr; }
-  .cell:first-child { grid-column: 1 / -1; }
-  .cell { border-left: 0; border-top: 1px solid var(--line); }
-  .cell:nth-child(2n+1):not(:first-child) { border-left: 1px solid var(--line); }
-  .cell:first-child { border-top: 0; }
-}
-@media (max-width: 640px) {
-  .top-in, .wrap { padding-left: 16px; padding-right: 16px; }
-  .status .long { display: none; }
-  .hide-sm { display: none; }
-  th:first-child, td:first-child { padding-left: 16px; } th:last-child, td:last-child { padding-right: 16px; }
-  .panel > header, .panel .body { padding-left: 16px; padding-right: 16px; } .panel .sub { margin-left: 16px; margin-right: 16px; }
-  .panel.flush .body { padding-left: 0; padding-right: 0; }
-  .cell { padding: 14px 16px; }
-  tr.more td { padding-left: 16px; }
-  /* tables become stacked cards */
-  .stack thead { display: none; }
-  .stack, .stack tbody, .stack tr, .stack td { display: block; width: 100%; }
-  .stack tr.row { padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  .stack tr.row td { border: 0; padding: 2px 0 !important; text-align: left; background: transparent !important; box-shadow: none !important; }
-  .stack tr.row.open { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--t); border-bottom-color: transparent; }
-  .stack td[data-label] { display: flex; gap: 10px; align-items: baseline; }
-  .stack td[data-label]::before { content: attr(data-label); flex: 0 0 76px; font: 600 10.5px/1.6 "Barlow Semi Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
-  .stack td[data-label] .split { display: inline; margin-left: 6px; }
-  .stack td.when { margin-bottom: 4px; } .stack td.match { margin-bottom: 6px; }
-  .stack tr.more td { padding: 0 16px 18px !important; border-bottom: 1px solid var(--line); }
-  .stack .hide-sm { display: none !important; }
+@media (max-width: 820px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .kpi { border-left: 0; border-top: 1px solid var(--line); }
+  .kpi:first-child { grid-column: 1 / -1; border-top: 0; }
+  .two { grid-template-columns: 1fr; }
+  .filters { margin-left: 0; }
+  .bet { grid-template-columns: 28px 1fr; }
+  .res { grid-column: 2; text-align: left; }
+  th, td { padding: 8px 10px; }
 }
 </style>
 </head>
 <body>
-<div class="top"><div class="top-in">
-  <div class="mark"><i aria-hidden="true"></i>FIX WATCH</div>
-  <div class="status" id="status"><span class="dot"></span><span>loading…</span></div>
-</div></div>
-
-<main class="wrap" id="app">
-  <nav class="sports" id="sports" aria-label="Sport"><button data-v="cs" aria-pressed="true">CS2</button><button data-v="tennis" aria-pressed="false">Tennis</button></nav>
-  <nav class="accts" id="accts" aria-label="Paper accounts">
-  </nav>
-  <section class="board" aria-label="Paper account">
-    <div class="cell"><div class="cap">Balance</div><div class="v num" id="k-bal">–</div><div class="d num" id="k-bal-d"></div></div>
-    <div class="cell"><div class="cap">Profit</div><div class="v num" id="k-pnl">–</div><div class="d num" id="k-pnl-d"></div></div>
-    <div class="cell"><div class="cap">Record</div><div class="v num" id="k-rec">–</div><div class="d" id="k-rec-d"></div></div>
-    <div class="cell"><div class="cap">Open bets</div><div class="v num" id="k-open">–</div><div class="d num" id="k-open-d"></div></div>
-    <div class="cell"><div class="cap">Worst dip</div><div class="v num" id="k-dd">–</div><div class="d num" id="k-dd-d"></div></div>
-  </section>
-
-  <section class="panel flush" style="margin-top:0">
-    <header><h2>Betting now</h2><span class="cap" id="sig-count"></span></header>
-    <p class="sub" id="sig-sub"></p>
-    <div class="body scroll">
-      <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap" id="th-money"></th><th class="cap">Bet on</th><th class="cap r">Price</th><th class="cap">Status</th></tr></thead>
-        <tbody id="t-sig"></tbody>
-      </table>
+<main class="wrap">
+  <div class="top">
+    <h1>Fix Hunter</h1>
+    <div class="status" id="status"><span class="dot"></span><span>a carregar…</span></div>
+    <div class="seg" id="tabs"><button data-v="hunter" aria-pressed="true">Caçador</button><button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button></div>
+    <div class="filters" id="filters">
+      <div class="seg" id="f-game"><button data-v="all" aria-pressed="true">Todos</button><button data-v="cs2" aria-pressed="false">CS2</button><button data-v="dota" aria-pressed="false">Dota 2</button></div>
+      <div class="seg" id="f-kind"><button data-v="all" aria-pressed="true">Tudo</button><button data-v="match" aria-pressed="false">Séries</button><button data-v="map" aria-pressed="false">Mapas</button></div>
     </div>
-    <button class="showmore" id="sig-more" hidden></button>
-  </section>
-
-  <section class="panel flush" style="margin-top:16px" id="radar-panel">
-    <header><h2>Radar</h2><span class="cap" id="radar-count"></span></header>
-    <p class="sub" data-only="tlive">Unusual pre-match bets on upcoming tennis matches (ITF, Challengers, ATP/WTA on Polymarket). "Big" depends on the level: an ITF match normally has about $17 traded before it starts, so $1,000 is huge there; Challengers start at $6,000 and tour matches at $30,000 (LOW &lt; MEDIUM &lt; HIGH, higher when the bet is most of the match's money). <b>Your list</b> = wallets you or I added by hand, betting $900+. The grey line says how much of the match's pre-match money that bet is. Information only: the tennis radar account was switched off (pre-match tennis big bets lost 31% over 30 days).</p>
-    <p class="sub" data-only="live shift sniper radar informed">Only markets the Radar account bets (or is about to bet this scan): big bets bought <b>during</b> a T3–T6 match (marked LIVE); before kickoff, a single <b>Kalshi order of $2k+</b> on a T3–T6 match (copied on Polymarket; 60-day test +23.6% over 60 bets) or a your-list wallet's bet ($900+; TOP PRIORITY wallets from $300, before or during the match, at 5%). Plus <b>your list</b>: wallets you or I added by hand, betting $900+. "Big" = large for that match: LOW &lt; MEDIUM &lt; HIGH (in-play: $4k+, $10k+, $25k+). The grey line is the wallet's record, for your information only. The Radar account bets these; click a row for why each bet was flagged.</p>
-    <div class="body scroll">
-      <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap">What's odd</th></tr></thead>
-        <tbody id="t-radar"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel flush" style="margin-top:16px">
-    <header><h2>Bets</h2><span class="cap" id="hist-count"></span></header>
-    <div class="filters" role="group" aria-label="Show">
-      <button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="open">Open</button><button aria-pressed="false" data-v="won">Won</button><button aria-pressed="false" data-v="lost">Lost</button><button aria-pressed="false" data-v="sold">Exited</button>
-    </div>
-    <div class="body scroll">
-      <table class="stack">
-        <thead><tr><th class="cap">Kickoff</th><th class="cap">Match</th><th class="cap" id="th-hmoney"></th><th class="cap">Bet on</th><th class="cap r">Avg price</th><th class="cap r">Staked</th><th class="cap">Result</th><th class="cap r">P&amp;L</th></tr></thead>
-        <tbody id="t-hist"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <div class="grid">
-    <section class="panel">
-      <header><h2>Balance</h2><span class="cap" id="since"></span></header>
-      <div class="body">
-        <div class="chart" id="chart"></div>
-        <div class="tape">
-          <div class="cap" style="margin-bottom:8px">Bet tape · one slot per bet, oldest first</div>
-          <div class="tape-row" id="tape" role="img" aria-label="Every bet as a slot: up for a win, down for a loss"></div>
-          <div class="tape-legend">
-            <span style="--k: var(--win)">won</span><span style="--k: var(--loss)">lost</span>
-            <span style="--k: transparent; --b: var(--ct)">open</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel flush">
-      <header>
-        <h2>Results</h2>
-        <div class="tabs" id="res-tabs" role="group" aria-label="Group results by">
-          <button aria-pressed="false" data-v="phase">Pre/Live × tier</button><button aria-pressed="false" data-v="trigger">Trigger</button><button aria-pressed="false" data-v="team">Fix teams</button><button aria-pressed="false" data-v="wallet">Wallets</button><button aria-pressed="true" data-v="market">Market</button>
-        </div>
-      </header>
-      <p class="sub">Settled bets of this account. Pre/Live × tier: before kickoff vs during the match, per tier. Trigger: what made the bet. Fix teams: matches with one of your listed teams. Wallets: which copied wallets made or lost money.</p>
-      <div class="body scroll">
-        <table class="mini">
-          <thead><tr><th class="cap" id="res-col">Market</th><th class="cap r">W–L</th><th class="cap r">Staked</th><th class="cap r">P&amp;L</th><th class="cap r">ROI</th></tr></thead>
-          <tbody id="t-res"></tbody>
-        </table>
-      </div>
-    </section>
   </div>
 
+  <div id="v-hunter">
+  <section class="panel">
+    <div class="kpis">
+      <div class="kpi"><div class="cap">Banca</div><div class="v num" id="k-bal">–</div><div class="d num" id="k-bal-d"></div></div>
+      <div class="kpi"><div class="cap">Resultado</div><div class="v num" id="k-pnl">–</div><div class="d num" id="k-pnl-d"></div></div>
+      <div class="kpi"><div class="cap">Retorno</div><div class="v num" id="k-roi">–</div><div class="d">sobre o apostado</div></div>
+      <div class="kpi"><div class="cap">Greens</div><div class="v num pos" id="k-w">–</div><div class="d num" id="k-w-d"></div></div>
+      <div class="kpi"><div class="cap">Reds</div><div class="v num neg" id="k-l">–</div><div class="d num" id="k-l-d"></div></div>
+    </div>
+    <div class="chart"><div id="chart"></div><div class="foot"><span id="c-a"></span><span id="c-m"></span><span>agora</span></div></div>
+  </section>
 
-  <details class="panel plan" data-only="shift">
-    <summary>How the odd-shift plan works</summary>
-    <ul class="rules">
-      <li><b>Paper only.</b> A separate $300 account, started Oct 20 2026.</li>
-      <li><b>The idea:</b> during a match the price should follow the scoreboard. When the team that is clearly ahead trades far below what the score says, someone may know it won't finish the job (your examples: Damajuana a map up at 35%, Revise 7–3 up in the decider at 19%, G2 Ares 14–12 up at 0.3%; all three lost).</li>
-      <li><b>Fair price from the score:</b> Polymarket's live score (rounds in the current map, maps won). Each round is treated as a coin tilted by the teams' pre-match price, a map is first to 13 with overtime in blocks of 6, the series best of 1/3/5.</li>
-      <li><b>Signal:</b> live T3–T6 match, match-winner market, the scoreboard leader is 60%+ by that model, and the market prices it at least 35 points lower.</li>
-      <li><b>Bet:</b> 2% of the balance on the team the market prefers (the one behind on the scoreboard), once per match, at the next scan, filled against the real order book. Skipped at 0.97+.</li>
-      <li><b>Not backtested.</b> Polymarket keeps no score history, so this rule starts untested. Every live score and price is stored from today so it can be checked properly later.</li>
-    </ul>
-  </details>
+  <div class="two">
+    <section class="panel tbl"><table><thead><tr><th>Dia</th><th class="r">Apostas</th><th class="r">Greens</th><th class="r">Reds</th><th class="r">Lucro</th></tr></thead><tbody id="t-day"></tbody></table></section>
+    <section class="panel tbl"><table><thead><tr><th>Pontuação</th><th class="r">Casos</th><th class="r">Ganhou</th><th class="r">Odd média</th><th class="r">ROI</th></tr></thead><tbody id="t-score"></tbody></table></section>
+  </div>
 
-  <details class="panel plan" data-only="live">
-    <summary>How the live plan works</summary>
-    <ul class="rules">
-      <li><b>Paper only.</b> A separate $300 account, started Oct 20 2026. Nothing is ever placed for real.</li>
-      <li><b>Signal:</b> during a T3–T6 match (stronger team below #50 in Valve's ranking, or unranked), one wallet has bought $4,000+ net on one side of a market after kickoff, and wallets with $2,000+ on the other side add up to less than half of that. Any market counts.</li>
-      <li><b>Bet:</b> a share of the balance, by how strong the signal was in the test and by the odds: <b>8%</b> on a T3 match priced under 0.65, <b>5%</b> on other underdogs (under 0.45), <b>3%</b> at 0.45–0.80, and <b>no bet</b> on favourites at 0.80+ (no edge there: in the 55-day test, skipping them did slightly better). Once per market, at the next scan (within 10 minutes), filled against Polymarket's real order book with the fee. Skipped if that side already costs 0.97 or more.</li>
-      <li><b>Why live and not before kickoff:</b> in 60 days of past matches, big pre-match bets only picked the favourite. Following them did no better than backing the favourite, and big bets on underdogs lost 15–23%. Of the pre-match settings that looked good on the first 30 days, only 30% stayed positive on the next 30.</li>
-      <li><b>The test behind it:</b> copying $3k+ in-play bets on T3–T6 matches 10 minutes later returned +16.7% over 140 bets (+21.7% and +11.0% in the two halves). Backing the favourite at those same moments returned −6.4%. It was positive at every size from $1.5k to $5k and in 6 of 9 weeks. Most of it came from T3 matches. The rules were fixed before any live bet. Raised to $4k on Oct 21 2026: at $4k the same test gave +18.9% over 83 bets (+17% and +22% in the two halves).</li>
-      <li><b>Caveat:</b> in-play money often reacts to the score faster than the price does, and we copy up to 10 minutes late. The live results here are the real test.</li>
-    </ul>
-  </details>
+  <h2>Apostas <span class="cap" id="n-bets"></span></h2>
+  <div class="list" id="bets"></div>
+  <button class="more" id="more" hidden>Ver mais</button>
 
+  <h2>Em vigia <span class="cap" id="n-watch"></span></h2>
+  <p class="note">Dinheiro grande nos jogos de hoje. Os que cumprem as regras são apostados; os outros mostram porque não.</p>
+  <div class="list" id="watch"></div>
+  </div>
+
+  <div id="v-mirror" hidden>
+    <section class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="cap">Valor</div><div class="v num" id="m-eq">–</div><div class="d num" id="m-eq-d"></div></div>
+        <div class="kpi"><div class="cap">Resultado</div><div class="v num" id="m-pnl">–</div><div class="d num" id="m-pnl-d"></div></div>
+        <div class="kpi"><div class="cap">Dinheiro livre</div><div class="v num" id="m-cash">–</div><div class="d num" id="m-cash-d"></div></div>
+        <div class="kpi"><div class="cap">Greens / Reds</div><div class="v num" id="m-wl">–</div><div class="d" id="m-wl-d"></div></div>
+        <div class="kpi"><div class="cap">Cópia</div><div class="v num" id="m-until">–</div><div class="d" id="m-until-d"></div></div>
+      </div>
+    </section>
+    <p class="note" style="margin-top:12px" id="m-note"></p>
+    <h2>Posições abertas <span class="cap" id="m-n-open"></span></h2>
+    <section class="panel tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th class="r">Custo</th><th class="r">Preço</th><th class="r">Valor</th></tr></thead><tbody id="m-open"></tbody></table></section>
+    <h2>Movimentos <span class="cap">compras e vendas dele, e o que copiámos</span></h2>
+    <section class="panel tbl"><table><thead><tr><th>Quando</th><th>Mercado</th><th>Ele</th><th>Nós</th><th class="r">Preço</th></tr></thead><tbody id="m-trades"></tbody></table></section>
+    <h2>Fechadas <span class="cap" id="m-n-closed"></span></h2>
+    <section class="panel tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th>Fim</th><th class="r">Custo</th><th class="r">P&amp;L</th></tr></thead><tbody id="m-closed"></tbody></table></section>
+  </div>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const fmt = new Intl.NumberFormat("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
-const usd = (v, sign) => (sign && v > 0 ? "+" : v < 0 ? "−" : "") + "$" + fmt.format(Math.abs(v || 0));
-const usd0 = v => "$" + Math.round(v || 0).toLocaleString("en-US");
-const pct = (v, sign) => v == null ? "–" : (sign && v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
-const tone = v => v > 0 ? "pos" : v < 0 ? "neg" : "";
-const nowS = () => Date.now() / 1000;
-const day = ts => new Date(ts * 1000).toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"});
-const hm = ts => new Date(ts * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
-const rel = ts => { const m = (ts - nowS()) / 60, a = Math.abs(m);
-  const s = a < 60 ? Math.round(a) + " min" : a < 2880 ? (a / 60).toFixed(a < 600 ? 1 : 0) + " h" : Math.round(a / 1440) + " d";
-  return m >= 0 ? "in " + s : s + " ago"; };
-const short = t => String(t).replace(/^Counter-Strike:\s*/, "");
-// what exactly the bet is on: "PRIVATE +1.5", "Over 2.5", "fnatic (map 1)", or just the team for the match winner
-const betLabel = (market, side) => {
-  if (!market || market === "Match Winner" || side === "other") return side;
-  const at = market.toLowerCase().indexOf(side.toLowerCase() + " (");
-  const h = at < 0 ? null : market.slice(at + side.length).match(/^ \(([+-][\d.]+)\)/);
-  if (h) return `${side} ${h[1]}`;
-  const ou = market.match(/(\d+\.5)\s*$/);
-  if (/^(over|under)$/i.test(side) && ou) return `${side} ${ou[1]}`;
-  const mp = market.match(/^Map (\d) Winner/);
-  if (mp) return `${side} (map ${mp[1]})`;
-  return side;
-};
-const split = t => { const s = short(t); const i = s.indexOf(" - "); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 3)]; };
-const lv = l => `<span class="lv ${l}">${l}</span>`;
-const LVC = {HIGH: "var(--high)", MEDIUM: "var(--med)", LOW: "var(--low)", LIVE: "var(--live)", INFORMED: "var(--ct)"};
-let D = null, RAW = null, resMode = "market", histFilter = "all", showAllSigs = false;
-const ACCTS = {
-  live: {name: "Live big money", sub: "copies one wallet buying $4k+ on a side DURING a T3–T6 match (T3+ only)", data: d => d.live,
-         sig: "Matches in play where one wallet has $1k+ bought during the match. When one wallet reaches $4k on one side of a T3–T6 market, with less than half of that from big wallets on the other side, the bet is copied at the next scan (within 10 minutes). Click a row for the wallets.",
-         empty: "A bet appears when one wallet puts $4k+ on one side during a T3–T6 match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
-  shift: {name: "Odd shifts", sub: "live price contradicts the round score by 35+ pts on a T3–T6 match → bets with the market", data: d => d.shift,
-         sig: "Live matches with a score. When the team ahead on the scoreboard trades 35+ points below what the score says (T3–T6), the bet follows the market at the next scan. New and not backtested: Polymarket keeps no score history, so this one is tested live.",
-         empty: "A bet appears when a live T3–T6 match's price contradicts its scoreboard by 35+ points.", money: "Score · fair vs market", hmoney: "Score when bet", head: "Scoreboard vs price", what: "live score"},
-  radar: {name: "Radar", sub: "copies big in-play bets on T3–T6 matches; before kickoff: big Kalshi orders ($2k+) and your-list wallets ($900+)", data: d => d.radar_acct,
-         sig: "Upcoming matches on the pre-match radar. Before kickoff the account bets big Kalshi orders (one order of $2k+ on a T3–T6 match: 4% of its balance) and your-list wallets ($900+, 3%); big Polymarket pre-match bets lost 8% over 30 days, so they are not bet. In-play money is bet and sized like Live big money on the side with the most radar money (big out-of-place bets, your list $900+) when the other side has less than half of it, once per market, at the next scan. Not a tested edge: in 60 days of data, following big pre-match bets was about break-even.",
-         empty: "A bet appears when a wallet buys $4k+ on one side during a T3–T6 match (not a favourite at 0.80+), a Kalshi order of $2k+ lands before kickoff of a T3–T6 match, or a your-list wallet bets $900+ before kickoff.", money: "Radar money", hmoney: "Radar money", head: "Radar money", what: "radar"},
-  tlive: {sport: "tennis", name: "Tennis live", sub: "copies $2k+ bought on the ITF underdog (under 0.45) during the match", data: d => d.tennis && d.tennis.live_acct,
-         sig: "ITF matches in play where a wallet has $1k+ bought during the match. When one wallet has $2,000+ on the underdog (priced under 0.45) and not much big money is on the other side, the account bets at the next scan: 6% of its balance on W50+ ITF events, 4% on M25/W35, 2% on M15/W15 (the lowest level did worst), ×1.5 when the trigger bet is $3k+ and ×2 at $5k+ (bigger triggers won more), never above 12%. Backtest: +46% over 56 bets in 30 days, positive in both halves; found among many combinations, so promising, not proven.",
-         empty: "A bet appears when a wallet puts $2k+ on the underdog during an ITF match.", money: "Biggest wallet / other side", hmoney: "Wallet money", head: "Big in-play money", what: "in-play"},
-};
-const scoreText = sc => sc ? `${esc(sc.home)} ${sc.rounds[0]}–${sc.rounds[1]} ${esc(sc.away)}${sc.bo > 1 ? ` · maps ${sc.maps[0]}–${sc.maps[1]}` : ""}` : "–";
-let acct = (() => { try { const h = location.hash.slice(1), st = localStorage.getItem("acct"); return ACCTS[h] ? h : ACCTS[st] ? st : "live"; } catch { return "live"; } })();
-const opened = new Set();
+const usd = v => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
+const usd0 = v => "$" + Math.round(v).toLocaleString("en-US");
+const pct = v => v == null ? "–" : (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+const when = t => new Date(t * 1000).toLocaleString("pt-PT", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"});
+const odds = p => p ? (1 / p).toFixed(2) : "–";
+let D = null, game = "all", kind = "all", shown = 30;
+try { game = localStorage.getItem("fh-game") || "all"; kind = localStorage.getItem("fh-kind") || "all"; } catch {}
 
-function pathHtml(path, escd) {
-  if (!path || !path.length) return '<span class="cap">–</span>';
-  return `<div class="path">${path.map(([l]) => lv(l)).join('<span class="to">→</span>')}${escd ? '<span class="tag esc" title="The level rose before kickoff, so the plan added money. Open the row to see why.">escalated</span>' : ""}</div>
-    <div class="times">${path.length > 1 ? path.map(([, t]) => hm(t)).join(" → ") : "since " + hm(path[0][1])}</div>`;
-}
-function matchCell(b, link) {
-  const [teams, ev] = split(b.match);
-  const name = link && b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(teams)}</a>` : esc(teams);
-  const rk = Object.entries(b.ranks || {}).map(([t, r]) => `${esc(t)} ${r ? "#" + r : "unranked"}`).join(" · ");
-  return `<td class="match"><b>${name}</b><span class="ev">${esc(ev)}${b.vtier ? (ev ? " · " : "") + "<b>" + esc(b.vtier) + "</b>" : b.tier ? (ev ? " · " : "") + esc(b.tier) + " tier" : ""}</span>
-    ${rk ? `<span class="ev" style="display:block" title="Valve Regional Standings">${rk}</span>` : ""}
-    ${b.kind && b.kind !== "match" ? `<div><span class="tag mk">${esc(b.market)}</span></div>` : ""}</td>`;
-}
-function whyHtml(w, status) {
-  if (!w) return '<p class="cap">No explanation stored for this bet.</p>';
-  return `<div class="why"><p class="head">${esc(w.headline)}</p>` + w.sections.map(s =>
-    `<section><div class="cap">${esc(s.title)}</div><ul class="${s.title === "Result" ? "res-" + status : ""}">${s.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul></section>`).join("") + "</div>";
-}
-function evidence(b) {
-  const fl = b.flags || [];
-  if (!fl.length) return "";
-  return `<div class="evidence"><div class="cap">Raw evidence</div>` + fl.map(f => `<div class="ev-item">${lv(f.level)}
-    <b class="num">${usd0(f.usd)}</b> on <b>${esc(f.outcome)}</b> at ${(+f.avg_price).toFixed(2)} · ${esc(f.market)} · ${(f.share * 100).toFixed(0)}% of the match
-    ${f.profile ? ` · <a href="${esc(f.profile)}" target="_blank" rel="noopener">${esc(f.name || f.wallet.slice(0, 10))}</a>` : f.cluster ? ` · ${f.cluster} wallets` : ""}
-    <div class="w">${(f.why || []).map(esc).join(" · ")}</div></div>`).join("") + "</div>";
-}
-function toggleRows(tb, prefix) {
-  tb.querySelectorAll("tr.row").forEach(tr => {
-    const go = e => {
-      if (e.target.closest("a")) return;
-      const more = $(prefix + tr.dataset.i), open = more.hidden;
-      more.hidden = !open; tr.classList.toggle("open", open); tr.setAttribute("aria-expanded", open);
-      open ? opened.add(prefix + tr.dataset.k) : opened.delete(prefix + tr.dataset.k);
-    };
-    tr.onclick = go;
-    tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(e); } };
-  });
-}
-const key = b => esc(b.match + "|" + b.start + "|" + (b.market || "") + (b.status === "sold" ? "|" + b.settled_at : ""));
-function bookLine(b) {
-  const bs = Object.values(b.books || {});
-  if (!bs.length) return "";
-  const v = b.sharp ? b.sharp : bs.sort((x, y) => (y.book === "Pinnacle") - (x.book === "Pinnacle"))[0];
-  const mv = Math.round(v.move * 100), cls = b.sharp ? (b.sharp.agree ? "pos" : "neg") : "";
-  return `<span class="split ${cls}" title="Bookmaker chance for ${esc(b.side)}, margin removed, change over 12 h">${esc(v.book)} ${Math.round(v.now * 100)}%${mv ? ` (${mv > 0 ? "+" : ""}${mv})` : ""}</span>`;
+function keep(b) {
+  if (game !== "all" && b.game !== game) return false;
+  if (kind === "match" && b.market !== "Match Winner") return false;
+  if (kind === "map" && b.market === "Match Winner") return false;
+  return true;
 }
 
-function board() {
-  const s = D.stats;
+function gameTag(g) { return `<span class="g ${g}">${g === "dota" ? "DOTA 2" : "CS2"}</span>`; }
+
+function betCard(b) {
+  const st = b.status;
+  const icon = st === "won" ? "✓" : st === "lost" ? "✗" : "•";
+  const res = st === "won" ? `+${usd(b.pnl).slice(1)}<small>${esc(b.winner)} ganhou</small>`
+            : st === "lost" ? `${usd(b.pnl)}<small>${esc(b.winner)} ganhou</small>`
+            : `aberta<small>${usd(b.stake)} em jogo</small>`;
+  const mk = b.market === "Match Winner" ? "" : `<span class="tag">${esc(b.market)}</span>`;
+  const ph = b.phase === "live" ? `<span class="tag live">ao vivo</span>` : "";
+  const why = (b.why || []).map(x => `<li>${esc(x)}</li>`).join("");
+  const who = b.name && !b.name.startsWith("0x") ? b.name : (b.wallet || "").slice(0, 8);
+  return `<div class="bet ${st}"><div class="ic">${icon}</div>
+    <div><div class="t1">${gameTag(b.game)}${esc(b.match)}${mk}${ph}</div>
+      <div class="t2">${b.their_side && b.their_side !== b.side ? `Contra conta fresca: aposta em <b>${esc(b.side)}</b>` : `Dinheiro em <b>${esc(b.side)}</b>`} · regra <b>${esc(b.rule || "–")}</b> · pontuação <b>${b.score}</b> · odd <b>${odds(b.price)}</b> · ${usd(b.stake)} · ${when(b.placed_at)}</div></div>
+    <div class="res num">${res}</div>
+    <details class="why"><summary>porquê ▾</summary><ul><li>Carteira: <a href="https://polymarket.com/profile/${esc(b.wallet)}" target="_blank" rel="noopener">${esc(who)}</a></li>${why}<li><a href="${esc(b.url)}" target="_blank" rel="noopener">abrir mercado ↗</a></li></ul></details></div>`;
+}
+
+function watchCard(w) {
+  const who = w.name && !w.name.startsWith("0x") ? w.name : (w.wallet || "").slice(0, 8);
+  const mk = w.market === "Match Winner" ? "" : `<span class="tag">${esc(w.market)}</span>`;
+  const ph = w.phase === "live" ? `<span class="tag live">ao vivo</span>` : "";
+  const tgt = w.bet_side && w.bet_side !== w.side ? ` → contra: ${esc(w.bet_side)}` : "";
+  const res = w.bet ? `apostado${tgt}<small>regra ${esc(w.rule)} · pontuação ${w.score}</small>` : w.no ? `não<small>${esc(w.no)}</small>` : `a apostar${tgt}<small>regra ${esc(w.rule)} · pontuação ${w.score}</small>`;
+  return `<div class="bet watch ${w.no ? "skip" : "open"}"><div class="ic">${w.no ? "–" : "!"}</div>
+    <div><div class="t1">${gameTag(w.game)}${esc(w.match)}${mk}${ph}</div>
+      <div class="t2"><b>${usd0(w.usd)}</b> em <b>${esc(w.side)}</b> a ${w.px.toFixed(2)} · ${esc(who)} · início ${when(w.start)}</div></div>
+    <div class="res num">${res}</div>
+    <details class="why"><summary>porquê ▾</summary><ul>${(w.why || []).map(x => `<li>${esc(x)}</li>`).join("")}<li><a href="${esc(w.url)}" target="_blank" rel="noopener">abrir mercado ↗</a></li></ul></details></div>`;
+}
+
+function chart(series) {
+  if (!series || series.length < 2) { $("chart").innerHTML = ""; return; }
+  const W = 1000, H = 130, xs = series.map(p => p[0]), ys = series.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const X = x => (x1 === x0 ? 0 : (x - x0) / (x1 - x0)) * W, Y = y => H - 8 - (y1 === y0 ? .5 : (y - y0) / (y1 - y0)) * (H - 16);
+  const d = series.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
+  const up = ys[ys.length - 1] >= ys[0];
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução da banca"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="var(${up ? "--win" : "--loss"})" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  $("c-a").textContent = "início " + usd(ys[0]);
+  $("c-m").textContent = `pior ${usd(y0)} · melhor ${usd(y1)}`;
+}
+
+function render() {
+  if (!D || !D.hunter) return;
+  const H = D.hunter, s = H.stats;
+  const age = (Date.now() / 1000 - D.at) / 60;
+  $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>último scan há ${Math.round(age)} min · ${D.scanned ?? "?"} mercados</span>`;
   $("k-bal").textContent = usd(s.balance);
-  $("k-bal-d").textContent = `cash · ${usd(s.equity)} with open bets`;
-  $("k-pnl").textContent = usd(s.profit, true); $("k-pnl").className = "v num " + tone(s.profit);
-  $("k-pnl-d").textContent = `from ${usd0(s.start)} · settled ROI ${pct(s.roi, true)}`;
-  $("k-rec").innerHTML = `<span class="pos">${s.wins}</span><span style="color:var(--mute)"> – </span><span class="neg">${s.losses}</span>`;
-  $("k-rec-d").textContent = s.bets ? `${pct(s.win_rate)} won · last ${s.streak}` : "nothing settled yet";
-  $("k-open").textContent = s.open;
-  $("k-open-d").textContent = `${usd(s.at_risk)} riding${s.escalated ? ` · ${s.escalated} escalated` : ""}${s.skipped ? ` · ${s.skipped} skipped` : ""}`;
-  $("k-dd").textContent = s.max_drawdown ? usd(-s.max_drawdown) : "$0.00";
-  $("k-dd-d").textContent = `best ${usd(s.best, true)} · worst ${usd(s.worst, true)}`;
-  const age = (nowS() - D.at) / 60, stale = age > 25;
-  $("status").innerHTML = `<span class="dot ${stale ? "stale" : ""}"></span><span>${stale ? "<b>stale</b> · " : ""}scanned ${age < 1 ? "just now" : Math.round(age) + " min ago"}</span>
-    <span class="long">· ${D.scanned} markets · ${(D.signals || []).filter(x => x.active).length} signals</span>`;
-  $("since").textContent = "since " + new Date(D.opened_at * 1000).toLocaleDateString([], {day: "numeric", month: "short"});
+  $("k-bal-d").textContent = `começou em ${usd(s.start)}` + (s.open ? ` · ${usd(s.at_risk)} em ${s.open} abertas` : "");
+  const p = $("k-pnl"); p.textContent = (s.profit >= 0 ? "+" : "") + usd(s.profit); p.className = "v num " + (s.profit >= 0 ? "pos" : "neg");
+  $("k-pnl-d").textContent = `${s.wins + s.losses} apostas · ${usd(s.staked)} apostado`;
+  const r = $("k-roi"); r.textContent = pct(s.roi); r.className = "v num " + ((s.roi || 0) >= 0 ? "pos" : "neg");
+  $("k-w").textContent = s.wins; $("k-w-d").textContent = `+${usd(s.won_usd).slice(1)} de lucro`;
+  $("k-l").textContent = s.losses; $("k-l-d").textContent = `−${usd(s.lost_usd).slice(1)} perdido`;
+  chart(H.series);
+  $("t-day").innerHTML = (H.days || []).slice(0, 10).map(d => `<tr><td>${d.day}</td><td class="r num">${d.bets}</td><td class="r num pos">${d.won || "–"}</td><td class="r num neg">${d.lost || "–"}</td><td class="r num ${d.pnl >= 0 ? "pos" : "neg"}">${d.won + d.lost ? usd(d.pnl) : "–"}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">sem apostas ainda</td></tr>`;
+  $("t-score").innerHTML = (H.buckets || []).map(b => `<tr><td>${b.range}</td><td class="r num">${b.n}</td><td class="r num">${b.n ? Math.round(100 * b.won / b.n) + "%" : "–"}</td><td class="r num">${b.odds ?? "–"}</td><td class="r num ${(b.roi || 0) >= 0 ? "pos" : "neg"}">${pct(b.roi)}</td></tr>`).join("");
+  const bets = (H.bets || []).filter(keep);
+  $("n-bets").textContent = bets.length;
+  $("bets").innerHTML = bets.slice(0, shown).map(betCard).join("") || `<div class="empty">Ainda nenhuma aposta. O caçador aposta mal uma regra dispare.</div>`;
+  $("more").hidden = bets.length <= shown;
+  const w = (H.watch || []).filter(keep);
+  $("n-watch").textContent = w.length;
+  $("watch").innerHTML = w.map(watchCard).join("") || `<div class="empty">Nada de dinheiro grande nos jogos de agora.</div>`;
 }
 
-function chart() {
-  const pts = D.series, box = $("chart");
-  if (pts.length < 2) { box.innerHTML = '<div class="empty">The line starts with the first bet.</div>'; return; }
-  const W = 760, H = 170, L = 50, R = 8, T = 10, B = 22;
-  const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], nowS());
-  const vs = pts.map(p => p[1]).concat([D.stats.start]);
-  let lo = Math.min(...vs), hi = Math.max(...vs); const pad = Math.max(8, (hi - lo) * .15); lo -= pad; hi += pad;
-  const x = t => L + (t - t0) / Math.max(t1 - t0, 1) * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
-  let s = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Balance over time">`;
-  for (const v of [lo + (hi - lo) * .2, (lo + hi) / 2, hi - (hi - lo) * .2])
-    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">$${Math.round(v)}</text>`;
-  s += `<line x1="${L}" x2="${W - R}" y1="${y(D.stats.start)}" y2="${y(D.stats.start)}" stroke="var(--mute)" stroke-dasharray="3 5"/>`;
-  let d = `M${x(pts[0][0])},${y(pts[0][1])}`;
-  for (const [t, v] of pts.slice(1)) d += ` H${x(t)} V${y(v)}`;
-  d += ` H${x(t1)}`;
-  const up = pts[pts.length - 1][1] >= D.stats.start, c = up ? "var(--win)" : "var(--loss)";
-  s += `<path d="${d} V${y(lo)} H${x(pts[0][0])} Z" fill="${c}" opacity=".07"/><path d="${d}" fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
-  s += `<text x="${L}" y="${H - 5}">${day(t0)}</text><text x="${W - R}" y="${H - 5}" text-anchor="end">now</text></svg>`;
-  box.innerHTML = s;
+let tab = "hunter";
+try { tab = localStorage.getItem("fh-tab") || "hunter"; } catch {}
+function renderMirror() {
+  const M = D && D.mirror;
+  if (!M) { $("m-note").textContent = "O espelho abre no próximo scan."; return; }
+  const k = (id, v, cls) => { const e = $(id); e.textContent = v; if (cls !== undefined) e.className = "v num " + cls; };
+  k("m-eq", usd(M.equity)); $("m-eq-d").textContent = `orçamento ${usd(M.budget)}`;
+  k("m-pnl", (M.pnl >= 0 ? "+" : "") + usd(M.pnl), M.pnl >= 0 ? "pos" : "neg"); $("m-pnl-d").textContent = `realizado ${usd(M.realized)}`;
+  k("m-cash", usd(M.cash)); $("m-cash-d").textContent = `${usd(M.value)} em ${M.open.length} posições`;
+  k("m-wl", `${M.won} / ${M.lost}`); $("m-wl-d").textContent = `${M.sold} vendidas antes do fim`;
+  k("m-until", M.copying ? "ativa" : "terminou"); $("m-until-d").textContent = `até ${when(M.until)}`;
+  $("m-note").innerHTML = `Copia <a href="https://polymarket.com/@cutjalenhurts" target="_blank" rel="noopener">@cutjalenhurts</a> em todos os mercados, à escala 1:${Math.round(1 / M.scale).toLocaleString("en-US")} (ele compra ~${usd0(M.his_daily)}/dia). Compras e vendas ao preço real do order book, até 10 min depois dele. Sem notificações.`;
+  $("m-n-open").textContent = M.open.length;
+  $("m-open").innerHTML = M.open.map(p => `<tr><td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td><td>${esc(p.outcome)}</td><td class="r num">${usd(p.cost)}</td><td class="r num">${p.price != null ? p.price.toFixed(2) : "–"}</td><td class="r num ${p.value >= p.cost ? "pos" : "neg"}">${usd(p.value)}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">nenhuma</td></tr>`;
+  const kind = {buy: "comprou", sell: "vendeu", merge: "fundiu (vendeu)", skip: "não copiado"};
+  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "compra" : "venda"} ${usd0(t.his_usd)} a ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}${t.note && t.kind !== "skip" ? " · " + esc(t.note) : ""}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">ainda sem movimentos</td></tr>`;
+  $("m-n-closed").textContent = M.closed.length;
+  const fim = {won: "ganhou", lost: "perdeu", void: "anulado", sold: "vendida"};
+  $("m-closed").innerHTML = M.closed.map(c => `<tr><td>${esc(c.title)}</td><td>${esc(c.outcome)}</td><td>${fim[c.how]}</td><td class="r num">${usd(c.cost)}</td><td class="r num ${(c.pnl || 0) >= 0 ? "pos" : "neg"}">${c.pnl == null ? "–" : usd(c.pnl)}</td></tr>`).join("") || `<tr><td colspan="5" class="cap">nenhuma ainda</td></tr>`;
+}
+function showTab() {
+  $("v-hunter").hidden = tab !== "hunter"; $("v-mirror").hidden = tab !== "mirror"; $("filters").hidden = tab !== "hunter";
 }
 
-function tape() {
-  const bs = D.bets.slice().reverse(), box = $("tape");
-  if (!bs.length) { box.innerHTML = '<div class="cap" style="margin:auto">no bets yet</div>'; return; }
-  const big = Math.max(1, ...bs.map(b => Math.abs(b.pnl || 0)));
-  box.innerHTML = bs.map(b => {
-    const done = b.status === "won" || b.status === "lost" || b.status === "sold";
-    const h = done ? Math.max(10, Math.abs(b.pnl) / big * 46) : 0;
-    const tip = `${short(b.match).split(" - ")[0]}${b.market && b.market !== "Match Winner" ? " · " + b.market : ""} · ${b.level} · ${b.status}${done ? " " + usd(b.pnl, true) : ""}`;
-    return `<div class="slot ${b.status}${b.status === "sold" ? (b.pnl > 0 ? " up" : " down") : ""}" title="${esc(tip)}"><i class="tick" style="background:${LVC[b.level] || "var(--low)"}"></i>
-      <i class="bar" style="${h ? `height:${h / 2}%` : ""}"></i></div>`;
-  }).join("");
-}
-
-function results() {
-  const s = D.stats;
-  const src = {market: s.by_market, phase: s.by_phase, trigger: s.by_trigger, team: s.by_team, wallet: s.by_wallet}[resMode] || [];
-  const rows = src.map(r => ({...r, label: esc(r.name)}));
-  $("res-col").textContent = {market: "Market", phase: "When · tier", trigger: "What triggered it", team: "Fix-prone team", wallet: "Copied wallet"}[resMode];
-  if (!rows.length) { $("t-res").innerHTML = '<tr><td colspan="5" class="empty">Nothing settled yet for this view.</td></tr>'; return; }
-  $("t-res").innerHTML = rows.map(r => `<tr><td>${r.label}</td><td class="r num">${r.won}–${r.lost}</td><td class="r num">${usd0(r.staked)}</td>
-    <td class="r num ${tone(r.pnl)}">${r.bets ? usd(r.pnl, true) : "–"}</td><td class="r num ${tone(r.roi)}">${pct(r.roi, true)}</td></tr>`).join("");
-}
-
-function wname(x) {
-  return x.name && !x.name.startsWith("0x") ? x.name : x.wallet.slice(0, 6) + "…" + x.wallet.slice(-4);
-}
-function walletRecord(x) {
-  const r = x.record;
-  if (!r && x.profile !== undefined) { const p = x.profile || {};
-    return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>${x.hand ? ' <span class="rtag watched">your list</span>' : ""}
-    has <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)}<span class="split">${p.n ? `${p.n} CS2 bets in its history, won ${Math.round(p.won * 100)}% (${p.edge >= 0 ? "+" : ""}${Math.round(p.edge * 100)} pts over its prices) · ${Math.round(p.share * 100)}% of its bets are CS2 · CS2 profit ${usd0(p.cs2_pnl)}` : "history not read yet"}</span></div>`; }
-  if (!r && x.tags) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
-    put <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)} before kickoff · ${x.tags.map(esc).join(", ")}<span class="split">${esc(x.who || "")}</span></div>`;
-  if (!r) return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
-    bought <b class="num">${usd0(x.usd)}</b> during the match at an average ${(+x.avg).toFixed(2)}${x.at ? ` · last trade ${hm(x.at)}` : ""}</div>`;
-  return `<div><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(x))}</b></a>
-    put <b class="num">${usd0(x.usd)}</b> at ${(+x.avg).toFixed(2)} · last 21 days: <b class="num">${r.wins}–${r.losses}</b>,
-    won ${Math.round(r.win_rate * 100)}% at prices that predicted ${Math.round(r.avg_price * 100)}% · edge ${r.edge >= 0 ? "+" : ""}${Math.round(r.edge * 100)} pts · luck score ${r.z.toFixed(1)}</div>`;
-}
-function signals() {
-  const all = D.signals || [], tb = $("t-sig"), quiet = all.filter(x => !x.active && !x.placed).length;
-  const ss = showAllSigs ? all : all.filter(x => x.active || x.placed);
-  const more = $("sig-more");
-  more.hidden = !quiet;
-  more.textContent = showAllSigs ? "Hide matches that don't qualify" : `Show ${quiet} match${quiet === 1 ? "" : "es"} watched but not bet (and why)`;
-  more.onclick = () => { showAllSigs = !showAllSigs; signals(); };
-  const act = ss.filter(x => x.active).length;
-  const A = ACCTS[acct];
-  $("sig-sub").textContent = A.sig; $("th-money").textContent = A.money;
-  $("sig-count").textContent = all.length ? `${act} signal${act === 1 ? "" : "s"} · ${all.length} with ${A.what} data` : "";
-  if (!ss.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">Nothing to bet right now. ${A.empty} Checked every 10 minutes.</td></tr>`; toggleRows(tb, "s-"); return; }
-  tb.innerHTML = ss.map((x, i) => {
-    const k = esc(x.cid), isOpen = opened.has("s-" + k), px = x.prices[x.side];
-    const status = x.placed ? (x.placed.status === "open" ? `<span class="tag open">bet ${usd(x.placed.stake)}</span><span class="split">at ${x.placed.price.toFixed(3)}</span>`
-        : `<span class="tag skipped">${esc(x.placed.status)}</span>`)
-      : x.active ? '<span class="tag open">betting at the next scan</span>'
-      : `<span class="tag skipped">no bet</span><span class="split">${esc(x.why_not.join("; "))}</span>`;
-    return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
-      <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(x.start)}</b><span style="display:block;padding-left:16px">${day(x.start)} · ${rel(x.start)}</span></td>
-      ${matchCell({match: x.match, url: x.url, vtier: x.vtier, kind: x.market === "Match Winner" ? "match" : "side", market: x.market}, true)}
-      ${x.score ? `<td data-label="Score"><b>${scoreText(x.score)}</b><span class="split">${esc(x.leader)}: fair ${Math.round(x.leader_model * 100)}% · market ${Math.round(x.leader_price * 100)}% (gap ${Math.round(x.gap * 100)} pts)</span></td>`
-        : `<td data-label="Money"><b class="num">${usd0(x.money)}</b> <span style="color:var(--mute)">/ ${usd0(x.other_money)}</span><span class="split">${x.wallets.length} wallet${x.wallets.length === 1 ? "" : "s"}: ${x.wallets.slice(0, 3).map(w => esc(wname(w))).join(", ")}</span></td>`}
-      <td class="side" data-label="Bet on">${esc(betLabel(x.market, x.side))}</td>
-      <td class="r num" data-label="Price">${px != null ? px.toFixed(2) + `<span class="split">${Math.round(px * 100)}%</span>` : "–"}</td>
-      <td data-label="Status">${status}</td></tr>
-      <tr class="more" id="s-${i}" ${isOpen ? "" : "hidden"}><td colspan="6"><div class="why"><p class="head">${A.head}${x.score ? "" : " on " + esc(betLabel(x.market, x.side))}</p>
-        ${x.score ? `<div class="wl"><div>Score: <b>${scoreText(x.score)}</b> (best of ${x.score.bo}). Pre-match price for ${esc(x.score.home)}: ${Math.round(x.pre_home * 100)}%.</div>
-          <div>From the score, ${esc(x.leader)} should be about <b>${Math.round(x.leader_model * 100)}%</b>; the market has it at <b>${Math.round(x.leader_price * 100)}%</b>. A bet needs a gap of 35+ points, then follows the market: ${esc(x.side)}.</div></div>`
-        : `<div class="wl">${x.wallets.map(walletRecord).join("")}</div>`}
-        ${x.against.length ? `<p class="head" style="margin-top:14px">On the other side</p><div class="wl">${x.against.map(walletRecord).join("")}</div>` : ""}
-        ${x.placed ? `<p class="why-not" style="margin-top:12px">${x.placed.status === "void" ? "A bet was placed earlier and refunded (it came from a score feed without round data)." : `Already bet earlier (${esc(x.placed.status)}). The lines above describe the situation now, not when the bet was placed.`}</p>`
-          : x.why_not.length ? `<p class="why-not" style="margin-top:12px">No bet because: ${esc(x.why_not.join("; "))}.</p>` : ""}</div></td></tr>`;
-  }).join("");
-  toggleRows(tb, "s-");
-}
-function radarPanel() {
-  $("radar-panel").hidden = sportOf(acct) === "tennis";            // no tennis radar account, so nothing to show
-  const rs = (sportOf(acct) === "tennis" ? [] : RAW.radar) || [], tb = $("t-radar");
-  $("radar-count").textContent = rs.length ? `${rs.length} market${rs.length === 1 ? "" : "s"}` : "";
-  if (!rs.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Nothing the Radar account would bet right now. Checked every 10 minutes.</td></tr>'; return; }
-  tb.innerHTML = rs.map((g, i) => {
-    const k = esc(g.match + "|" + g.market), isOpen = opened.has("r-" + k);
-    const lines = g.items.map(x => `<div class="radar-item">${x.tags.map(t => `<span class="rtag ${t.kind}">${esc(t.label)}</span>`).join("")}
-      <b class="num">${usd0(x.usd)}</b> on <b>${esc(betLabel(g.market, x.outcome))}</b> at ${(+x.avg).toFixed(2)} · ${x.wallet ? `<a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name && !x.name.startsWith("0x") ? x.name : x.wallet.slice(0, 6) + "…" + x.wallet.slice(-4))}</a>` : "anonymous trades on Kalshi"}<span class="who">${esc(x.who || "")}</span></div>`).join("");
-    const why = g.items.filter(x => x.why.length).map(x => `<li><b>${usd0(x.usd)}</b> on ${esc(betLabel(g.market, x.outcome))}: ${x.why.map(esc).join(" · ")}</li>`).join("");
-    return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
-      <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(g.start)}</b><span style="display:block;padding-left:16px">${day(g.start)} · ${rel(g.start)}</span></td>
-      ${matchCell({match: g.match, url: g.url, vtier: g.vtier, kind: g.market === "Match Winner" ? "match" : "side", market: g.market}, true)}
-      <td data-label="Odd">${g.live ? '<span class="rtag watched">LIVE · bought during the match</span><br>' : ""}${lines}</td></tr>
-      <tr class="more" id="r-${i}" ${isOpen ? "" : "hidden"}><td colspan="3"><div class="why">${why ? `<p class="head">Why each bet stands out</p><ul>${why}</ul>` : '<p class="cap">Small bets from followed wallets; no size flags.</p>'}</div></td></tr>`;
-  }).join("");
-  toggleRows(tb, "r-");
-}
-function risingPanel() {
-  const ws = D.rising || [], tb = $("t-ris");
-  if (!tb) return;
-  $("ris-count").textContent = ws.length ? `${ws.length} close to the bar` : "";
-  if (!ws.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">No wallet is close to the bar right now.</td></tr>'; return; }
-  tb.innerHTML = ws.map(w => {
-    const r = w.record;
-    const bets = w.betting.length ? w.betting.map(b => `<div><b class="num">${usd0(b.usd)}</b> · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("") : '<span class="split">no upcoming bets</span>';
-    return `<tr><td data-label="Wallet"><a href="https://polymarket.com/profile/${esc(w.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(w))}</b></a></td>
-      <td class="r num" data-label="Bets">${r.n}</td>
-      <td class="r num" data-label="Won"><span class="pos">${r.wins}</span>–<span class="neg">${r.losses}</span><span class="split">${Math.round(r.win_rate * 100)}%</span></td>
-      <td class="r num" data-label="Predicted">${Math.round(r.avg_price * 100)}%</td>
-      <td class="r num pos" data-label="Edge">+${Math.round(r.edge * 100)} pts</td>
-      <td class="r num" data-label="Luck">${r.z.toFixed(1)}</td>
-      <td data-label="Needs"><span class="split">${esc(w.needs)}</span></td>
-      <td class="betting" data-label="Betting">${bets}</td></tr>`;
-  }).join("");
-}
-const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + "$" + Math.abs(Math.round(v)).toLocaleString("en-US");
-function lifeHtml(l) {
-  if (!l) return '<span class="split">checking…</span>';
-  return `<span class="${tone(l.pnl)}" title="Everything this wallet ever bet on Polymarket, losing positions it never redeemed included">${signed(l.pnl)}</span>
-    <span class="split">CS2 <span class="${tone(l.cs2_pnl)}">${signed(l.cs2_pnl)}</span> · ${l.cs2_n} bets · luck ${l.cs2_z.toFixed(1)}${l.partial ? " · latest 1,500 only" : ""}</span>`;
-}
-function walletsPanel() {
-  const ws = D.wallets || [], tb = $("t-wal");
-  if (!tb) return;
-  $("wal-count").textContent = ws.length ? `${ws.length} right now` : "";
-  if (!ws.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">No wallet meets the bar right now.</td></tr>'; return; }
-  tb.innerHTML = ws.map(w => {
-    const r = w.record;
-    const bets = w.betting.length ? w.betting.map(b => `<div>${b.side === "other" ? "against the signal · " : ""}<b class="num">${usd0(b.usd)}</b>${b.side !== "other" ? " on " + esc(betLabel(b.market, b.side)) : ""} · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
-      : '<span class="split">no upcoming bets</span>';
-    return `<tr><td data-label="Wallet"><a href="https://polymarket.com/profile/${esc(w.wallet)}" target="_blank" rel="noopener"><b>${esc(wname(w))}</b></a><span class="split">${esc(w.wallet.slice(0, 10))}…</span></td>
-      <td class="r num" data-label="Bets">${r.n}</td>
-      <td class="r num" data-label="Won"><span class="pos">${r.wins}</span>–<span class="neg">${r.losses}</span><span class="split">${Math.round(r.win_rate * 100)}%</span></td>
-      <td class="r num" data-label="Predicted">${Math.round(r.avg_price * 100)}%</td>
-      <td class="r num pos" data-label="Edge">+${Math.round(r.edge * 100)} pts</td>
-      <td class="r num" data-label="Luck">${r.z.toFixed(1)}</td>
-      <td class="r num" data-label="Money">${usd0(r.usd)}</td>
-      <td class="r num" data-label="All-time">${lifeHtml(w.lifetime)}</td>
-      <td class="betting" data-label="Betting">${bets}</td></tr>`;
-  }).join("");
-}
-
-function history() {
-  const voided = D.bets.filter(b => b.status === "void").length;
-  const all = D.bets.filter(b => b.status !== "void"), bs = histFilter === "all" ? all : all.filter(b => b.status === histFilter), s = D.stats, tb = $("t-hist");
-  $("th-hmoney").textContent = ACCTS[acct].hmoney;
-  $("hist-count").textContent = (all.length ? `${all.length} bets · ${s.wins} won · ${s.losses} lost · ${s.open} open` : "") + (voided ? ` · ${voided} refunded (hidden)` : "");
-  if (!bs.length) { tb.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No bets in this filter." : `No bets yet. ${ACCTS[acct].empty}`}</td></tr>`; return; }
-  const label = {won: "won", lost: "lost", open: "open", skipped: "skipped", void: "refunded", sold: "exited"};
-  tb.innerHTML = bs.map((b, i) => {
-    const k = key(b), isOpen = opened.has("h-" + k), tr = (b.tranches || []).filter(t => t.stake);
-    return `<tr class="row ${isOpen ? "open" : ""}" data-i="${i}" data-k="${k}" tabindex="0" aria-expanded="${isOpen}">
-      <td class="when"><span class="chev" aria-hidden="true">▸</span><b>${hm(b.start)}</b><span style="display:block;padding-left:16px">${day(b.start)}</span></td>
-      ${matchCell(b, true)}
-      <td data-label="Money">${b.score ? `<b>${scoreText(b.score)}</b><span class="split">${esc(b.leader)} fair ${Math.round(b.leader_model * 100)}% vs ${Math.round(b.leader_price * 100)}%</span>` : b.wallets ? `<b class="num">${usd0(b.money)}</b><span class="split">${b.wallets.length} wallet${b.wallets.length === 1 ? "" : "s"}</span>` : `<div>${pathHtml(b.path, b.escalated)}</div>`}</td>
-      <td class="side" data-label="Bet on">${esc(betLabel(b.market, b.side))}${b.flipped ? '<span class="split">side flipped later</span>' : ""}</td>
-      <td class="r num" data-label="Avg price">${b.price.toFixed(2)}</td>
-      <td class="r num" data-label="Staked">${b.stake ? usd(b.stake) : "–"}${tr.length > 1 ? `<span class="split">${tr.map(t => usd0(t.stake) + " @ " + t.price.toFixed(2)).join(" + ")}</span>` : ""}</td>
-      <td data-label="Result"><span class="tag ${b.status}">${label[b.status]}</span>${b.status === "lost" && b.winner ? `<span class="split">${esc(b.winner)} won</span>` : ""}${b.status === "sold" ? `<span class="split">sold at ${(b.sold_price || 0).toFixed(2)}</span>` : ""}${b.status === "open" ? `<span class="split">to win ${usd(b.shares - b.stake, true)}</span>` : ""}</td>
-      <td class="r num ${tone(b.pnl)}" data-label="P&amp;L">${b.status === "won" || b.status === "lost" || b.status === "sold" ? usd(b.pnl, true) : "–"}${b.balance_after != null ? `<span class="split">bal ${usd(b.balance_after)}</span>` : ""}</td></tr>
-      <tr class="more" id="h-${i}" ${isOpen ? "" : "hidden"}><td colspan="8">${whyHtml(b.why, b.status)}</td></tr>`;
-  }).join("");
-  toggleRows(tb, "h-");
-}
-
-let manualList = null;
-function watchRows() {
-  const fromScan = D.watch || [], seen = new Set(fromScan.map(w => w.wallet.toLowerCase()));
-  const pending = Object.entries(manualList || {}).filter(([w]) => !seen.has(w)).map(([w, v]) =>
-    ({wallet: w, source: "manual", reason: v.note || "added by hand", betting: [], pending: true}));
-  const gone = new Set(fromScan.filter(w => w.source === "manual" && manualList && !manualList[w.wallet.toLowerCase()]).map(w => w.wallet));
-  return pending.concat(fromScan.filter(w => !gone.has(w.wallet)));
-}
-const VERDICT = {suspect: ["lost", "suspect"], sharp: ["open", "sharp bettor"], lucky: ["skipped", "lucky / normal"], unclear: ["skipped", "unclear"]};
-function line(label, r) {
-  if (!r || !r.n) return "";
-  return `<div class="split">${label}: <b class="num">${r.wins}–${r.losses}</b> · won ${Math.round(r.win_rate * 100)}% at prices that predicted ${Math.round(r.avg_price * 100)}% · luck score ${r.z.toFixed(1)}</div>`;
-}
-function recordHtml(w) {
-  const p = w.profile;
-  if (!p) return '<span class="split">checking its history…</span>';
-  const [cls, label] = VERDICT[p.verdict] || ["skipped", p.verdict];
-  return `<span class="tag ${cls}" title="${esc(p.why)}">${label}</span><div class="split" style="margin-top:3px">${esc(p.why)}</div>`
-    + line("All bets", p.all) + line("CS2", p.cs2) + line("Flagged by us", p.flagged)
-    + (p.volume ? `<div class="split">${usd0(p.volume)} bet in total${p.traded ? ` · ${p.traded} markets` : ""}</div>` : "");
-}
-function watch() {
-  const ws = watchRows(), tb = $("t-watch");
-  if (!tb) return;
-  $("watch-count").textContent = ws.length ? `${ws.length} wallet${ws.length > 1 ? "s" : ""}` : "";
-  if (!ws.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No wallets yet. They appear once a flagged wallet wins, or when you add one above.</td></tr>'; return; }
-  tb.innerHTML = ws.map(w => {
-    const prof = `https://polymarket.com/profile/${w.wallet}`;
-    const rec = recordHtml(w);
-    const bets = w.betting.length ? w.betting.map(b => `<div>${lv(b.level || "LOW")} <b class="num">${usd0(b.usd)}</b> on <b>${esc(b.outcome)}</b> · ${esc(split(b.match)[0])}${b.market !== "Match Winner" ? " · " + esc(b.market) : ""}</div>`).join("")
-      : `<span class="split">${w.pending ? "active from the next scan" : "nothing in the next 36 h"}</span>`;
-    return `<tr><td data-label="Wallet"><div><a href="${esc(prof)}" target="_blank" rel="noopener"><b>${esc(w.name || w.wallet.slice(0, 6) + "…" + w.wallet.slice(-4))}</b></a><span class="split"><span class="tag src">${w.source === "auto" ? "auto" : "by hand"}</span></span></div></td>
-      <td data-label="Why">${esc(w.reason)}</td><td data-label="Record">${rec}</td>
-      <td class="betting" data-label="Betting">${bets}</td>
-      <td class="r">${w.source === "manual" ? `<button class="rm" data-w="${esc(w.wallet)}">Remove</button>` : ""}</td></tr>`;
-  }).join("");
-  tb.querySelectorAll(".rm").forEach(b => b.onclick = async () => {
-    b.disabled = true;
-    const r = await fetch("api/watchlist?wallet=" + encodeURIComponent(b.dataset.w), {method: "DELETE"});
-    const d = await r.json(); if (r.ok) { manualList = d; watch(); $("w-msg").textContent = "Removed."; } else { $("w-msg").textContent = d.error; b.disabled = false; }
+function seg(id, get, set) {
+  const el = $(id);
+  el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === get()));
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    set(b.dataset.v);
+    el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    shown = 30; render();
   });
 }
-if ($("watch-form")) $("watch-form").onsubmit = async e => {
-  e.preventDefault();
-  const msg = $("w-msg"); msg.className = "form-msg"; msg.textContent = "Adding…";
-  const r = await fetch("api/watchlist", {method: "POST", headers: {"content-type": "application/json"},
-    body: JSON.stringify({wallet: $("w-addr").value, note: $("w-note").value})});
-  const d = await r.json().catch(() => ({error: "Couldn't reach the server. Try again."}));
-  if (!r.ok) { msg.className = "form-msg neg"; msg.textContent = d.error; return; }
-  manualList = d; $("w-addr").value = ""; $("w-note").value = "";
-  msg.className = "form-msg pos"; msg.textContent = "Added. Its bets count from the next scan (within 10 minutes).";
-  if (D) watch();
-};
-async function loadWatch() {
-  try { const r = await fetch("api/watchlist", {cache: "no-store"}); if (r.ok) manualList = await r.json(); } catch {}
-}
-
-function group(sel, set) {
-  document.querySelectorAll(sel + " button").forEach(b => b.onclick = () => {
-    document.querySelectorAll(sel + " button").forEach(x => x.setAttribute("aria-pressed", x === b)); set(b.dataset.v); });
-}
-group("#res-tabs", v => { resMode = v; results(); });
-const sportOf = k => (ACCTS[k] && ACCTS[k].sport) || "cs";
-function cards() {
-  const today = new Date(), nav = $("accts"), sp = sportOf(acct);
-  today.setHours(0, 0, 0, 0);
-  document.querySelectorAll("#sports button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === sp));
-  const mine = Object.entries(ACCTS).filter(([k]) => sportOf(k) === sp);
-  if (nav.dataset.sport !== sp) {
-    nav.dataset.sport = sp;
-    nav.innerHTML = mine.map(([k, a]) => `<button class="acard" data-v="${k}" aria-pressed="${k === acct}"><div class="nm">${a.name} <small>${a.sub}</small></div><div id="c-${k}"></div></button>`).join("");
-    nav.querySelectorAll("button").forEach(b => b.onclick = () => setAcct(b.dataset.v));
-  }
-  nav.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === acct));
-  for (const [k, A] of mine) {
-    const a = A.data(RAW), box = $("c-" + k);
-    if (!a || !a.stats) { box.innerHTML = '<div class="d">starts with the next scan</div>'; continue; }
-    const s = a.stats, n = (a.bets || []).filter(b => b.stake && b.placed_at * 1000 >= today.getTime()).length;
-    const act = (a.signals || []).filter(x => x.active && !x.placed).length;
-    box.innerHTML = `<div class="row1"><span class="big num" title="Cash: money not riding on an open bet">${usd(s.balance)}</span>
-      <span class="num ${tone(s.profit)}">${usd(s.profit, true)}</span>
-      <span class="num"><span class="pos">${s.wins}</span>–<span class="neg">${s.losses}</span></span></div>
-      <div class="d">${s.open ? `+ ${usd(s.at_risk)} in ${s.open} open bet${s.open === 1 ? "" : "s"} · ` : ""}${n} bet${n === 1 ? "" : "s"} today${act ? ` · <b style="color:var(--ct)">${act} about to bet</b>` : ""}${s.roi != null ? ` · ROI ${pct(s.roi, true)}` : ""}</div>`;
-  }
-}
-function view() {
-  if (!RAW) return;
-  cards();
-  const a = ACCTS[acct].data(RAW);
-  D = a && a !== RAW && a.stats ? {...RAW, ...a} : acct === "informed" ? RAW : {...RAW, stats: {start: 300, balance: 300, equity: 300, profit: 0, roi: null, bets: 0, wins: 0, losses: 0, win_rate: null, open: 0, at_risk: 0, skipped: 0, best: 0, worst: 0, max_drawdown: 0, streak: "", by_market: [], by_tier: [], by_wallets: []}, series: [], bets: [], signals: []};
-  board(); chart(); tape(); results(); signals(); radarPanel(); history(); walletsPanel(); risingPanel(); watch();
-}
-function setAcct(v) {
-  acct = v; document.body.dataset.acct = v;
-  document.querySelectorAll("#accts button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === v));
-  document.querySelectorAll("[data-only]").forEach(el => el.hidden = !el.dataset.only.split(" ").includes(v));
-  try { localStorage.setItem("acct", v); } catch {}
-  try { window.history.replaceState(null, "", "#" + v); } catch {}
-  opened.clear(); showAllSigs = false; view();
-}
-document.querySelectorAll("#sports button").forEach(b => b.onclick = () => {
-  if (sportOf(acct) === b.dataset.v) return;
-  setAcct(Object.keys(ACCTS).find(k => sportOf(k) === b.dataset.v));
-});
-setAcct(acct);
-group(".filters", v => { histFilter = v; history(); });
+seg("f-game", () => game, v => { game = v; try { localStorage.setItem("fh-game", v); } catch {} });
+seg("f-kind", () => kind, v => { kind = v; try { localStorage.setItem("fh-kind", v); } catch {} });
+seg("tabs", () => tab, v => { tab = v; try { localStorage.setItem("fh-tab", v); } catch {} showTab(); });
+showTab();
+$("more").onclick = () => { shown += 30; render(); };
 
 async function load() {
   try {
     const r = await fetch("api/data?t=" + Date.now(), {cache: "no-store"});
-    const d = await r.json();
-    if (!d.stats) throw new Error("No data yet: the first scan hasn't finished. It runs every 10 minutes.");
-    await loadWatch();
-    RAW = d; view();
-  } catch (e) {
-    if (!D) $("app").innerHTML = `<div class="err">${esc(e.message)}</div>`;
-  }
+    D = await r.json(); render(); renderMirror();
+  } catch (e) { $("status").innerHTML = `<span class="dot stale"></span><span>erro a carregar</span>`; }
 }
 load(); setInterval(load, 60000);
 </script>

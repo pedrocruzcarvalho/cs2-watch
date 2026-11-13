@@ -15,7 +15,7 @@ def acct(**bets):
 def test_only_this_ticks_bets_count():
     evs = N.events([("Radar", acct(a=bet(), old=bet(placed_at=NOW - 600), won=bet(status="won"), skip=bet(status="skipped")))], NOW)
     assert len(evs) == 1
-    assert evs[0][0] == "Radar: bet $6.00 on Alpha at 0.42\nAlpha vs Beta (Match Winner)"
+    assert evs[0][0] == "Radar: bet $6.00 on Alpha at 0.42 (odd 2.38)\nCS2 · Alpha vs Beta (Match Winner)"
 
 
 def test_exit_counts():
