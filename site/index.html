@@ -192,6 +192,10 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 }
 .flags{margin:10px 0 0;padding:10px 12px;border:1px solid var(--line-2);border-radius:10px}
 .flr{padding:6px 0;border-top:1px solid var(--line-2);font-size:13px}.flr:first-of-type{border-top:0}.flr.late{opacity:.6}
+.gf{display:flex;gap:6px;margin:4px 2px 0}.gf button{background:var(--card);color:var(--mute);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.gf button[aria-pressed="true"]{color:#e8edf3;border-color:var(--green)}
+.pick{display:block;margin:6px 0 0 auto;background:none;border:1px solid var(--line-2);color:var(--mute);border-radius:8px;padding:3px 8px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.pick.on{border-color:var(--green);color:var(--green)}
 </style>
 </head>
 <body>
@@ -208,7 +212,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
     <div><div class="k">In play</div><div class="v num" id="b-open">–</div></div>
   </div>
 
-  <div class="cap2" style="margin:14px 2px 6px">IF WE PUT $1 ON EVERY FLAGGED BET <span class="mute" id="c-t"></span></div><div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
+
 
   <nav class="tabs" id="tabs">
     <button data-v="next" aria-pressed="true">Upcoming matches</button>
@@ -223,6 +227,10 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   </div>
 
   <div id="v-mine" hidden>
+    <div class="gf" id="gf"><button data-g="all" aria-pressed="true">All</button><button data-g="cs2" aria-pressed="false">CS2</button><button data-g="dota" aria-pressed="false">Dota</button><button data-g="lol" aria-pressed="false">LoL</button></div>
+    <div class="cap2" style="margin:14px 2px 6px">IF WE PUT $1 ON EVERY FLAGGED BET <span class="mute" id="c-t"></span></div><div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
+    <div class="cap2" style="margin:14px 2px 6px">MY PLACED BETS ($1 EACH) <span class="mute" id="x-c-t"></span></div><div class="chartbox"><div id="x-chart"></div><div class="foot"><span id="x-c-a">start</span><span id="x-c-m"></span><span>now</span></div></div>
+    <p class="note" style="margin:8px 2px">Tap "I bet this" on the bets you actually placed. Saved in this browser.</p>
     <div class="list" id="mine"></div>
   </div>
 
@@ -366,6 +374,31 @@ function liveBlock(d) {
   return live;
 }
 
+let GAME = "all", PICKED = new Set();
+try { PICKED = new Set(JSON.parse(localStorage.getItem("picked") || "[]")); } catch (e) {}
+const bkey = b => `${b.event}|${b.market}|${b.side}`;
+function curve(bets, P) {
+  const done = bets.filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake)
+    .sort((a, b) => (a.settled_at || a.start || a.placed_at) - (b.settled_at || b.start || b.placed_at));
+  let u = 0; const ser = [[(done[0] || {}).placed_at || 0, 0]];
+  done.forEach(b => { u += b.pnl / b.stake; ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
+  chart(ser, P);
+  const w = done.filter(b => b.status === "won").length;
+  $(P + "c-t").textContent = done.length ? `· ${done.length} settled · ${w}W/${done.length - w}L · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / done.length)}% per bet)` : `· ${bets.length} bets, none settled yet`;
+}
+function drawBets() {
+  const all = ((D && D.hunter && D.hunter.bets) || []).filter(b => GAME === "all" || b.game === GAME);
+  curve(all, ""); curve(all.filter(b => PICKED.has(bkey(b))), "x-");
+  $("mine").innerHTML = all.map(betCard).join("") || `<div class="empty">No bets here yet.</div>`;
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-g]");
+  if (g) { GAME = g.dataset.g; document.querySelectorAll("#gf button").forEach(x => x.setAttribute("aria-pressed", x === g)); drawBets(); return; }
+  const k = e.target.closest("[data-pick]");
+  if (k) { const id = k.dataset.pick; PICKED.has(id) ? PICKED.delete(id) : PICKED.add(id);
+    try { localStorage.setItem("picked", JSON.stringify([...PICKED])); } catch (e) {} drawBets(); }
+});
+
 function betCard(b) {
   const st = b.status;
   const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
@@ -375,22 +408,22 @@ function betCard(b) {
   return `<div class="sig ${st}"><div class="ic">${icon}</div>
     <div style="min-width:0"><div class="l1"><img class="gm ${b.game}" src="img/${b.game}-64.png" alt="" width="18" height="18">${esc(b.match)}</div>
     <div class="l2"><b>${esc(b.side)}</b>${mk} · odd <b>${(1 / b.price).toFixed(2)}</b>${b.rule ? " · rule " + esc(b.rule) : ""} · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
-    <div class="res num">${res}</div></div>`;
+    <div class="res num">${res}<button class="pick ${PICKED.has(bkey(b)) ? "on" : ""}" data-pick="${esc(bkey(b))}">${PICKED.has(bkey(b)) ? "✓ I bet this" : "I bet this"}</button></div></div>`;
 }
 
-function chart(series) {
+function chart(series, P = "") {
   if (!series || series.length < 2) {
-    $("chart").innerHTML = `<svg viewBox="0 0 1000 110" preserveAspectRatio="none"><line x1="0" x2="1000" y1="55" y2="55" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/></svg>`;
-    $("c-m").textContent = "the line shows up once the first bets settle"; return;
+    $(P + "chart").innerHTML = `<svg viewBox="0 0 1000 110" preserveAspectRatio="none"><line x1="0" x2="1000" y1="55" y2="55" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/></svg>`;
+    $(P + "c-m").textContent = "the line shows up once the first bets settle"; return;
   }
   const W = 1000, H = 110, xs = series.map(p => p[0]), ys = series.map(p => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), span = (hi - lo) || 1;
   const X = x => (x1 === x0 ? 0 : (x - x0) / (x1 - x0)) * W, Y = y => H - 6 - (y - lo) / span * (H - 12);
   const d = series.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
   const col = ys[ys.length - 1] >= ys[0] ? "var(--green)" : "var(--red)";
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Profit with $1 on every bet"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
-  $("c-a").textContent = "start $0";
-  $("c-m").textContent = `low ${lo < 0 ? "−" : ""}$${Math.abs(lo).toFixed(2)} · high $${hi.toFixed(2)}`;
+  $(P + "chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Profit with $1 on every bet"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+  $(P + "c-a").textContent = "start $0";
+  $(P + "c-m").textContent = `low ${lo < 0 ? "−" : ""}$${Math.abs(lo).toFixed(2)} · high $${hi.toFixed(2)}`;
 }
 
 function walletCard(x) {
@@ -412,16 +445,10 @@ function render() {
   $("b-pnl").innerHTML = s.wins + s.losses ? `${Math.round(100 * s.wins / (s.wins + s.losses))}%` : "–";
   $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
   $("b-open").innerHTML = `${s.open}`;
-  { const done = (H.bets || []).filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake)
-      .sort((a, b) => (a.settled_at || a.start || a.placed_at) - (b.settled_at || b.start || b.placed_at));
-    let u = 0; const ser = [[(done[0] || {}).placed_at || 0, 0]];
-    done.forEach(b => { u += b.pnl / b.stake; ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
-    chart(ser);
-    $("c-t").textContent = done.length ? `· ${done.length} settled · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / done.length)}% per bet)` : ""; }
+  drawBets();
   $("wallets").innerHTML = (D.wallets || []).map(walletCard).join("") || `<div class="empty">No wallets yet.</div>`;
   const up = H.upcoming || [];
   $("games").innerHTML = up.map(gameCard).join("") || `<div class="empty">No tier 3+ matches in the next 36 hours.</div>`;
-  $("mine").innerHTML = (H.bets || []).map(betCard).join("") || `<div class="empty">No bets yet. When a match is flagged in "Upcoming matches", the bankroll bets and you get a push.</div>`;
   const n = up.filter(m => m.rec && !m.bet).length;
   const hot = up.filter(m => !m.quiet).length;
   $("tabs").querySelector('[data-v="next"]').textContent = `Upcoming matches (${up.length})` + (n ? ` · ${n} to bet` : hot ? ` · ${hot} with suspicious money` : "");

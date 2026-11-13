@@ -27,8 +27,7 @@ def test_one_bet_per_match_never_both_teams():
     H.place(st, [sig(), sig(o="B", other="A", side="B"), sig(cid="c2", market="Map 1 Winner")], NOW, log=lambda *_: None,
             book_asks=book, fill=fill)
     bets = st["account"]["bets"]
-    assert list(bets) == ["e1|A"]
-    assert bets["e1|A"]["stake"] == round(H.START * H.stake_pct(sig()), 2)
+    assert len(bets) == 2 and {b["side"] for b in bets.values()} == {"A"}   # one per market, never both teams of one
 
 
 def test_rejected_and_stale_signals_are_not_bet():
@@ -41,7 +40,7 @@ def test_rejected_and_stale_signals_are_not_bet():
 def test_settle_and_balance():
     st = {}
     H.place(st, [sig()], NOW, log=lambda *_: None, book_asks=book, fill=fill)
-    b = st["account"]["bets"]["e1|A"]
+    b = st["account"]["bets"]["e1|c1|A"]
     H.settle(st, [dict(cid="c1", winner="A")], NOW + 7200)
     assert b["status"] == "won" and b["pnl"] > 0
     assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
@@ -80,7 +79,7 @@ def test_rules():
 def test_fade_bets_the_other_team():
     st = {}
     H.place(st, [sig(rule="D", side="B", phase="pre")], NOW, log=lambda *_: None, book_asks=book, fill=fill)
-    b = st["account"]["bets"]["e1|B"]
+    b = st["account"]["bets"]["e1|c1|B"]
     assert b["side"] == "B" and b["their_side"] == "A"
 
 
@@ -107,7 +106,7 @@ def test_follow_the_wallet_out():
     H.place(st, [sig()], NOW, log=lambda *_: None, book_asks=book, fill=fill)
     H.follow(st, [sig(exited=True)], NOW + 600, log=lambda *_: None, book_bids=lambda _: [[0.7, 1000]],
              sell=lambda n, bids: (n, n * 0.7, 0.7, 1))
-    b = st["account"]["bets"]["e1|A"]
+    b = st["account"]["bets"]["e1|c1|A"]
     assert b["status"] == "sold" and b["pnl"] > 0 and b["exit_reason"] == "the wallet sold"
     assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
     import notify as N

@@ -510,16 +510,13 @@ def place(state, sigs, now, log=print, book_asks=None, fill=None):
     for u in sigs:
         if u["no"] or u.get("late") or stake_pct(u) <= 0:
             continue
-        key = f"{u['event']}|{u['side']}"
-        if any(k.startswith(f"{u['event']}|") for k in acct["bets"]):
+        key = f"{u['event']}|{u['cid']}|{u['side']}"     # every flag is tracked: one bet per market (Pedro, Nov 13)
+        if any(b["cid"] == u["cid"] for b in acct["bets"].values()):
             continue
         px = u["prices"].get(u["side"])
         if px is None or not 0.05 < px < MAX_PRICE:
             continue
-        bal = balance(acct)
-        amount = max(1.0, round(bal * stake_pct(u), 2))
-        if bal < amount:
-            continue
+        amount = 1.0                                     # flat $1: the page shows bets, not a bankroll
         asks = book_asks(u["tokens"].get(u["side"]))
         sh, spent, avg, _ = fill(amount, asks) if asks else (0, 0, None, 0)
         if not sh or avg is None or avg >= MAX_PRICE:
