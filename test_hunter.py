@@ -111,7 +111,7 @@ def test_follow_the_wallet_out():
     assert b["status"] == "sold" and b["pnl"] > 0 and b["exit_reason"] == "the wallet sold"
     assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
     import notify as N
-    assert "SAI de A" in N.events([("Caçador", st)], NOW + 600)[0][0]
+    assert "EXIT A" in N.events([("Caçador", st)], NOW + 600)[0][0]
 
 
 def test_several_small_bets_add_up():
