@@ -15,6 +15,7 @@ DAY = 86400
 SHARP_N, SHARP_WIN, SHARP_ROI = 5, 0.60, 0.10    # walk-forward, real P&L: +3.9% over 787 in-play copies (halves +3/+5); stricter cuts lost
 LOW_SHARE = 0.70
 MIN_SPENT = 20
+MIN_USD = 200                  # smallest bet the hunter looks at for sharp / listed wallets
 KEEP = 75 * DAY
 ACTIVE = 14 * DAY
 
