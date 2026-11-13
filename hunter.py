@@ -160,7 +160,7 @@ def top_tier(game, title, vol=0):
 #   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
-         "G": (0.02, 60)}
+         "G": (0.02, 60), "H": (0.0, 55)}   # H: flag + push only, no paper bet (untested, Pedro Nov 13)
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
 # (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);
 # the fixed $2k it replaced: +3.1% over 608. In dollars, 20% = CS2 T3 ~$4k, T4 ~$2k, T5 ~$1.1k, T6 ~$570, Dota ~$4.7k.
@@ -173,7 +173,8 @@ RULE_TEXT = {"A": "wallet with a huge live bet for the tier (≥50% of a normal 
              "C": "pre-match money in Dota, match < $100k", "D": "fresh CS2 account pre-match: bet against it",
              "E": "pre-match money in LoL, ≥10% of the market",
              "F": "wallet with a winning record, betting live",
-             "G": "wallet with a big live bet for the tier (≥20% of a normal match)"}
+             "G": "wallet with a big live bet for the tier (≥20% of a normal match)",
+             "H": "CS2 pre-match: one wallet put ≥50% of a normal match's money for the tier (min $2k) on one team (flag only, no bet)"}
 
 
 def classify(u):
@@ -202,6 +203,10 @@ def classify(u):
     if not live:
         if u["game"] == "cs2" and age is not None and age < 14:
             return "D", None
+        med = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}") or 0
+        pre = u.get("team_pre", 0)
+        if u["game"] == "cs2" and med and pre >= max(REL_STRONG * med, 2000):
+            return "H", None
         if u["game"] == "dota" and u["vol"] < 100000:
             return "C", None
         if u["game"] == "lol" and share >= 0.10:
@@ -388,12 +393,14 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
             if names is not None and x["name"] and not x["name"].startswith("0x") and w in book:
                 names[w] = x["name"]
         out += combos(game, e, mk, pos, out, start, url, evol, tier)
-        team_live = {}
+        team_live, team_pre = {}, {}
         for p in pos:
             team_live[(p["w"], p["o"])] = team_live.get((p["w"], p["o"]), 0) + p["live"]
+            team_pre[(p["w"], p["o"])] = team_pre.get((p["w"], p["o"]), 0) + p["pre"]
         for u in out:
             if u["event"] == e["id"]:
                 u["team_live"] = team_live.get((u["w"], u["o"]), 0)
+                u["team_pre"] = team_pre.get((u["w"], u["o"]), 0)
         if details is not None and tier not in TOP_TIERS and trades:
             d = detail(e, mk, trades, start, now, listed, book)
             if d:
