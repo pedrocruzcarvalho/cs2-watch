@@ -10,16 +10,15 @@
 <style>
 :root {
   color-scheme: dark;
-  --bg: #0b0f15; --card: #111821; --card-2: #0e141c; --row: #121a24; --line: #1d2734; --line-2: #2a3646;
+  --bg: #0b0f15; --card: #111821; --card-2: #0e141c; --line: #1d2734; --line-2: #2a3646;
   --ink: #e8edf3; --ink-2: #b3bfcd; --mute: #6f7d8f;
   --green: #34d47c; --green-bg: rgba(52,212,124,.10); --red: #f0605a; --red-bg: rgba(240,96,90,.10);
-  --blue: #3d8bfd; --blue-bg: rgba(61,139,253,.12); --amber: #f2b33d; --amber-bg: rgba(242,179,61,.14);
-  --violet: #a77bf3;
+  --blue: #3d8bfd; --blue-bg: rgba(61,139,253,.12); --amber: #f2b33d; --amber-bg: rgba(242,179,61,.14); --violet: #a77bf3;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --row: #ffffff; --line: #e2e7ee; --line-2: #ccd5e0;
+    --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --line: #e2e7ee; --line-2: #ccd5e0;
     --ink: #111821; --ink-2: #3b4757; --mute: #6b7787;
     --green: #16924f; --green-bg: rgba(22,146,79,.09); --red: #cf3b35; --red-bg: rgba(207,59,53,.08);
     --blue: #2563eb; --blue-bg: rgba(37,99,235,.09); --amber: #a86d06; --amber-bg: rgba(168,109,6,.10); --violet: #7340c9;
@@ -27,7 +26,7 @@
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --row: #ffffff; --line: #e2e7ee; --line-2: #ccd5e0;
+  --bg: #eef1f5; --card: #ffffff; --card-2: #f6f8fa; --line: #e2e7ee; --line-2: #ccd5e0;
   --ink: #111821; --ink-2: #3b4757; --mute: #6b7787;
   --green: #16924f; --green-bg: rgba(22,146,79,.09); --red: #cf3b35; --red-bg: rgba(207,59,53,.08);
   --blue: #2563eb; --blue-bg: rgba(37,99,235,.09); --amber: #a86d06; --amber-bg: rgba(168,109,6,.10); --violet: #7340c9;
@@ -35,105 +34,92 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: var(--blue); text-decoration: none; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pos { color: var(--green); } .neg { color: var(--red); }
-.wrap { max-width: 1340px; margin: 0 auto; padding: 14px 16px 60px; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 14px 16px 60px; }
 
 .top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.brand { font-weight: 800; font-size: 15px; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.brand { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px; }
 .brand i { width: 9px; height: 9px; border-radius: 2px; background: var(--green); transform: rotate(45deg); }
 .status { font-size: 12px; color: var(--mute); display: flex; align-items: center; gap: 6px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .dot.stale { background: var(--red); }
-.pills { display: inline-flex; background: var(--card-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; max-width: 100%; overflow-x: auto; }
-.pills button { font: 600 12px/1 "Inter", sans-serif; color: var(--ink-2); background: none; border: 0; border-radius: 999px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
-.pi { width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
-.pills button[aria-pressed="true"] { background: var(--blue); color: #fff; }
-.pills button:focus-visible, .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
-.tabs { margin-left: auto; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 14px; overflow-x: auto; }
+.tabs button { font: 600 14px "Inter", sans-serif; color: var(--mute); background: none; border: 0; border-bottom: 2px solid transparent; padding: 9px 12px; cursor: pointer; white-space: nowrap; }
+.tabs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--blue); }
+.tabs button:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 
-.bank { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; flex-wrap: wrap; }
-.bank > div { padding: 10px 16px; border-right: 1px solid var(--line); min-width: 0; }
-.bank > div:last-child { border-right: 0; margin-left: auto; display: flex; align-items: center; }
-.bank .k { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
-.bank .v { font-weight: 700; font-size: 17px; margin-top: 2px; }
-.bank .v small { font-weight: 500; font-size: 12px; color: var(--mute); margin-left: 6px; }
+.bank { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.bank > div { padding: 12px 16px; border-left: 1px solid var(--line); min-width: 0; }
+.bank > div:first-child { border-left: 0; }
+.k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.v { font-weight: 800; font-size: 20px; margin-top: 2px; }
+.v small { font-weight: 500; font-size: 12px; color: var(--mute); margin-left: 6px; }
 
-.sim { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 10px; }
-.sim-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.sim-head h1 { margin: 0; font-size: 13.5px; font-weight: 700; }
-.sim-head .sub { color: var(--mute); font-size: 12px; }
-.sim-head .ctl { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.stake { display: inline-flex; align-items: center; gap: 4px; background: var(--card-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-weight: 600; }
-.stake input { width: 54px; background: none; border: 0; color: var(--ink); font: 600 13px "Inter", sans-serif; outline: none; }
-.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12px; cursor: pointer; }
-.kpis { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card-2); }
-.kpi { padding: 10px 14px; border-left: 1px solid var(--line); }
-.kpi:first-child { border-left: 0; }
-.kpi .k { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
-.kpi .v { font-weight: 800; font-size: 22px; margin: 2px 0 0; letter-spacing: -.01em; }
-.kpi .d { font-size: 11.5px; color: var(--mute); }
-.chart { margin-top: 8px; }
-.chart svg { display: block; width: 100%; height: 96px; }
-.chart .foot { display: flex; justify-content: space-between; gap: 10px; color: var(--mute); font-size: 11px; }
-.seeall { display: block; text-align: center; margin-top: 6px; font-size: 12.5px; color: var(--blue); background: none; border: 0; cursor: pointer; width: 100%; font-family: inherit; }
+.games { display: grid; gap: 10px; margin-top: 14px; }
+.game { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.game.quiet { opacity: .62; }
+.game.quiet .gh { padding: 9px 14px; }
+.game.go { border-color: color-mix(in srgb, var(--green) 55%, var(--line)); }
+.gh { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.gi { width: 30px; height: 30px; border-radius: 7px; flex: none; object-fit: cover; }
+.gi.lol { background: #0b1a26; padding: 2px; }
+.gt { min-width: 0; flex: 1; }
+.gt .m { font-weight: 800; font-size: 15px; }
+.gt .e { color: var(--mute); font-size: 12.5px; }
+.when { text-align: right; flex: none; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.when .live { color: var(--violet); font-weight: 800; }
+.rec { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.rec.go { background: var(--green-bg); }
+.rec .big { font-weight: 800; font-size: 16px; }
+.rec.go .big { color: var(--green); }
+.rec.no .big { color: var(--mute); font-size: 14px; }
+.rec .small { color: var(--ink-2); font-size: 12.5px; }
+.rec .open { margin-left: auto; font: 600 12.5px "Inter", sans-serif; color: var(--ink); background: var(--card-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 12px; white-space: nowrap; }
+.done { color: var(--blue); font-weight: 700; font-size: 12.5px; }
+details.who { border-top: 1px solid var(--line); }
+details.who summary { cursor: pointer; padding: 9px 14px; color: var(--mute); font-size: 12.5px; list-style: none; }
+details.who summary::-webkit-details-marker { display: none; }
+.rows { padding: 0 14px 10px; display: grid; gap: 4px; }
+.row { display: flex; gap: 10px; font-size: 12.5px; color: var(--ink-2); flex-wrap: wrap; }
+.row b { color: var(--ink); }
+.row .tg { font-size: 10.5px; font-weight: 700; border-radius: 4px; padding: 1px 5px; }
+.tg.live { color: var(--violet); } .tg.sold { color: var(--amber); background: var(--amber-bg); } .tg.good { color: var(--green); background: var(--green-bg); }
+.empty { padding: 22px; text-align: center; color: var(--mute); background: var(--card); border: 1px dashed var(--line-2); border-radius: 12px; margin-top: 14px; }
+.note { color: var(--mute); font-size: 12.5px; margin: 14px 2px 0; }
 
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.list { display: grid; gap: 6px; }
+.sig { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--line-2); border-radius: 10px; padding: 10px 12px; }
+.sig.won { border-left-color: var(--green); } .sig.lost { border-left-color: var(--red); } .sig.open { border-left-color: var(--blue); } .sig.sold { border-left-color: var(--amber); }
+.ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.won .ic { background: var(--green-bg); color: var(--green); } .lost .ic { background: var(--red-bg); color: var(--red); } .open .ic { background: var(--blue-bg); color: var(--blue); } .sold .ic { background: var(--amber-bg); color: var(--amber); }
+.l1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-weight: 700; }
+.l2 { color: var(--mute); font-size: 12.5px; margin-top: 2px; }
+.l2 b { color: var(--ink-2); }
+.gm { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
+.gm.lol { background: #0b1a26; padding: 1px; }
+.res { font-weight: 800; text-align: right; white-space: nowrap; }
+.won .res { color: var(--green); } .lost .res { color: var(--red); } .open .res { color: var(--blue); } .sold .res { color: var(--amber); }
+.res small { display: block; font-weight: 500; font-size: 12px; color: var(--mute); }
+
 .tbl { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+th, td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 th { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
-td { font-size: 12.5px; }
 tr:last-child td { border-bottom: 0; }
 .r { text-align: right; }
-.hl td { background: var(--amber-bg); }
-.tagpill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: var(--amber-bg); color: var(--amber); margin-left: 6px; vertical-align: 1px; }
+h2 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; }
+h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6px; }
 
-.list { display: grid; gap: 6px; margin-top: 12px; }
-.sig { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--row); border: 1px solid var(--line); border-left: 3px solid var(--line-2); border-radius: 8px; padding: 9px 12px; }
-.sig.won { border-left-color: var(--green); } .sig.lost { border-left-color: var(--red); } .sig.open { border-left-color: var(--blue); } .sig.sold { border-left-color: var(--amber); }
-.sold .ic { background: var(--amber-bg); color: var(--amber); } .sold .res { color: var(--amber); }
-.out { font-size: 10px; font-weight: 800; letter-spacing: .05em; color: var(--amber); background: var(--amber-bg); border-radius: 4px; padding: 1px 5px; }
-.ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
-.won .ic { background: var(--green-bg); color: var(--green); } .lost .ic { background: var(--red-bg); color: var(--red); } .open .ic { background: var(--blue-bg); color: var(--blue); }
-.l1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-weight: 700; font-size: 13.5px; }
-.gm { width: 18px; height: 18px; border-radius: 4px; flex: none; object-fit: cover; display: block; }
-.gm.lol { background: #0b1a26; padding: 1px; }
-.mk { font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--card-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
-.lv { font-size: 10.5px; font-weight: 700; color: var(--violet); }
-.tr { font-size: 10.5px; font-weight: 600; color: var(--mute); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
-.l2 { color: var(--mute); font-size: 12px; margin-top: 2px; }
-.l2 b { color: var(--ink-2); font-weight: 600; }
-.right { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-.res { font-weight: 700; font-size: 12.5px; text-align: right; white-space: nowrap; }
-.won .res { color: var(--green); } .lost .res { color: var(--red); } .open .res { color: var(--blue); }
-.dec { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; padding: 3px 7px; border-radius: 5px; white-space: nowrap; }
-.dec.yes { background: var(--green-bg); color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); }
-.dec.no { background: var(--card-2); color: var(--mute); border: 1px solid var(--line); }
-.btn { font: 600 11.5px "Inter", sans-serif; color: var(--ink-2); background: var(--card-2); border: 1px solid var(--line-2); border-radius: 7px; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
-.btn.sq { width: 28px; padding: 5px 0; text-align: center; display: inline-block; }
-.ana { grid-column: 2 / -1; font-size: 12px; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 8px; }
-.ana ul { margin: 0; padding-left: 16px; }
-.ana .no { color: var(--mute); margin-top: 4px; }
-.more { display: block; margin: 10px auto 0; }
-.empty { padding: 16px; text-align: center; color: var(--mute); background: var(--card); border: 1px dashed var(--line-2); border-radius: 10px; }
-h2 { font-size: 13.5px; font-weight: 700; margin: 18px 0 8px; display: flex; gap: 8px; align-items: baseline; }
-h2 small { color: var(--mute); font-weight: 500; font-size: 12px; }
-.note { color: var(--mute); font-size: 12px; margin: 10px 0 0; }
-
-@media (max-width: 860px) {
-  .two { grid-template-columns: 1fr; }
-  .kpis { grid-template-columns: 1fr 1fr; }
-  .kpi:nth-child(3) { border-left: 0; }
-  .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
-  .sim-head .ctl { margin-left: 0; }
-  .tabs { margin-left: 0; }
+@media (max-width: 700px) {
+  .bank { grid-template-columns: 1fr 1fr; }
+  .bank > div:nth-child(3) { border-left: 0; }
+  .bank > div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .rec .open { margin-left: 0; }
   .sig { grid-template-columns: 26px minmax(0, 1fr); }
-  .right { grid-column: 2; justify-content: flex-start; flex-wrap: wrap; }
-  .bank > div:last-child { margin-left: 0; }
-  th, td { padding: 7px 8px; }
+  .res { grid-column: 2; text-align: left; }
 }
 </style>
 </head>
@@ -142,57 +128,36 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; }
   <div class="top">
     <div class="brand"><i></i>Fix Hunter</div>
     <div class="status" id="status"><span class="dot"></span><span>a carregar…</span></div>
-    <div class="pills tabs" id="tabs"><button data-v="hunter" aria-pressed="true">Sinais</button><button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button></div>
   </div>
 
-  <div id="v-hunter">
-    <div class="bank" aria-label="A tua banca">
-      <div><div class="k">Banca</div><div class="v num" id="b-bal">–</div></div>
-      <div><div class="k">Resultado</div><div class="v num" id="b-pnl">–</div></div>
-      <div><div class="k">Greens / Reds</div><div class="v num" id="b-wl">–</div></div>
-      <div><div class="k">Em jogo</div><div class="v num" id="b-open">–</div></div>
-      <div><button class="btn" id="b-show">Ver apostas da banca</button></div>
-    </div>
-    <div class="list" id="bank-bets" hidden style="margin:-4px 0 12px"></div>
+  <div class="bank" aria-label="A tua banca">
+    <div><div class="k">Banca</div><div class="v num" id="b-bal">–</div></div>
+    <div><div class="k">Lucro</div><div class="v num" id="b-pnl">–</div></div>
+    <div><div class="k">Ganhas / Perdidas</div><div class="v num" id="b-wl">–</div></div>
+    <div><div class="k">Em jogo</div><div class="v num" id="b-open">–</div></div>
+  </div>
 
-    <section class="sim">
-      <div class="sim-head">
-        <h1>Simulação: stake fixa em cada sinal</h1>
-        <span class="sub">temporária, só no ecrã · uma aposta por jogo + equipa · tier 3 ou pior</span>
-        <div class="ctl">
-          <div class="pills" id="f-dec"><button data-v="all" aria-pressed="true">Todos os sinais</button><button data-v="yes" aria-pressed="false">Só APOSTAR</button></div>
-          <div class="pills" id="f-kind"><button data-v="all" aria-pressed="true">Tudo</button><button data-v="match" aria-pressed="false">Séries</button><button data-v="map" aria-pressed="false">Mapas</button></div>
-          <div class="pills" id="f-game"><button data-v="all" aria-pressed="true">Todos</button><button data-v="cs2" aria-pressed="false"><img class="pi" src="img/cs2-64.png" alt="">CS2</button><button data-v="dota" aria-pressed="false"><img class="pi" src="img/dota-64.png" alt="">Dota</button><button data-v="lol" aria-pressed="false"><img class="pi" src="img/lol-64.png" alt="">LoL</button></div>
-          <label class="stake">$ <input id="f-stake" type="number" min="1" step="1" value="10" aria-label="Stake por sinal"></label>
-          <label class="chk"><input type="checkbox" id="f-slip"> derrapagem</label>
-        </div>
-      </div>
-      <div class="kpis">
-        <div class="kpi"><div class="k">Resultado</div><div class="v num" id="s-res">–</div><div class="d num" id="s-res-d"></div></div>
-        <div class="kpi"><div class="k">Retorno</div><div class="v num" id="s-roi">–</div><div class="d">sobre o total apostado</div></div>
-        <div class="kpi"><div class="k">Greens</div><div class="v num pos" id="s-w">–</div><div class="d num" id="s-w-d"></div></div>
-        <div class="kpi"><div class="k">Reds</div><div class="v num neg" id="s-l">–</div><div class="d num" id="s-l-d"></div></div>
-      </div>
-      <div class="chart"><div id="chart"></div><div class="foot"><span>1ª aposta</span><span id="c-mid"></span><span>última</span></div></div>
-      <button class="seeall" id="seeall">Ver os sinais</button>
-    </section>
+  <nav class="tabs" id="tabs">
+    <button data-v="next" aria-pressed="true">Próximos jogos</button>
+    <button data-v="mine" aria-pressed="false">As minhas apostas</button>
+    <button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button>
+  </nav>
 
-    <div class="two">
-      <section class="tbl"><table><thead><tr><th>Dia</th><th class="r">Sinais</th><th class="r">Apostar</th><th class="r">Acertos</th><th class="r">Edge</th></tr></thead><tbody id="t-day"></tbody></table></section>
-      <section class="tbl"><table><thead><tr><th>Pontuação</th><th class="r">Casos</th><th class="r">Ganhou</th><th class="r">Odd</th><th class="r">Edge</th></tr></thead><tbody id="t-score"></tbody></table></section>
-    </div>
+  <div id="v-next">
+    <div class="games" id="games"></div>
+    <p class="note">Só jogos tier 3 ou pior de CS2, Dota 2 e LoL que ainda vão acontecer (próximas 36 h) ou estão a decorrer. Quando alguém põe $1.000+ num jogo (numa aposta ou somando várias), o cartão acende: verde = aposta (com a equipa e a odd), cinzento = não apostes. Os jogos apagados ainda não têm dinheiro suspeito. Atualiza a cada 10 min.</p>
+  </div>
 
-    <div class="list" id="sigs"></div>
-    <button class="btn more" id="more" hidden>Ver mais</button>
-    <p class="note">Sinal = uma carteira com $1.000+ num lado de um mercado (série ou mapa) num jogo tier 3 ou pior. A odd é a do momento em que o sinal apareceu (nos sinais marcados como histórico, a média da carteira). APOSTAR = passa as regras testadas; a banca aposta esses quando ainda dá para entrar.</p>
+  <div id="v-mine" hidden>
+    <div class="list" id="mine"></div>
   </div>
 
   <div id="v-mirror" hidden>
-    <div class="bank">
+    <div class="bank" style="grid-template-columns:repeat(5,1fr)">
       <div><div class="k">Valor</div><div class="v num" id="m-eq">–</div></div>
       <div><div class="k">Resultado</div><div class="v num" id="m-pnl">–</div></div>
       <div><div class="k">Dinheiro livre</div><div class="v num" id="m-cash">–</div></div>
-      <div><div class="k">Greens / Reds</div><div class="v num" id="m-wl">–</div></div>
+      <div><div class="k">Ganhas / Perdidas</div><div class="v num" id="m-wl">–</div></div>
       <div><div class="k">Cópia</div><div class="v num" id="m-until">–</div></div>
     </div>
     <p class="note" id="m-note"></p>
@@ -201,7 +166,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; }
     <h2>Movimentos <small>compras e vendas dele, e o que copiámos</small></h2>
     <section class="tbl"><table><thead><tr><th>Quando</th><th>Mercado</th><th>Ele</th><th>Nós</th><th class="r">Preço</th></tr></thead><tbody id="m-trades"></tbody></table></section>
     <h2>Fechadas <small id="m-n-closed"></small></h2>
-    <section class="tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th>Fim</th><th class="r">Custo</th><th class="r">P&amp;L</th></tr></thead><tbody id="m-closed"></tbody></table></section>
+    <section class="tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th>Fim</th><th class="r">Custo</th><th class="r">Lucro</th></tr></thead><tbody id="m-closed"></tbody></table></section>
   </div>
 </main>
 
@@ -210,170 +175,97 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const usd = v => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
 const usd0 = v => "$" + Math.round(v).toLocaleString("en-US");
-const pct = v => v == null || !isFinite(v) ? "–" : (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
 const when = t => new Date(t * 1000).toLocaleString("pt-PT", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"});
-const dayOf = t => new Date(t * 1000).toLocaleDateString("pt-PT", {day: "2-digit", month: "2-digit"});
-const GM = {cs2: "CS2", dota: "Dota 2", lol: "LoL"};
+const hour = t => new Date(t * 1000).toLocaleTimeString("pt-PT", {hour: "2-digit", minute: "2-digit"});
+const NAME = {cs2: "CS2", dota: "Dota 2", lol: "LoL"};
 const store = {get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }};
-let D = null, shown = 40, tab = store.get("fh-tab", "hunter");
-const F = {dec: "all", kind: "all", game: "all", stake: 10, slip: false};
-for (const k of ["dec", "kind", "game"]) F[k] = store.get("fh-" + k, F[k]);
-F.stake = +store.get("fh-stake", 10) || 10; F.slip = store.get("fh-slip", "0") === "1";
+let D = null, tab = store.get("fh-tab2", "next");
 
-function keep(x) {
-  if (F.dec === "yes" && !x.rule) return false;
-  if (F.kind === "match" && x.kind !== "match") return false;
-  if (F.kind === "map" && x.kind === "match") return false;
-  if (F.game !== "all" && x.game !== F.game) return false;
-  return x.price != null;
+function startText(m) {
+  if (m.live) return `<span class="live">● AO VIVO</span>`;
+  const now = new Date(), d = new Date(m.start * 1000);
+  const same = d.toDateString() === now.toDateString();
+  const tmr = new Date(now.getTime() + 86400000).toDateString() === d.toDateString();
+  const mins = Math.round((m.start * 1000 - now) / 60000);
+  const day = same ? "hoje" : tmr ? "amanhã" : d.toLocaleDateString("pt-PT", {day: "2-digit", month: "2-digit"});
+  return `${day} às ${hour(m.start)}<br><span style="color:var(--mute);font-weight:500">${mins < 60 ? `daqui a ${mins} min` : mins < 1440 ? `daqui a ${Math.round(mins / 60)} h` : ""}</span>`;
 }
 
-// one bet per match + team: the first signal (by time) for each
-function simulate(list) {
-  const seen = new Set(), bets = [];
-  let dup = 0;
-  for (const x of [...list].sort((a, b) => a.seen - b.seen)) {
-    const k = x.match + "|" + x.side + "|" + Math.round(x.start / 3600);
-    if (seen.has(k)) { dup++; continue; }
-    seen.add(k); bets.push(x);
+function gameCard(m) {
+  let rec;
+  if (m.bet) {
+    rec = `<div class="rec go"><div><div class="big">Apostado: ${esc(m.bet.side)}</div><div class="small">${usd(m.bet.stake)} a odd ${(1 / m.bet.price).toFixed(2)} · ${m.bet.status === "sold" ? "já saímos" : "em jogo"}</div></div><a class="open" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
+  } else if (m.rec) {
+    const mk = m.rec.market && m.rec.market !== "Match Winner" && !m.rec.market.startsWith("Várias") ? ` (${esc(m.rec.market)})` : "";
+    rec = `<div class="rec go"><div><div class="big">APOSTA em ${esc(m.rec.side)}${mk}${m.rec.odds ? ` · odd ${m.rec.odds}` : ""}</div><div class="small">${m.rec.fade ? "contra uma conta nova que apostou no outro lado · " : ""}${esc(m.rec.why)}</div></div><a class="open" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
+  } else {
+    rec = `<div class="rec no"><div><div class="big">Não apostes</div><div class="small">${esc(m.no || "")}</div></div><a class="open" href="${esc(m.url)}" target="_blank" rel="noopener">Ver ↗</a></div>`;
   }
-  const S = F.stake, out = {dup, n: 0, staked: 0, pnl: 0, w: 0, l: 0, wUsd: 0, lUsd: 0, series: [[0, 0]], lo: 0, hi: 0};
-  let run = 0;
-  for (const x of bets) {
-    if (x.status !== "won" && x.status !== "lost") continue;
-    const p = Math.min(0.97, x.price + (F.slip ? 0.03 : 0));
-    const r = x.status === "won" ? S * (1 / p - 1) : -S;
-    out.n++; out.staked += S; out.pnl += r; run += r;
-    if (r > 0) { out.w++; out.wUsd += r; } else { out.l++; out.lUsd -= r; }
-    out.series.push([out.n, run]); out.lo = Math.min(out.lo, run); out.hi = Math.max(out.hi, run);
-  }
-  return out;
+  if (m.quiet) return `<article class="game quiet"><div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
+      <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))} · ainda sem apostas suspeitas</div></div>
+      <div class="when">${startText(m)}</div></div></article>`;
+  const rows = m.items.map(x => `<div class="row"><b>${usd0(x.usd)}</b> em <b>${esc(x.side)}</b> · ${esc(x.market === "Match Winner" ? "jogo" : x.market)} · <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name)}</a>${x.age != null && x.age < 30 ? ` · conta com ${Math.max(0, Math.round(x.age))} dias` : ""}${x.share >= 0.1 ? ` · ${Math.round(x.share * 100)}% do mercado` : ""}${x.live ? ` <span class="tg live">AO VIVO</span>` : ""}${x.sold >= 0.5 ? ` <span class="tg sold">JÁ VENDEU</span>` : ""}${x.good ? ` <span class="tg good">SINAL</span>` : ""}</div>`).join("");
+  return `<article class="game ${m.rec || m.bet ? "go" : ""}">
+    <div class="gh"><img class="gi ${m.game}" src="img/${m.game}-64.png" alt="${NAME[m.game]}" width="30" height="30">
+      <div class="gt"><div class="m">${esc(m.match)}</div><div class="e">${esc(m.event)} · tier ${esc(m.tier.replace("T", ""))}</div></div>
+      <div class="when">${startText(m)}</div></div>
+    ${rec}
+    <details class="who"><summary>Quem apostou forte (${usd0(m.money)} no total) ▾</summary><div class="rows">${rows}</div></details>
+  </article>`;
 }
 
-function chart(series, lo, hi) {
-  if (series.length < 2) { $("chart").innerHTML = `<svg viewBox="0 0 1000 96"></svg>`; return; }
-  const W = 1000, H = 96, n = series.length - 1, span = (hi - lo) || 1;
-  const X = i => i / n * W, Y = v => H - 6 - (v - lo) / span * (H - 12);
-  const d = series.map(([i, v], k) => (k ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" ");
-  const col = series[series.length - 1][1] >= 0 ? "var(--green)" : "var(--red)";
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Resultado acumulado"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
-}
-
-function edge(g) {
-  const s = g.filter(x => x.status === "won" || x.status === "lost");
-  if (!s.length) return null;
-  return s.filter(x => x.status === "won").length / s.length - s.reduce((a, x) => a + x.price, 0) / s.length;
-}
-const pp = e => e == null ? "–" : `<span class="${e >= 0 ? "pos" : "neg"}">${e >= 0 ? "+" : ""}${Math.round(e * 100)} pp</span>`;
-
-function tables(list) {
-  const days = new Map();
-  for (const x of list) { const d = dayOf(x.seen); if (!days.has(d)) days.set(d, []); days.get(d).push(x); }
-  $("t-day").innerHTML = [...days.entries()].slice(0, 10).map(([d, g]) => {
-    const yes = g.filter(x => x.rule), done = g.filter(x => x.status === "won" || x.status === "lost");
-    const hits = done.filter(x => x.status === "won").length;
-    return `<tr><td>${d}</td><td class="r num">${g.length}</td><td class="r num">${yes.length || "–"}</td><td class="r num">${done.length ? hits + "/" + done.length : "–"}</td><td class="r num">${pp(edge(g))}</td></tr>`;
-  }).join("") || `<tr><td colspan="5" style="color:var(--mute)">sem sinais</td></tr>`;
-  const B = [[0, 20], [20, 40], [40, 60], [60, 101]];
-  $("t-score").innerHTML = B.map(([a, b]) => {
-    const g = list.filter(x => x.score >= a && x.score < b), done = g.filter(x => x.status === "won" || x.status === "lost");
-    const won = done.length ? Math.round(100 * done.filter(x => x.status === "won").length / done.length) + "%" : "–";
-    const odd = done.length ? (done.reduce((s, x) => s + 1 / x.price, 0) / done.length).toFixed(2) : "–";
-    return `<tr class="${a >= 60 ? "hl" : ""}"><td>${a}–${Math.min(b, 100)}${a >= 60 ? '<span class="tagpill">apostar</span>' : ""}</td><td class="r num">${g.length}</td><td class="r num">${won}</td><td class="r num">${odd}</td><td class="r num">${pp(edge(g))}</td></tr>`;
-  }).join("");
-}
-
-function card(x, i, bank) {
-  const st = x.status;
+function betCard(b) {
+  const st = b.status;
   const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
-  const res = st === "won" || st === "lost" ? `${esc(x.winner)} ganhou` : st === "sold" ? `saiu ${x.pnl >= 0 ? "+" : ""}${usd(x.pnl)}` : (x.start > Date.now() / 1000 ? "por jogar" : "a decorrer");
-  const out = x.exited ? `<span class="out" title="a carteira vendeu a posição">VENDEU</span>` : "";
-  const mk = x.kind === "match" || x.market === "Match Winner" ? "" : `<span class="mk">${esc(x.market)}</span>`;
-  const lv = x.phase === "live" ? `<span class="lv">AO VIVO</span>` : "";
-  const fade = x.their_side && x.their_side !== x.side;
-  const money = fade ? `Contra conta fresca: <b>${esc(x.side)}</b>` : `Dinheiro em <b>${esc(x.side)}</b>`;
-  const extra = bank ? ` · apostado ${usd(x.stake)}${x.pnl != null ? ` · <b class="${x.pnl >= 0 ? "pos" : "neg"}">${x.pnl >= 0 ? "+" : ""}${usd(x.pnl)}</b>` : ""}` : "";
-  const dec = bank ? `<span class="dec yes">REGRA ${esc(x.rule)}</span>`
-            : x.rule ? `<span class="dec yes" title="regra ${esc(x.rule)}">APOSTAR</span>` : `<span class="dec no" title="${esc(x.no || "")}">NÃO</span>`;
-  const who = x.name && !x.name.startsWith("0x") ? x.name : (x.wallet || "").slice(0, 10);
-  const why = (x.why || []).map(w => `<li>${esc(w)}</li>`).join("");
-  const id = (bank ? "b" : "s") + i;
+  const res = st === "won" ? `+${usd(b.pnl).slice(1)}<small>ganhou</small>` : st === "lost" ? `${usd(b.pnl)}<small>perdeu</small>`
+            : st === "sold" ? `${b.pnl >= 0 ? "+" : ""}${usd(b.pnl)}<small>saímos (${esc(b.exit_reason || "")})</small>` : `em jogo<small>${usd(b.stake)}</small>`;
+  const mk = b.market && b.market !== "Match Winner" && !b.market.startsWith("Várias") ? ` · ${esc(b.market)}` : "";
   return `<div class="sig ${st}"><div class="ic">${icon}</div>
-    <div style="min-width:0"><div class="l1"><img class="gm ${x.game}" src="img/${x.game}-64.png" alt="${GM[x.game] || ""}" width="18" height="18">${esc(x.match)}${mk}${lv}${out}<span class="tr">${esc(x.tier || "")}</span></div>
-      <div class="l2">🏆 ${esc(x.event)} · ${money} · pontuação <b>${x.score}</b> · odd <b>${x.price ? (1 / x.price).toFixed(2) : "–"}</b> · ${usd0(x.usd)} da carteira · ${when(bank ? x.placed_at : x.seen)}${extra}</div></div>
-    <div class="right"><span class="res">${res}</span>${dec}<button class="btn" data-ana="${id}">Análise</button><a class="btn sq" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="Abrir mercado">↗</a></div>
-    <div class="ana" id="${id}" hidden><ul>${bank && x.exit_reason ? `<li><b>Saiu:</b> ${esc(x.exit_reason)}, vendido por ${usd(x.proceeds)}</li>` : ""}<li>Carteira: <a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(who)}</a>${x.seed ? " · histórico (odd = preço médio da carteira)" : ""}</li>${why}</ul>${!bank && x.no ? `<div class="no">Não apostar: ${esc(x.no)}</div>` : ""}</div></div>`;
+    <div style="min-width:0"><div class="l1"><img class="gm ${b.game}" src="img/${b.game}-64.png" alt="" width="18" height="18">${esc(b.match)}</div>
+    <div class="l2"><b>${esc(b.side)}</b>${mk} · ${usd(b.stake)} a odd <b>${(1 / b.price).toFixed(2)}</b> · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
+    <div class="res num">${res}</div></div>`;
 }
 
 function render() {
   if (!D || !D.hunter) return;
   const H = D.hunter, s = H.stats;
   const age = (Date.now() / 1000 - D.at) / 60;
-  $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>último scan há ${Math.round(age)} min · ${D.scanned ?? "?"} mercados</span>`;
+  $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>atualizado há ${Math.round(age)} min</span>`;
   $("b-bal").innerHTML = `${usd(s.balance)}<small>de ${usd(s.start)}</small>`;
-  $("b-pnl").innerHTML = `<span class="${s.profit >= 0 ? "pos" : "neg"}">${s.profit >= 0 ? "+" : ""}${usd(s.profit)}</span><small>${pct(s.roi)}</small>`;
+  $("b-pnl").innerHTML = `<span class="${s.profit >= 0 ? "pos" : "neg"}">${s.profit >= 0 ? "+" : ""}${usd(s.profit)}</span>`;
   $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
   $("b-open").innerHTML = `${s.open}<small>${usd(s.at_risk)}</small>`;
-  $("bank-bets").innerHTML = (H.bets || []).map((b, i) => card(b, i, true)).join("") || `<div class="empty">A banca ainda não apostou. Aposta os sinais APOSTAR quando ainda dá para entrar.</div>`;
-
-  const list = (H.signals || []).filter(keep);
-  const sim = simulate(list);
-  const res = $("s-res"); res.textContent = (sim.pnl >= 0 ? "$" : "−$") + Math.abs(sim.pnl).toFixed(2); res.className = "v num " + (sim.pnl >= 0 ? "pos" : "neg");
-  $("s-res-d").textContent = `${sim.n} apostas · ${usd(sim.staked)} apostado`;
-  const roi = $("s-roi"); roi.textContent = sim.staked ? pct(sim.pnl / sim.staked) : "–"; roi.className = "v num " + (sim.pnl >= 0 ? "pos" : "neg");
-  $("s-w").textContent = sim.w; $("s-w-d").textContent = `+${usd(sim.wUsd).slice(1)} de lucro`;
-  $("s-l").textContent = sim.l; $("s-l-d").textContent = `−${usd(sim.lUsd).slice(1)} perdido`;
-  chart(sim.series, sim.lo, sim.hi);
-  $("c-mid").textContent = `pior ponto ${usd(sim.lo)} · melhor ${usd(sim.hi)}` + (sim.dup ? ` · ${sim.dup} sinais repetidos do mesmo jogo + equipa não contados` : "");
-  $("seeall").textContent = `Ver os ${list.length} sinais`;
-  tables(list);
-  $("sigs").innerHTML = list.slice(0, shown).map((x, i) => card(x, i, false)).join("") || `<div class="empty">Sem sinais neste filtro.</div>`;
-  $("more").hidden = list.length <= shown;
+  const up = H.upcoming || [];
+  $("games").innerHTML = up.map(gameCard).join("") || `<div class="empty">Não há jogos tier 3+ nas próximas 36 horas.</div>`;
+  $("mine").innerHTML = (H.bets || []).map(betCard).join("") || `<div class="empty">Ainda não apostámos nada. Quando um jogo ficar verde em "Próximos jogos", a banca aposta e recebes uma notificação.</div>`;
+  const n = up.filter(m => m.rec && !m.bet).length;
+  const hot = up.filter(m => !m.quiet).length;
+  $("tabs").querySelector('[data-v="next"]').textContent = `Próximos jogos (${up.length})` + (n ? ` · ${n} para apostar` : hot ? ` · ${hot} com dinheiro suspeito` : "");
 }
 
 function renderMirror() {
   const M = D && D.mirror;
   if (!M) { $("m-note").textContent = "O espelho abre no próximo scan."; return; }
   $("m-eq").innerHTML = `${usd(M.equity)}<small>de ${usd(M.budget)}</small>`;
-  $("m-pnl").innerHTML = `<span class="${M.pnl >= 0 ? "pos" : "neg"}">${M.pnl >= 0 ? "+" : ""}${usd(M.pnl)}</span><small>realizado ${usd(M.realized)}</small>`;
-  $("m-cash").innerHTML = `${usd(M.cash)}<small>${usd(M.value)} em ${M.open.length}</small>`;
+  $("m-pnl").innerHTML = `<span class="${M.pnl >= 0 ? "pos" : "neg"}">${M.pnl >= 0 ? "+" : ""}${usd(M.pnl)}</span>`;
+  $("m-cash").innerHTML = `${usd(M.cash)}`;
   $("m-wl").innerHTML = `<span class="pos">${M.won}</span> / <span class="neg">${M.lost}</span><small>${M.sold} vendidas</small>`;
   $("m-until").innerHTML = `${M.copying ? "ativa" : "terminou"}<small>até ${when(M.until)}</small>`;
-  $("m-note").innerHTML = `Copia <a href="https://polymarket.com/@cutjalenhurts" target="_blank" rel="noopener">@cutjalenhurts</a> em todos os mercados, à escala 1:${Math.round(1 / M.scale).toLocaleString("en-US")} (ele compra ~${usd0(M.his_daily)}/dia). Compras e vendas ao preço real do order book, até 10 min depois dele. Sem notificações.`;
+  $("m-note").innerHTML = `Copia <a href="https://polymarket.com/@cutjalenhurts" target="_blank" rel="noopener">@cutjalenhurts</a> em todos os mercados, à escala 1:${Math.round(1 / M.scale).toLocaleString("en-US")} (ele compra ~${usd0(M.his_daily)}/dia). Compras e vendas ao preço real, até 10 min depois dele. Sem notificações.`;
   $("m-n-open").textContent = M.open.length;
   $("m-open").innerHTML = M.open.map(p => `<tr><td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td><td>${esc(p.outcome)}</td><td class="r num">${usd(p.cost)}</td><td class="r num">${p.price != null ? p.price.toFixed(2) : "–"}</td><td class="r num ${p.value >= p.cost ? "pos" : "neg"}">${usd(p.value)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">nenhuma</td></tr>`;
-  const kind = {buy: "comprou", sell: "vendeu", merge: "fundiu (vendeu)", skip: "não copiado"};
-  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "compra" : "venda"} ${usd0(t.his_usd)} a ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}${t.note && t.kind !== "skip" ? " · " + esc(t.note) : ""}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">ainda sem movimentos</td></tr>`;
+  const kind = {buy: "comprou", sell: "vendeu", merge: "vendeu", skip: "não copiado"};
+  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "compra" : "venda"} ${usd0(t.his_usd)} a ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">ainda sem movimentos</td></tr>`;
   $("m-n-closed").textContent = M.closed.length;
   const fim = {won: "ganhou", lost: "perdeu", void: "anulado", sold: "vendida"};
   $("m-closed").innerHTML = M.closed.map(c => `<tr><td>${esc(c.title)}</td><td>${esc(c.outcome)}</td><td>${fim[c.how]}</td><td class="r num">${usd(c.cost)}</td><td class="r num ${(c.pnl || 0) >= 0 ? "pos" : "neg"}">${c.pnl == null ? "–" : usd(c.pnl)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">nenhuma ainda</td></tr>`;
 }
 
-function pills(id, key) {
-  const el = $(id);
-  const sync = () => el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === F[key]));
-  sync();
-  el.addEventListener("click", e => {
-    const b = e.target.closest("button"); if (!b) return;
-    F[key] = b.dataset.v; store.set("fh-" + key, F[key]); sync(); shown = 40; render();
-  });
-}
-pills("f-dec", "dec"); pills("f-kind", "kind"); pills("f-game", "game");
-$("f-stake").value = F.stake; $("f-slip").checked = F.slip;
-$("f-stake").addEventListener("input", e => { F.stake = Math.max(1, +e.target.value || 1); store.set("fh-stake", F.stake); render(); });
-$("f-slip").addEventListener("change", e => { F.slip = e.target.checked; store.set("fh-slip", F.slip ? "1" : "0"); render(); });
-$("more").onclick = () => { shown += 40; render(); };
-$("seeall").onclick = () => $("sigs").scrollIntoView({behavior: "smooth"});
-$("b-show").onclick = () => { const l = $("bank-bets"); l.hidden = !l.hidden; $("b-show").textContent = l.hidden ? "Ver apostas da banca" : "Esconder apostas da banca"; };
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-ana]"); if (!b) return;
-  const a = $(b.dataset.ana); if (a) a.hidden = !a.hidden;
-});
 function showTab() {
-  $("v-hunter").hidden = tab !== "hunter"; $("v-mirror").hidden = tab !== "mirror";
+  for (const v of ["next", "mine", "mirror"]) $("v-" + v).hidden = tab !== v;
   $("tabs").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === tab));
 }
-$("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.v; store.set("fh-tab", tab); showTab(); });
+$("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.v; store.set("fh-tab2", tab); showTab(); });
 showTab();
 
 async function load() {

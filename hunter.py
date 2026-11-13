@@ -495,7 +495,7 @@ def short(title):
     return split_title(title)[0]
 
 
-def view(state, sigs, now):
+def view(state, sigs, now, infos=()):
     acct = state.get("account") or dict(opened_at=now, start=START, bets={})
     bets = sorted(acct["bets"].values(), key=lambda b: b["placed_at"], reverse=True)
     done = [b for b in bets if b["status"] in ("won", "lost", "sold")]
@@ -511,11 +511,6 @@ def view(state, sigs, now):
                  profit=round(pnl, 2), staked=round(staked, 2), roi=round(pnl / staked, 4) if staked else None,
                  wins=sum(b["pnl"] > 0 for b in done), losses=sum(b["pnl"] <= 0 for b in done),
                  open=len(open_), at_risk=round(sum(b["stake"] for b in open_), 2))
-    keep = ("game", "tier", "market", "kind", "side", "their_side", "rule", "phase", "score", "name", "wallet", "usd",
-            "their_px", "age", "why", "start", "status", "price", "winner", "url", "match", "event", "seen", "no",
-            "share", "exited", "exit_at", "seed")
-    sig_list = sorted(state.get("signals", {}).values(), key=lambda x: x["seen"], reverse=True)
-    sig_out = [{k: x.get(k) for k in keep} for x in sig_list if x["status"] != "void" and x.get("tier") not in TOP_TIERS]
     bet_out = []
     for b in bets:
         if b["status"] == "void":
@@ -526,4 +521,56 @@ def view(state, sigs, now):
                                                    "status", "stake", "price", "pnl", "winner", "url", "exit_reason",
                                                    "proceeds")},
                             match=match, event=event))
-    return dict(stats=stats, series=series, bets=bet_out, signals=sig_out, opened_at=acct.get("opened_at"))
+    return dict(stats=stats, series=series, bets=bet_out, upcoming=upcoming(sigs, bets, now, infos),
+                opened_at=acct.get("opened_at"))
+
+
+def upcoming(sigs, bets, now, infos=()):
+    """The page's main list: one card per tier 3+ match still to play or being played, with one plain
+    recommendation (bet X at these odds, or don't, and why). Matches without suspicious money yet are listed too."""
+    games, meta = {}, {}
+    for i in infos:
+        if i.get("tier") in TOP_TIERS or now > i["start"] + 5 * 3600 or i.get("kind") != "match":
+            continue
+        px = list((i.get("prices") or {}).values())
+        if i.get("winner") or i.get("closed") or (px and max(px) >= 0.97):
+            continue                                        # over, or decided
+        meta[i["event"]] = i
+        games.setdefault(i["event"], [])
+    for u in sigs:
+        if not u["top"] and u["event"] in games:
+            games[u["event"]].append(u)
+    out = []
+    for ev, us in games.items():
+        if not us:
+            i = meta[ev]
+            match, event = split_title(i["title"])
+            out.append(dict(game=i["game"], tier=i["tier"], match=match, event=event, start=i["start"],
+                            live=now >= i["start"], url=i["url"], rec=None, no="ainda sem apostas suspeitas",
+                            bet=None, items=[], money=0, quiet=True))
+            continue
+        u0 = us[0]
+        match, event = split_title(u0["title"])
+        mine = next((b for b in bets if b["event"] == ev), None)
+        go = sorted((u for u in us if u["rule"] and not u["no"] and not u.get("late")), key=lambda u: -u["score"])
+        rec = None
+        if go:
+            g = go[0]
+            px = g["prices"].get(g["side"])
+            rec = dict(side=g["side"], odds=round(1 / px, 2) if px else None, market=g["market"],
+                       why=RULE_TEXT[g["rule"]], fade=g["side"] != g["o"])
+            no = None
+        else:
+            late = next((u for u in us if u["rule"] and not u["no"] and u.get("late")), None)
+            no = f"já não dá para entrar ({late['late']})" if late else                 (max(us, key=lambda u: u["usd"])["no"] or "sem vantagem no teste")
+        items = []
+        for u in sorted(us, key=lambda u: -u["usd"]):
+            items.append(dict(name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],
+                              wallet=u["w"], usd=round(u["usd"]), side=u["o"], market=u["market"],
+                              live=u["phase"] == "live", px=round(u["px"], 2), age=u["age"],
+                              share=round(u["share"], 3), sold=round(u["sold_frac"], 2), good=bool(u["rule"] and not u["no"])))
+        out.append(dict(game=u0["game"], tier=u0["tier"], match=match, event=event, start=u0["start"],
+                        live=now >= u0["start"], url=u0["url"], rec=rec, no=no,
+                        bet=dict(side=mine["side"], stake=mine["stake"], price=mine["price"], status=mine["status"])
+                        if mine else None, items=items[:8], money=round(sum(u["usd"] for u in us)), quiet=False))
+    return sorted(out, key=lambda m: (not m["rec"] and not m["bet"], m["quiet"], m["start"]))
