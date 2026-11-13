@@ -160,7 +160,7 @@ def top_tier(game, title, vol=0):
 #   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
-         "G": (0.02, 60), "H": (0.0, 55)}   # H: flag + push only, no paper bet (untested, Pedro Nov 13)
+         "G": (0.02, 60), "H": (0.01, 55)}   # H: CS2 pre-match big money for the tier (untested); tracked as a bet like the rest
 H_MIN = {"T3": 3300, "T4": 2200, "T5": 1500, "T6": 1000}   # rule H: one wallet's pre-match money on a CS2 team
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
 # (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);

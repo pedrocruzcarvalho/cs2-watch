@@ -202,13 +202,13 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   </div>
 
   <div class="bank" aria-label="A tua banca">
-    <div><div class="k">Bankroll</div><div class="v num" id="b-bal">–</div></div>
-    <div><div class="k">Profit</div><div class="v num" id="b-pnl">–</div></div>
+    <div><div class="k">Bets</div><div class="v num" id="b-bal">–</div></div>
+    <div><div class="k">Hit rate</div><div class="v num" id="b-pnl">–</div></div>
     <div><div class="k">Won / Lost</div><div class="v num" id="b-wl">–</div></div>
     <div><div class="k">In play</div><div class="v num" id="b-open">–</div></div>
   </div>
 
-  <div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
+  <div class="chartbox" hidden><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
 
   <nav class="tabs" id="tabs">
     <button data-v="next" aria-pressed="true">Upcoming matches</button>
@@ -316,8 +316,8 @@ function gameCard(m) {
     <div class="t2">Match · tier ${esc(m.tier.replace("T", ""))} · starts ${when(m.start)}${m.alert ? ` · alert ${when(m.alert)}` : ""}</div></div>${state}</div>`;
   let box;
   if (m.bet) {
-    box = `<div class="betbox go"><div class="bl"><div class="cap2">BET BY THE BANKROLL</div><div class="side">${esc(m.bet.side)} <span class="o">${odd(m.bet.price)}</span></div>
-      <div class="chips"><span class="chip">${usd(m.bet.stake)} · ${m.bet.status === "sold" ? "exited" : "in play"}</span></div></div>
+    box = `<div class="betbox go"><div class="bl"><div class="cap2">TRACKED BET</div><div class="side">${esc(m.bet.side)} <span class="o">${odd(m.bet.price)}</span></div>
+      <div class="chips"><span class="chip">${m.bet.status === "sold" ? "exited" : "in play"}</span></div></div>
       <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Open on Polymarket ↗</a></div>`;
   } else if (r) {
     const mk = r.kind === "match" ? "Winner (series)" : esc(r.market);
@@ -369,12 +369,12 @@ function liveBlock(d) {
 function betCard(b) {
   const st = b.status;
   const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
-  const res = st === "won" ? `+${usd(b.pnl).slice(1)}<small>won</small>` : st === "lost" ? `${usd(b.pnl)}<small>lost</small>`
-            : st === "sold" ? `${b.pnl >= 0 ? "+" : ""}${usd(b.pnl)}<small>exited (${esc(b.exit_reason || "")})</small>` : `in play<small>${usd(b.stake)}</small>`;
+  const res = st === "won" ? `WON` : st === "lost" ? `LOST`
+            : st === "sold" ? `EXITED<small>${esc(b.exit_reason || "")}</small>` : `in play`;
   const mk = b.market && b.market !== "Match Winner" && !b.market.startsWith("Several") ? ` · ${esc(b.market)}` : "";
   return `<div class="sig ${st}"><div class="ic">${icon}</div>
     <div style="min-width:0"><div class="l1"><img class="gm ${b.game}" src="img/${b.game}-64.png" alt="" width="18" height="18">${esc(b.match)}</div>
-    <div class="l2"><b>${esc(b.side)}</b>${mk} · ${usd(b.stake)} a odd <b>${(1 / b.price).toFixed(2)}</b> · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
+    <div class="l2"><b>${esc(b.side)}</b>${mk} · odd <b>${(1 / b.price).toFixed(2)}</b>${b.rule ? " · rule " + esc(b.rule) : ""} · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
     <div class="res num">${res}</div></div>`;
 }
 
@@ -408,10 +408,10 @@ function render() {
   const H = D.hunter, s = H.stats;
   const age = (Date.now() / 1000 - D.at) / 60;
   $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>updated ${Math.round(age)} min ago</span>`;
-  $("b-bal").innerHTML = `${usd(s.balance)}<small>de ${usd(s.start)}</small>`;
-  $("b-pnl").innerHTML = `<span class="${s.profit >= 0 ? "pos" : "neg"}">${s.profit >= 0 ? "+" : ""}${usd(s.profit)}</span>`;
+  $("b-bal").innerHTML = `${(H.bets || []).length}`;
+  $("b-pnl").innerHTML = s.wins + s.losses ? `${Math.round(100 * s.wins / (s.wins + s.losses))}%` : "–";
   $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
-  $("b-open").innerHTML = `${s.open}<small>${usd(s.at_risk)}</small>`;
+  $("b-open").innerHTML = `${s.open}`;
   chart(H.series);
   $("wallets").innerHTML = (D.wallets || []).map(walletCard).join("") || `<div class="empty">No wallets yet.</div>`;
   const up = H.upcoming || [];
