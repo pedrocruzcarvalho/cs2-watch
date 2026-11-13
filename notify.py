@@ -24,8 +24,8 @@ def _match(m):
 
 
 def _line(tag, verb, b):
-    live = " · AO VIVO" if b.get("phase") == "live" else ""
-    rule = f" · regra {b['rule']}" if b.get("rule") else ""
+    live = " · LIVE" if b.get("phase") == "live" else ""
+    rule = f" · rule {b['rule']}" if b.get("rule") else ""
     return (f"{tag}: {verb} ${b['stake']:.2f} em {b['side']} a {b['price']:.2f} (odd {1 / b['price']:.2f}){live}{rule}"
             + chr(10) + f"{_match(b['match'])} ({b['market']})")
 
@@ -36,10 +36,10 @@ def events(accounts, now):
     for tag, state in accounts:
         for b in (state.get("account") or {}).get("bets", {}).values():
             if b["status"] == "open" and b.get("placed_at") == now:
-                out.append((_line(tag, "APOSTA", b), b.get("url")))
+                out.append((_line(tag, "BET", b), b.get("url")))
             elif b["status"] == "sold" and b.get("settled_at") == now:
                 why = f" · {b['exit_reason']}" if b.get("exit_reason") else ""
-                line = f"{tag}: SAI de {b['side']} por ${b['proceeds']:.2f} (pagou ${b['stake']:.2f}){why}\n" \
+                line = f"{tag}: EXIT {b['side']} for ${b['proceeds']:.2f} (paid ${b['stake']:.2f}){why}\n" \
                        f"{_match(b['match'])} ({b['market']})"
                 out.append((line, b.get("url")))
     return out
@@ -48,10 +48,10 @@ def events(accounts, now):
 def payload(topic, evs, balance=None):
     """One message for the whole tick. Tapping it opens the market when there is only one."""
     n = len(evs)
-    text = "\n\n".join(line for line, _ in evs) + (f"\n\nBanca: ${balance:.2f}" if balance is not None else "")
+    text = "\n\n".join(line for line, _ in evs) + (f"\n\nBankroll: ${balance:.2f}" if balance is not None else "")
     if len(text) > MAX_CHARS:
         text = text[:MAX_CHARS].rsplit("\n\n", 1)[0] + "\n\n(more on the dashboard)"
-    out = dict(topic=topic, title="1 movimento" if n == 1 else f"{n} movimentos", message=text)
+    out = dict(topic=topic, title="1 move" if n == 1 else f"{n} moves", message=text)
     if n == 1 and evs[0][1]:
         out["click"] = evs[0][1]
     return out

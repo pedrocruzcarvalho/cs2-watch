@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -196,28 +196,28 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 <main class="wrap">
   <div class="top">
     <div class="brand"><i></i>Fix Hunter</div>
-    <div class="status" id="status"><span class="dot"></span><span>a carregar…</span></div>
+    <div class="status" id="status"><span class="dot"></span><span>loading…</span></div>
   </div>
 
   <div class="bank" aria-label="A tua banca">
-    <div><div class="k">Banca</div><div class="v num" id="b-bal">–</div></div>
-    <div><div class="k">Lucro</div><div class="v num" id="b-pnl">–</div></div>
-    <div><div class="k">Ganhas / Perdidas</div><div class="v num" id="b-wl">–</div></div>
-    <div><div class="k">Em jogo</div><div class="v num" id="b-open">–</div></div>
+    <div><div class="k">Bankroll</div><div class="v num" id="b-bal">–</div></div>
+    <div><div class="k">Profit</div><div class="v num" id="b-pnl">–</div></div>
+    <div><div class="k">Won / Lost</div><div class="v num" id="b-wl">–</div></div>
+    <div><div class="k">In play</div><div class="v num" id="b-open">–</div></div>
   </div>
 
-  <div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">início</span><span id="c-m"></span><span>agora</span></div></div>
+  <div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
 
   <nav class="tabs" id="tabs">
-    <button data-v="next" aria-pressed="true">Próximos jogos</button>
-    <button data-v="mine" aria-pressed="false">As minhas apostas</button>
-    <button data-v="wallets" aria-pressed="false">Carteiras sus</button>
-    <button data-v="mirror" aria-pressed="false">Espelho @cutjalenhurts</button>
+    <button data-v="next" aria-pressed="true">Upcoming matches</button>
+    <button data-v="mine" aria-pressed="false">My bets</button>
+    <button data-v="wallets" aria-pressed="false">Sus wallets</button>
+    <button data-v="mirror" aria-pressed="false">Mirror @cutjalenhurts</button>
   </nav>
 
   <div id="v-next">
     <div class="games" id="games"></div>
-    <p class="note">Só jogos tier 3 ou pior de CS2, Dota 2 e LoL que ainda vão acontecer (próximas 36 h) ou estão a decorrer. Quando alguém põe $1.000+ num jogo (numa aposta ou somando várias), o cartão acende: verde = aposta (com a equipa e a odd), cinzento = não apostes. Os jogos apagados ainda não têm dinheiro suspeito. Atualiza a cada 10 min.</p>
+    <p class="note">Only tier 3 or lower CS2, Dota 2 and LoL matches that are coming up (next 36 h) or live. When someone puts big money on a match for its tier (one bet or several added up), the card lights up: green = bet (with the team and odds), grey = don't bet. Dimmed matches have no suspicious money yet. Updates every 10 min.</p>
   </div>
 
   <div id="v-mine" hidden>
@@ -225,25 +225,25 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   </div>
 
   <div id="v-wallets" hidden>
-    <p class="note" style="margin:0 2px 10px">Carteiras a seguir em jogos tier 3+. <b style="color:#e8edf3">Afiada</b> = aposta sobretudo em tier 3+ (70%+ dos jogos dela), tem 5+ jogos resolvidos lá, ganhou dinheiro em 60%+ deles e tem lucro real de 10%+. Um jogo só conta como ganho se o saldo dela subiu (compras, vendas e pagamento final). Quem aposta muito em tier 1 não entra (é atualizado sozinho, a cada scan). <b style="color:#e8edf3">Lista</b> = escolhidas por ti. Quando uma afiada aposta ao vivo (CS2 ou Dota, desde $200), é sinal para apostar.</p>
+    <p class="note" style="margin:0 2px 10px">Wallets to follow in tier 3+ matches. <b style="color:#e8edf3">Sharp</b> = bets mostly on tier 3+ (70%+ of its matches), has 5+ resolved matches there, made money in 60%+ of them and has 10%+ real profit. A match only counts as a win if its balance went up (buys, sells and final payout). Wallets that bet a lot on tier 1 are left out (updated every scan). <b style="color:#e8edf3">List</b> = picked by you. When a sharp wallet bets live (CS2 or Dota, from $200), it is a signal to bet.</p>
     <div class="wl" id="wallets"></div>
   </div>
 
   <div id="v-mirror" hidden>
     <div class="bank" style="grid-template-columns:repeat(5,1fr)">
-      <div><div class="k">Valor</div><div class="v num" id="m-eq">–</div></div>
-      <div><div class="k">Resultado</div><div class="v num" id="m-pnl">–</div></div>
-      <div><div class="k">Dinheiro livre</div><div class="v num" id="m-cash">–</div></div>
-      <div><div class="k">Ganhas / Perdidas</div><div class="v num" id="m-wl">–</div></div>
-      <div><div class="k">Cópia</div><div class="v num" id="m-until">–</div></div>
+      <div><div class="k">Value</div><div class="v num" id="m-eq">–</div></div>
+      <div><div class="k">Result</div><div class="v num" id="m-pnl">–</div></div>
+      <div><div class="k">Free cash</div><div class="v num" id="m-cash">–</div></div>
+      <div><div class="k">Won / Lost</div><div class="v num" id="m-wl">–</div></div>
+      <div><div class="k">Copy</div><div class="v num" id="m-until">–</div></div>
     </div>
     <p class="note" id="m-note"></p>
-    <h2>Posições abertas <small id="m-n-open"></small></h2>
-    <section class="tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th class="r">Custo</th><th class="r">Preço</th><th class="r">Valor</th></tr></thead><tbody id="m-open"></tbody></table></section>
-    <h2>Movimentos <small>compras e vendas dele, e o que copiámos</small></h2>
-    <section class="tbl"><table><thead><tr><th>Quando</th><th>Mercado</th><th>Ele</th><th>Nós</th><th class="r">Preço</th></tr></thead><tbody id="m-trades"></tbody></table></section>
-    <h2>Fechadas <small id="m-n-closed"></small></h2>
-    <section class="tbl"><table><thead><tr><th>Mercado</th><th>Lado</th><th>Fim</th><th class="r">Custo</th><th class="r">Lucro</th></tr></thead><tbody id="m-closed"></tbody></table></section>
+    <h2>Open positions <small id="m-n-open"></small></h2>
+    <section class="tbl"><table><thead><tr><th>Market</th><th>Side</th><th class="r">Cost</th><th class="r">Price</th><th class="r">Value</th></tr></thead><tbody id="m-open"></tbody></table></section>
+    <h2>Moves <small>his buys and sells, and what we copied</small></h2>
+    <section class="tbl"><table><thead><tr><th>When</th><th>Market</th><th>Ele</th><th>Us</th><th class="r">Price</th></tr></thead><tbody id="m-trades"></tbody></table></section>
+    <h2>Closed <small id="m-n-closed"></small></h2>
+    <section class="tbl"><table><thead><tr><th>Market</th><th>Side</th><th>Fim</th><th class="r">Cost</th><th class="r">Profit</th></tr></thead><tbody id="m-closed"></tbody></table></section>
   </div>
 </main>
 
@@ -252,8 +252,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const usd = v => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
 const usd0 = v => "$" + Math.round(v).toLocaleString("en-US");
-const when = t => new Date(t * 1000).toLocaleString("pt-PT", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"});
-const hour = t => new Date(t * 1000).toLocaleTimeString("pt-PT", {hour: "2-digit", minute: "2-digit"});
+const when = t => new Date(t * 1000).toLocaleString("en-GB", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"});
+const hour = t => new Date(t * 1000).toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"});
 const NAME = {cs2: "CS2", dota: "Dota 2", lol: "LoL"};
 const store = {get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }};
 let D = null, tab = store.get("fh-tab2", "next");
@@ -264,18 +264,18 @@ function startText(m) {
   const same = d.toDateString() === now.toDateString();
   const tmr = new Date(now.getTime() + 86400000).toDateString() === d.toDateString();
   const mins = Math.round((m.start * 1000 - now) / 60000);
-  const day = same ? "hoje" : tmr ? "amanhã" : d.toLocaleDateString("pt-PT", {day: "2-digit", month: "2-digit"});
-  return `${day} às ${hour(m.start)}<br><span style="color:var(--mute);font-weight:500">${mins < 60 ? `daqui a ${mins} min` : mins < 1440 ? `daqui a ${Math.round(mins / 60)} h` : ""}</span>`;
+  const day = same ? "today" : tmr ? "tomorrow" : d.toLocaleDateString("en-GB", {day: "2-digit", month: "2-digit"});
+  return `${day} at ${hour(m.start)}<br><span style="color:var(--mute);font-weight:500">${mins < 60 ? `in ${mins} min` : mins < 1440 ? `in ${Math.round(mins / 60)} h` : ""}</span>`;
 }
 
 const odd = p => p ? (1 / p).toFixed(2) : "–";
 const k$ = v => v >= 1000 ? "$" + (v / 1000).toFixed(1) + "k" : "$" + Math.round(v);
-const minTxt = m => m == null ? "" : m >= 0 ? `${m}'` : `${-m >= 60 ? Math.round(-m / 60) + "h" : -m + " min"} antes`;
+const minTxt = m => m == null ? "" : m >= 0 ? `${m}'` : `${-m >= 60 ? Math.round(-m / 60) + "h" : -m + " min"} before`;
 
 function ring(score) {
   const r = 22, c = 2 * Math.PI * r, f = Math.max(0, Math.min(100, score)) / 100;
   const col = score >= 60 ? "var(--green)" : score >= 40 ? "var(--amber)" : "var(--mute)";
-  return `<svg class="ring" viewBox="0 0 54 54" width="54" height="54" aria-label="pontuação ${score}"><circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--line-2)" stroke-width="5"/><circle cx="27" cy="27" r="${r}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 27 27)"/><text x="27" y="32" text-anchor="middle">${score}</text></svg>`;
+  return `<svg class="ring" viewBox="0 0 54 54" width="54" height="54" aria-label="score ${score}"><circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--line-2)" stroke-width="5"/><circle cx="27" cy="27" r="${r}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 27 27)"/><text x="27" y="32" text-anchor="middle">${score}</text></svg>`;
 }
 
 function timeline(d) {
@@ -294,7 +294,7 @@ function timeline(d) {
     const Y = v => 10 + (1 - (v - lo) / span) * (H * 0.55);
     line = `<path d="${pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ")}" fill="none" stroke="var(--amber)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
   }
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl" role="img" aria-label="Dinheiro por equipa ao longo do tempo">${bars}${line}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tl" role="img" aria-label="Money per team over time">${bars}${line}</svg>`;
 }
 
 const OPEN = new Set();
@@ -308,27 +308,27 @@ function gameCard(m) {
       ${has ? `<div class="qbody" ${OPEN.has(id) ? "" : "hidden"}>${liveBlock(m.detail)}</div>` : ""}</article>`;
   }
   const d = m.detail, r = m.rec;
-  const state = m.live ? `<span class="pill live">● a decorrer</span>` : `<span class="pill soon">começa ${startText(m).replace(/<br>.*/, "")}</span>`;
+  const state = m.live ? `<span class="pill live">● live</span>` : `<span class="pill soon">starts ${startText(m).replace(/<br>.*/, "")}</span>`;
   const head = `<div class="mh">${ring(m.score || 0)}
     <div class="mt"><div class="t1"><img class="gm" src="img/${m.game}-64.png" alt="" width="18" height="18"><span class="gp">${NAME[m.game]}</span><span class="tt">${esc(m.match)} - ${esc(m.event)}</span>${r ? `<span class="fixtag">MATCH FIXING</span>` : ""}</div>
-    <div class="t2">Jogo · tier ${esc(m.tier.replace("T", ""))} · começa ${when(m.start)}${m.alert ? ` · alerta ${when(m.alert)}` : ""}</div></div>${state}</div>`;
+    <div class="t2">Match · tier ${esc(m.tier.replace("T", ""))} · starts ${when(m.start)}${m.alert ? ` · alert ${when(m.alert)}` : ""}</div></div>${state}</div>`;
   let box;
   if (m.bet) {
-    box = `<div class="betbox go"><div class="bl"><div class="cap2">APOSTADO PELA BANCA</div><div class="side">${esc(m.bet.side)} <span class="o">${odd(m.bet.price)}</span></div>
-      <div class="chips"><span class="chip">${usd(m.bet.stake)} · ${m.bet.status === "sold" ? "já saímos" : "em jogo"}</span></div></div>
-      <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
+    box = `<div class="betbox go"><div class="bl"><div class="cap2">BET BY THE BANKROLL</div><div class="side">${esc(m.bet.side)} <span class="o">${odd(m.bet.price)}</span></div>
+      <div class="chips"><span class="chip">${usd(m.bet.stake)} · ${m.bet.status === "sold" ? "exited" : "in play"}</span></div></div>
+      <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Open on Polymarket ↗</a></div>`;
   } else if (r) {
-    const mk = r.kind === "match" ? "Vencedor (série)" : esc(r.market);
-    const tags = [r.why, r.listed ? "carteira da tua lista" : "", r.sharp ? "carteira afiada" : "", r.fade ? "contra conta nova" : (r.fresh ? "conta nova" : "")].filter(Boolean)
+    const mk = r.kind === "match" ? "Winner (series)" : esc(r.market);
+    const tags = [r.why, r.listed ? "wallet from your list" : "", r.sharp ? "sharp wallet" : "", r.fade ? "against fresh account" : (r.fresh ? "fresh account" : "")].filter(Boolean)
       .map(t => `<span class="chip warn">${esc(t)}</span>`).join("");
-    box = `<div class="betbox go"><div class="bl"><div class="cap2">APOSTA EM · ${r.fade ? "CONTRA A CONTA NOVA" : "LADO DO DINHEIRO"} · <span class="mkp">${mk}</span></div>
-      <div class="side">${esc(r.side)} <span class="o">${r.odds ?? "–"}</span> <span class="imp">${r.implied ? Math.round(r.implied * 100) + "%" : ""} · no alerta</span>
-        ${r.now ? `<span class="nowc">⚡ agora ${r.now}</span>` : ""}</div>
+    box = `<div class="betbox go"><div class="bl"><div class="cap2">BET ON · ${r.fade ? "AGAINST THE FRESH ACCOUNT" : "SIDE OF THE MONEY"} · <span class="mkp">${mk}</span></div>
+      <div class="side">${esc(r.side)} <span class="o">${r.odds ?? "–"}</span> <span class="imp">${r.implied ? Math.round(r.implied * 100) + "%" : ""} · at alert</span>
+        ${r.now ? `<span class="nowc">⚡ now ${r.now}</span>` : ""}</div>
       <div class="chips"><span class="vs">vs ${esc(r.other)}</span>${tags}</div></div>
-      <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Abrir na Polymarket ↗</a></div>`;
+      <a class="cta" href="${esc(m.url)}" target="_blank" rel="noopener">Open on Polymarket ↗</a></div>`;
   } else {
-    box = `<div class="betbox no"><div class="bl"><div class="cap2">NÃO APOSTAR</div><div class="side dim">${esc(m.no || "")}</div></div>
-      <a class="cta ghost" href="${esc(m.url)}" target="_blank" rel="noopener">Ver na Polymarket ↗</a></div>`;
+    box = `<div class="betbox no"><div class="bl"><div class="cap2">DON'T BET</div><div class="side dim">${esc(m.no || "")}</div></div>
+      <a class="cta ghost" href="${esc(m.url)}" target="_blank" rel="noopener">View on Polymarket ↗</a></div>`;
   }
   if (!d) return `<article class="game full ${r ? "fix" : ""}">${head}${box}</article>`;
   return `<article class="game full ${r ? "fix" : m.bet ? "go" : ""}">${head}${box}${liveBlock(d)}</article>`;
@@ -339,25 +339,25 @@ function liveBlock(d) {
   const teamCls = t => t === A ? "ta" : "tb";
   const oa = d.odds_from != null && d.odds_now != null ? `${odd(d.odds_from)} → ${odd(d.odds_now)}` : "–";
   const pp = d.odds_from != null && d.odds_now != null ? Math.round((d.odds_now - d.odds_from) * 100) : null;
-  const tagw = x => (x.listed ? `<span class="tg list">LISTA</span>` : "") + (x.sharp ? `<span class="tg sharp">AFIADA</span>` : "");
-  const tops = d.top.map(x => `<tr><td><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name.slice(0, 18))}</a>${tagw(x)}${x.pre && x.pre !== x.side ? ` <span class="mute">antes: ${esc(x.pre)}</span>` : ""}</td><td class="${teamCls(x.side)}">${esc(x.side)}</td><td class="r num"><b>${k$(x.usd)}</b></td><td class="r mute num">${d.live ? "desde " + minTxt(x.at) : minTxt(x.at)} · ${x.n} tr</td></tr>`).join("");
+  const tagw = x => (x.listed ? `<span class="tg list">LIST</span>` : "") + (x.sharp ? `<span class="tg sharp">SHARP</span>` : "");
+  const tops = d.top.map(x => `<tr><td><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name.slice(0, 18))}</a>${tagw(x)}${x.pre && x.pre !== x.side ? ` <span class="mute">before: ${esc(x.pre)}</span>` : ""}</td><td class="${teamCls(x.side)}">${esc(x.side)}</td><td class="r num"><b>${k$(x.usd)}</b></td><td class="r mute num">${d.live ? "since " + minTxt(x.at) : minTxt(x.at)} · ${x.n} tr</td></tr>`).join("");
   const bigs = d.big.map(x => `<tr><td class="mute num">${minTxt(x.at)}</td><td><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(x.name.slice(0, 18))}</a>${tagw(x)}</td><td class="${teamCls(x.side)}">${esc(x.side)}${x.market !== "Match Winner" ? ` <span class="mute">${esc(x.market.replace(/Map |Game /, "M").replace(" Winner", ""))}</span>` : ""}</td><td class="r num"><b>${k$(x.usd)}</b></td><td class="r mute num">@ ${odd(x.px)}</td></tr>`).join("");
-  const sw = d.switched.length ? d.switched.map(x => `<div class="swr"><b>${esc(x.name)}</b> apostou ${k$(x.pre_usd)} em <span class="${teamCls(x.pre_side)}">${esc(x.pre_side)}</span> antes do jogo e agora ${k$(x.usd)} em <span class="${teamCls(x.side)}">${esc(x.side)}</span></div>`).join("")
-    : `<div class="mute">Nenhuma carteira trocou de lado${d.live ? " desde o início" : ""}.</div>`;
+  const sw = d.switched.length ? d.switched.map(x => `<div class="swr"><b>${esc(x.name)}</b> bet ${k$(x.pre_usd)} on <span class="${teamCls(x.pre_side)}">${esc(x.pre_side)}</span> pre-match and now ${k$(x.usd)} on <span class="${teamCls(x.side)}">${esc(x.side)}</span></div>`).join("")
+    : `<div class="mute">No wallet switched sides${d.live ? " since the start" : ""}.</div>`;
   const live = `<section class="lv ${d.live ? "on" : ""}">
-    <div class="lh">${d.live ? `<span class="pill live">● ao vivo</span><b>${d.mins} min de jogo</b>` : `<span class="pill soon">pré-jogo</span><b>últimas ${Math.round((Date.now() / 1000 - d.since) / 3600) || 1} h</b>`}<span class="mute">dinheiro dos últimos 30 min</span></div>
+    <div class="lh">${d.live ? `<span class="pill live">● live</span><b>${d.mins} min in</b>` : `<span class="pill soon">pre-match</span><b>last ${Math.round((Date.now() / 1000 - d.since) / 3600) || 1} h</b>`}<span class="mute">money in the last 30 min</span></div>
     <div class="stats">
-      <div><div class="cap2">DINHEIRO VAI PARA</div><div class="sv ${teamCls(d.recent.side)}">● ${esc(d.recent.side)}</div><div class="mute">${k$(d.recent.usd)} · ${Math.round(d.recent.net * 100)}% líquido</div></div>
-      <div><div class="cap2">ODD ${esc(A.toUpperCase())}</div><div class="sv">${oa}</div><div class="mute">${pp != null ? (pp >= 0 ? "+" : "") + pp + " pp " + (d.live ? "desde o início" : "nas últimas horas") : ""}</div></div>
-      <div><div class="cap2">CONCENTRAÇÃO</div><div class="sv">${Math.round(d.conc * 100)}%</div><div class="mute">maior carteira · ${d.wallets} carteiras</div></div>
-      <div><div class="cap2">TROCARAM DE LADO</div><div class="sv">${d.switched.length}</div><div class="mute">${d.switched.length ? "ver abaixo" : "nenhuma carteira"}</div></div>
+      <div><div class="cap2">MONEY GOING TO</div><div class="sv ${teamCls(d.recent.side)}">● ${esc(d.recent.side)}</div><div class="mute">${k$(d.recent.usd)} · ${Math.round(d.recent.net * 100)}% net</div></div>
+      <div><div class="cap2">ODD ${esc(A.toUpperCase())}</div><div class="sv">${oa}</div><div class="mute">${pp != null ? (pp >= 0 ? "+" : "") + pp + " pp " + (d.live ? "since the start" : "in the last hours") : ""}</div></div>
+      <div><div class="cap2">CONCENTRATION</div><div class="sv">${Math.round(d.conc * 100)}%</div><div class="mute">top wallet · ${d.wallets} wallets</div></div>
+      <div><div class="cap2">SWITCHED SIDES</div><div class="sv">${d.switched.length}</div><div class="mute">${d.switched.length ? "see below" : "no wallet"}</div></div>
     </div>
-    <div class="cap2 tlh">LINHA DO TEMPO <span class="mute">${d.live ? "desde o início" : "antes do jogo"}: ${esc(A)} ${k$(d.totals[A])} vs ${esc(B)} ${k$(d.totals[B])} · ${d.trades} apostas · ${d.wallets} carteiras</span></div>
+    <div class="cap2 tlh">TIMELINE <span class="mute">${d.live ? "since the start" : "before the match"}: ${esc(A)} ${k$(d.totals[A])} vs ${esc(B)} ${k$(d.totals[B])} · ${d.trades} bets · ${d.wallets} wallets</span></div>
     ${timeline(d)}
-    <div class="leg"><span>${d.live ? "início" : "há " + Math.round((Date.now() / 1000 - d.since) / 3600) + " h"}</span><span><i class="sq ta"></i>${esc(A)} <i class="sq tb"></i>${esc(B)} <i class="ln"></i>odd ${esc(A)}</span><span>agora</span></div>
-    <div class="cap2" style="margin-top:12px">TROCARAM DE LADO <span class="mute">apostaram numa equipa antes do jogo e na outra ao vivo (≥ $100)</span></div>${sw}
-    <div class="cols"><div><div class="cap2">MAIORES CARTEIRAS</div><table>${tops}</table></div>
-      <div><div class="cap2">MAIORES APOSTAS</div><table>${bigs}</table></div></div>
+    <div class="leg"><span>${d.live ? "start" : "" + Math.round((Date.now() / 1000 - d.since) / 3600) + " h ago"}</span><span><i class="sq ta"></i>${esc(A)} <i class="sq tb"></i>${esc(B)} <i class="ln"></i>odd ${esc(A)}</span><span>now</span></div>
+    <div class="cap2" style="margin-top:12px">SWITCHED SIDES <span class="mute">bet one team pre-match and the other live (≥ $100)</span></div>${sw}
+    <div class="cols"><div><div class="cap2">BIGGEST WALLETS</div><table>${tops}</table></div>
+      <div><div class="cap2">BIGGEST BETS</div><table>${bigs}</table></div></div>
   </section>`;
   return live;
 }
@@ -365,9 +365,9 @@ function liveBlock(d) {
 function betCard(b) {
   const st = b.status;
   const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
-  const res = st === "won" ? `+${usd(b.pnl).slice(1)}<small>ganhou</small>` : st === "lost" ? `${usd(b.pnl)}<small>perdeu</small>`
-            : st === "sold" ? `${b.pnl >= 0 ? "+" : ""}${usd(b.pnl)}<small>saímos (${esc(b.exit_reason || "")})</small>` : `em jogo<small>${usd(b.stake)}</small>`;
-  const mk = b.market && b.market !== "Match Winner" && !b.market.startsWith("Várias") ? ` · ${esc(b.market)}` : "";
+  const res = st === "won" ? `+${usd(b.pnl).slice(1)}<small>won</small>` : st === "lost" ? `${usd(b.pnl)}<small>lost</small>`
+            : st === "sold" ? `${b.pnl >= 0 ? "+" : ""}${usd(b.pnl)}<small>exited (${esc(b.exit_reason || "")})</small>` : `in play<small>${usd(b.stake)}</small>`;
+  const mk = b.market && b.market !== "Match Winner" && !b.market.startsWith("Several") ? ` · ${esc(b.market)}` : "";
   return `<div class="sig ${st}"><div class="ic">${icon}</div>
     <div style="min-width:0"><div class="l1"><img class="gm ${b.game}" src="img/${b.game}-64.png" alt="" width="18" height="18">${esc(b.match)}</div>
     <div class="l2"><b>${esc(b.side)}</b>${mk} · ${usd(b.stake)} a odd <b>${(1 / b.price).toFixed(2)}</b> · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
@@ -384,17 +384,17 @@ function chart(series) {
   const X = x => (x1 === x0 ? 0 : (x - x0) / (x1 - x0)) * W, Y = y => H - 6 - (y - lo) / span * (H - 12);
   const d = series.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
   const col = ys[ys.length - 1] >= ys[0] ? "var(--green)" : "var(--red)";
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução da banca"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
-  $("c-a").textContent = "início " + usd(ys[0]);
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Bankroll over time"><line x1="0" x2="${W}" y1="${Y(ys[0])}" y2="${Y(ys[0])}" stroke="var(--line-2)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+  $("c-a").textContent = "start " + usd(ys[0]);
   $("c-m").textContent = `pior ponto ${usd(lo)} · melhor ${usd(hi)}`;
 }
 
 function walletCard(x) {
   const nm = x.name || (x.note || "").split(/[:,]/)[0] || x.wallet.slice(0, 10);
-  const tags = (x.sharp ? `<span class="tg sharp">AFIADA</span>` : "") + (x.listed ? `<span class="tg list">TUA LISTA</span>` : "");
+  const tags = (x.sharp ? `<span class="tg sharp">SHARP</span>` : "") + (x.listed ? `<span class="tg list">YOUR LIST</span>` : "");
   const bar = Math.max(0, Math.min(100, (x.rate || 0) * 100));
   return `<div class="w"><div><div class="nm"><a href="https://polymarket.com/profile/${esc(x.wallet)}" target="_blank" rel="noopener">${esc(nm)}</a>${tags}</div>
-    <div class="sub">${x.n ? `ganhou dinheiro em ${x.wins} de ${x.n} jogos tier 3+ · lucro real ${x.pnl >= 0 ? "+" : "−"}$${Math.abs(x.pnl).toLocaleString("en-US")} (${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%) · ${Math.round((x.low ?? 1) * 100)}% dos jogos dela são tier 3+` : "sem jogos tier 3+ resolvidos nos últimos 75 dias"}${x.last ? ` · última ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
+    <div class="sub">${x.n ? `made money in ${x.wins} of ${x.n} tier 3+ matches · real profit ${x.pnl >= 0 ? "+" : "−"}$${Math.abs(x.pnl).toLocaleString("en-US")} (${x.roi >= 0 ? "+" : ""}${Math.round(x.roi * 100)}%) · ${Math.round((x.low ?? 1) * 100)}% of its matches are tier 3+` : "no resolved tier 3+ matches in the last 75 days"}${x.last ? ` · last ${when(x.last)}` : ""}${x.listed && x.note ? ` · ${esc(x.note.slice(0, 90))}` : ""}</div>
     <div class="bar"><i style="width:${bar}%;background:${x.roi >= 0.2 ? "var(--green)" : x.roi >= 0 ? "var(--amber)" : "var(--red)"}"></i></div></div>
     <div class="st num"><b class="${x.roi >= 0 ? "pos" : "neg"}">${x.n ? (x.roi >= 0 ? "+" : "") + Math.round(x.roi * 100) + "%" : "–"}</b><div class="sub">${x.open ? `${x.open} em jogo` : ""}</div></div></div>`;
 }
@@ -403,37 +403,37 @@ function render() {
   if (!D || !D.hunter) return;
   const H = D.hunter, s = H.stats;
   const age = (Date.now() / 1000 - D.at) / 60;
-  $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>atualizado há ${Math.round(age)} min</span>`;
+  $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>updated ${Math.round(age)} min ago</span>`;
   $("b-bal").innerHTML = `${usd(s.balance)}<small>de ${usd(s.start)}</small>`;
   $("b-pnl").innerHTML = `<span class="${s.profit >= 0 ? "pos" : "neg"}">${s.profit >= 0 ? "+" : ""}${usd(s.profit)}</span>`;
   $("b-wl").innerHTML = `<span class="pos">${s.wins}</span> / <span class="neg">${s.losses}</span>`;
   $("b-open").innerHTML = `${s.open}<small>${usd(s.at_risk)}</small>`;
   chart(H.series);
-  $("wallets").innerHTML = (D.wallets || []).map(walletCard).join("") || `<div class="empty">Ainda sem carteiras.</div>`;
+  $("wallets").innerHTML = (D.wallets || []).map(walletCard).join("") || `<div class="empty">No wallets yet.</div>`;
   const up = H.upcoming || [];
-  $("games").innerHTML = up.map(gameCard).join("") || `<div class="empty">Não há jogos tier 3+ nas próximas 36 horas.</div>`;
-  $("mine").innerHTML = (H.bets || []).map(betCard).join("") || `<div class="empty">Ainda não apostámos nada. Quando um jogo ficar verde em "Próximos jogos", a banca aposta e recebes uma notificação.</div>`;
+  $("games").innerHTML = up.map(gameCard).join("") || `<div class="empty">No tier 3+ matches in the next 36 hours.</div>`;
+  $("mine").innerHTML = (H.bets || []).map(betCard).join("") || `<div class="empty">No bets yet. When a match is flagged in "Upcoming matches", the bankroll bets and you get a push.</div>`;
   const n = up.filter(m => m.rec && !m.bet).length;
   const hot = up.filter(m => !m.quiet).length;
-  $("tabs").querySelector('[data-v="next"]').textContent = `Próximos jogos (${up.length})` + (n ? ` · ${n} para apostar` : hot ? ` · ${hot} com dinheiro suspeito` : "");
+  $("tabs").querySelector('[data-v="next"]').textContent = `Upcoming matches (${up.length})` + (n ? ` · ${n} to bet` : hot ? ` · ${hot} with suspicious money` : "");
 }
 
 function renderMirror() {
   const M = D && D.mirror;
-  if (!M) { $("m-note").textContent = "O espelho abre no próximo scan."; return; }
-  $("m-eq").innerHTML = `${usd(M.equity)}<small>de ${usd(M.budget)}</small>`;
+  if (!M) { $("m-note").textContent = "The mirror opens on the next scan."; return; }
+  $("m-eq").innerHTML = `${usd(M.equity)}<small>of ${usd(M.budget)}</small>`;
   $("m-pnl").innerHTML = `<span class="${M.pnl >= 0 ? "pos" : "neg"}">${M.pnl >= 0 ? "+" : ""}${usd(M.pnl)}</span>`;
   $("m-cash").innerHTML = `${usd(M.cash)}`;
-  $("m-wl").innerHTML = `<span class="pos">${M.won}</span> / <span class="neg">${M.lost}</span><small>${M.sold} vendidas</small>`;
-  $("m-until").innerHTML = `${M.copying ? "ativa" : "terminou"}<small>até ${when(M.until)}</small>`;
-  $("m-note").innerHTML = `Copia <a href="https://polymarket.com/@cutjalenhurts" target="_blank" rel="noopener">@cutjalenhurts</a> em todos os mercados, à escala 1:${Math.round(1 / M.scale).toLocaleString("en-US")} (ele compra ~${usd0(M.his_daily)}/dia). Compras e vendas ao preço real, até 10 min depois dele. Sem notificações.`;
+  $("m-wl").innerHTML = `<span class="pos">${M.won}</span> / <span class="neg">${M.lost}</span><small>${M.sold} sold</small>`;
+  $("m-until").innerHTML = `${M.copying ? "active" : "ended"}<small>until ${when(M.until)}</small>`;
+  $("m-note").innerHTML = `Copies <a href="https://polymarket.com/@cutjalenhurts" target="_blank" rel="noopener">@cutjalenhurts</a> on every market, at scale 1:${Math.round(1 / M.scale).toLocaleString("en-US")} (he buys ~${usd0(M.his_daily)}/day). Buys and sells at the real price, up to 10 min after him. No notifications.`;
   $("m-n-open").textContent = M.open.length;
-  $("m-open").innerHTML = M.open.map(p => `<tr><td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td><td>${esc(p.outcome)}</td><td class="r num">${usd(p.cost)}</td><td class="r num">${p.price != null ? p.price.toFixed(2) : "–"}</td><td class="r num ${p.value >= p.cost ? "pos" : "neg"}">${usd(p.value)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">nenhuma</td></tr>`;
-  const kind = {buy: "comprou", sell: "vendeu", merge: "vendeu", skip: "não copiado"};
-  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "compra" : "venda"} ${usd0(t.his_usd)} a ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">ainda sem movimentos</td></tr>`;
+  $("m-open").innerHTML = M.open.map(p => `<tr><td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></td><td>${esc(p.outcome)}</td><td class="r num">${usd(p.cost)}</td><td class="r num">${p.price != null ? p.price.toFixed(2) : "–"}</td><td class="r num ${p.value >= p.cost ? "pos" : "neg"}">${usd(p.value)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">none</td></tr>`;
+  const kind = {buy: "bought", sell: "sold", merge: "sold", skip: "not copied"};
+  $("m-trades").innerHTML = M.trades.slice(0, 150).map(t => `<tr><td class="num">${when(t.his_t)}</td><td><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a> · ${esc(t.outcome)}</td><td class="num">${t.kind === "buy" || (t.kind === "skip" && !t.note.includes("sell")) ? "buy" : "sell"} ${usd0(t.his_usd)} at ${t.his_px}</td><td class="num ${t.kind === "skip" ? "neg" : ""}">${kind[t.kind]} ${t.kind === "skip" ? "· " + esc(t.note) : usd(t.usd)}</td><td class="r num">${t.px ?? "–"}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">no moves yet</td></tr>`;
   $("m-n-closed").textContent = M.closed.length;
-  const fim = {won: "ganhou", lost: "perdeu", void: "anulado", sold: "vendida"};
-  $("m-closed").innerHTML = M.closed.map(c => `<tr><td>${esc(c.title)}</td><td>${esc(c.outcome)}</td><td>${fim[c.how]}</td><td class="r num">${usd(c.cost)}</td><td class="r num ${(c.pnl || 0) >= 0 ? "pos" : "neg"}">${c.pnl == null ? "–" : usd(c.pnl)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">nenhuma ainda</td></tr>`;
+  const fim = {won: "won", lost: "lost", void: "void", sold: "sold"};
+  $("m-closed").innerHTML = M.closed.map(c => `<tr><td>${esc(c.title)}</td><td>${esc(c.outcome)}</td><td>${fim[c.how]}</td><td class="r num">${usd(c.cost)}</td><td class="r num ${(c.pnl || 0) >= 0 ? "pos" : "neg"}">${c.pnl == null ? "–" : usd(c.pnl)}</td></tr>`).join("") || `<tr><td colspan="5" style="color:var(--mute)">none yet</td></tr>`;
 }
 
 function showTab() {
@@ -456,7 +456,7 @@ async function load() {
   try {
     const r = await fetch("api/data?t=" + Date.now(), {cache: "no-store"});
     D = await r.json(); render(); renderMirror();
-  } catch (e) { $("status").innerHTML = `<span class="dot stale"></span><span>erro a carregar</span>`; }
+  } catch (e) { $("status").innerHTML = `<span class="dot stale"></span><span>error loading</span>`; }
 }
 load(); setInterval(load, 60000);
 </script>

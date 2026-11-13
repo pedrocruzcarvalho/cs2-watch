@@ -108,7 +108,7 @@ def test_follow_the_wallet_out():
     H.follow(st, [sig(exited=True)], NOW + 600, log=lambda *_: None, book_bids=lambda _: [[0.7, 1000]],
              sell=lambda n, bids: (n, n * 0.7, 0.7, 1))
     b = st["account"]["bets"]["e1|A"]
-    assert b["status"] == "sold" and b["pnl"] > 0 and b["exit_reason"] == "a carteira vendeu"
+    assert b["status"] == "sold" and b["pnl"] > 0 and b["exit_reason"] == "the wallet sold"
     assert H.balance(st["account"]) == round(H.START + b["pnl"], 2)
     import notify as N
     assert "SAI de A" in N.events([("Caçador", st)], NOW + 600)[0][0]

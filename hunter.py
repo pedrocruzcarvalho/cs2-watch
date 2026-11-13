@@ -169,11 +169,11 @@ REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the
 def team_rel(u):
     m = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}") if "TIER_MEDIAN" in globals() else None
     return u.get("team_live", 0) / m if m else None
-RULE_TEXT = {"A": "carteira com aposta ao vivo enorme para o tier (≥50% do normal de um jogo)", "B": "dinheiro ao vivo em Dota",
-             "C": "dinheiro pré-jogo em Dota, jogo < $100k", "D": "conta CS2 fresca pré-jogo: apostar contra",
-             "E": "dinheiro pré-jogo em LoL, ≥10% do mercado",
-             "F": "carteira com historial que ganha, a apostar ao vivo",
-             "G": "carteira com aposta ao vivo grande para o tier (≥20% do normal de um jogo)"}
+RULE_TEXT = {"A": "wallet with a huge live bet for the tier (≥50% of a normal match)", "B": "live money in Dota",
+             "C": "pre-match money in Dota, match < $100k", "D": "fresh CS2 account pre-match: bet against it",
+             "E": "pre-match money in LoL, ≥10% of the market",
+             "F": "wallet with a winning record, betting live",
+             "G": "wallet with a big live bet for the tier (≥20% of a normal match)"}
 
 
 def classify(u):
@@ -184,7 +184,7 @@ def classify(u):
         return None, f"underdog a {u['px']:.2f} (perdem muito)"
     age, live, share = u.get("age"), u["phase"] == "live", u["share"]
     if u["game"] == "cs2" and age is not None and age < 3 and live:
-        return None, "conta CS2 com menos de 3 dias (perdem)"
+        return None, "CS2 account under 3 days old (they lose)"
     if u.get("sharp") and live and u["game"] != "lol":
         return "F", None
     big = team_rel(u)                                           # this wallet's in-play money on this team, all markets,
@@ -194,11 +194,11 @@ def classify(u):
         if big >= REL_MIN:
             return "G", None
     if u["usd"] < WALLET_MIN:                                   # small bets: only sharp / listed / big-for-tier count
-        return None, ("carteira afiada, mas só conta ao vivo em CS2/Dota" if u.get("sharp") else
-                      "carteira da lista, mas o historial em tier baixo não ganha" if u.get("listed") else
-                      "aposta pequena")
+        return None, ("sharp wallet, but only counts live in CS2/Dota" if u.get("sharp") else
+                      "listed wallet, but its low-tier record does not win" if u.get("listed") else
+                      "small bet")
     if u.get("kind", "match") != "match":
-        return None, "mapa: só conta ao vivo com aposta grande para o tier"
+        return None, "map market: only counts live with a big bet for the tier"
     if not live:
         if u["game"] == "cs2" and age is not None and age < 14:
             return "D", None
@@ -206,11 +206,11 @@ def classify(u):
             return "C", None
         if u["game"] == "lol" and share >= 0.10:
             return "E", None
-        return None, "pré-jogo sem vantagem no teste"
+        return None, "pre-match: no edge in the backtest"
     if u["game"] == "lol":
-        return None, "LoL ao vivo sem vantagem no teste"
+        return None, "LoL live: no edge in the backtest"
     if u["game"] == "cs2":
-        return None, "CS2 ao vivo: aposta pequena para o tier"
+        return None, "CS2 live: small bet for the tier"
     return "B", None
 
 
@@ -243,27 +243,27 @@ def late(u, now):
     """Why the account can no longer copy the signal (None if it still can)."""
     px = u["prices"].get(u["side"])
     if px is None or px >= 0.97 or px <= 0.03:
-        return "mercado já decidido"
+        return "market already decided"
     if u["phase"] == "pre" and u["start"] <= now:
-        return "o jogo já começou"
+        return "the match already started"
     if u["phase"] == "live" and now - u["last"] > LIVE_FRESH:
-        return f"compra ao vivo há {(now - u['last']) / 60:.0f} min"
+        return f"live buy from {(now - u['last']) / 60:.0f} min ago"
     paid = u["px"] if u["side"] == u["o"] else 1 - u["px"]
     if px > paid + CHASE:
-        return f"preço já subiu para {px:.2f} (era {paid:.2f})"
+        return f"price already up to {px:.2f} (was {paid:.2f})"
     return None
 
 
 def why(u):
-    out = [f"${u['usd']:,.0f} em {u['o']} a {u['px']:.2f} ({'ao vivo' if u['phase'] == 'live' else 'antes do jogo'})",
-           f"{u['share']:.0%} do dinheiro deste mercado (jogo com ${u['vol']:,.0f} no total)"]
+    out = [f"${u['usd']:,.0f} on {u['o']} at {u['px']:.2f} ({'live' if u['phase'] == 'live' else 'pre-match'})",
+           f"{u['share']:.0%} of this market's money (match total ${u['vol']:,.0f})"]
     r = rel_size(u)
     if r is not None:
         m = TIER_MEDIAN[f"{u['game']}|{u['tier']}"]
-        out.append(f"{r:.0%} do dinheiro normal de um jogo {u['tier'].replace('T', 'tier ')} (mediana ${m:,.0f})")
+        out.append(f"{r:.0%} of a normal {u['tier'].replace('T', 'tier ')} match's money (median ${m:,.0f})")
     if u["age"] is not None:
-        out.append(f"conta com {u['age']:.0f} dias quando apostou" if u["age"] >= 1 else
-                   f"conta criada {u['age'] * 24:.0f} h antes de apostar")
+        out.append(f"account {u['age']:.0f} days old when it bet" if u["age"] >= 1 else
+                   f"account created {u['age'] * 24:.0f} h before betting")
     return out
 
 
@@ -295,7 +295,7 @@ def combos(game, e, mk, pos, singles, start, url, evol, tier):
         mine = [u for u in singles if u["event"] == e["id"] and u["w"] == w and u["o"] == team]
         if mine:
             for u in mine:
-                u.setdefault("extra", []).append(f"no total ${total:,.0f} em {team} neste jogo, em {pieces} apostas")
+                u.setdefault("extra", []).append(f"${total:,.0f} on {team} in this match in total, over {pieces} bets")
             continue
         m = next((m for m in mk.values() if m["kind"] == "match" and team in m["outcomes"]), None) or             mk[max(g, key=lambda p: p["pre"] + p["live"])["cid"]]
         if team not in m["outcomes"]:
@@ -308,7 +308,7 @@ def combos(game, e, mk, pos, singles, start, url, evol, tier):
         parts = ", ".join(f"${p['pre'] + p['live']:,.0f} em {mk[p['cid']]['label']}" for p in
                           sorted(g, key=lambda p: -(p["pre"] + p["live"])))
         out.append(dict(game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
-                        cid=m["cid"], market=f"Várias apostas ({pieces})", kind=m["kind"], w=w, name=g[0]["name"],
+                        cid=m["cid"], market=f"Several bets ({pieces})", kind=m["kind"], w=w, name=g[0]["name"],
                         o=team, other=other, phase="live" if live else "pre", usd=total, px=total / sh if sh else 0.5,
                         vol=evol, share=total / max(m["vol"], 1), last=max(p["last"] for p in g),
                         first=min(p["first"] for p in g), prices=m["prices"], tokens=m["tokens"], tier=tier,
@@ -404,18 +404,18 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
         r, no = classify(u)
         u["rule"], u["side"] = r, (u["other"] if r == "D" else u["o"])
         u["score"] = score(u, r)
-        u["why"] = why(u) + u.get("extra", []) + ([f"regra {r}: {RULE_TEXT[r]}"] if r else [])
+        u["why"] = why(u) + u.get("extra", []) + ([f"rule {r}: {RULE_TEXT[r]}"] if r else [])
         if u.get("rec") and u["rec"][0]:
             n, wins, rate, roi = u["rec"]
-            u["why"].insert(1, f"historial em tier 3+: ganhou dinheiro em {wins} de {n} jogos, lucro real {roi * 100:+.0f}%")
+            u["why"].insert(1, f"tier 3+ record: made money in {wins} of {n} matches, real profit {roi * 100:+.0f}%")
         if u.get("listed"):
-            u["why"].insert(1, f"da tua lista: {u['listed'][:80]}")
-        u["no"] = "a carteira apostou nas duas equipas" if u.get("hedge") else no
+            u["why"].insert(1, f"from your list: {u['listed'][:80]}")
+        u["no"] = "the wallet bet on both teams" if u.get("hedge") else no
         u["exited"] = u["sold_frac"] >= EXIT
         if u["sold_frac"] > 0.05:
-            u["why"].append(f"vendeu {u['sold_frac']:.0%} da posição (${u['sold_usd']:,.0f})")
+            u["why"].append(f"sold {u['sold_frac']:.0%} of the position (${u['sold_usd']:,.0f})")
         if u["exited"] and not u["no"]:
-            u["no"] = "a carteira já vendeu (saiu)"
+            u["no"] = "the wallet already sold (exited)"
         u["late"] = None if u["no"] else late(u, now)
     out.sort(key=lambda u: -u["score"])
     return out, infos
@@ -537,7 +537,7 @@ def follow(state, sigs, now, log=print, book_bids=None, sell=None):
         u = by.get((b["wallet"], b["cid"], b["their_side"]))
         if not u or not (u["exited"] or u.get("hedge")):
             continue
-        why = "a carteira vendeu" if u["exited"] else "a carteira passou a apostar na outra equipa"
+        why = "the wallet sold" if u["exited"] else "the wallet switched to the other team"
         bids = book_bids(u["tokens"].get(b["side"]))
         sold, got, avg, _ = sell(b["shares"], bids) if bids else (0, 0, None, 0)
         if not sold:
@@ -623,7 +623,7 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
             i = meta[ev]
             match, event = split_title(i["title"])
             out.append(dict(game=i["game"], tier=i["tier"], match=match, event=event, start=i["start"],
-                            live=now >= i["start"], url=i["url"], rec=None, no="ainda sem apostas suspeitas",
+                            live=now >= i["start"], url=i["url"], rec=None, no="no suspicious bets yet",
                             bet=None, items=[], money=0, quiet=True, score=0, detail=(details or {}).get(ev), alert=None,
                             event_id=ev))
             continue
@@ -645,7 +645,7 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
             no = None
         else:
             late = next((u for u in us if u["rule"] and not u["no"] and u.get("late")), None)
-            no = f"já não dá para entrar ({late['late']})" if late else                 (max(us, key=lambda u: u["usd"])["no"] or "sem vantagem no teste")
+            no = f"too late to enter ({late['late']})" if late else                 (max(us, key=lambda u: u["usd"])["no"] or "no edge in the backtest")
         items = []
         for u in sorted(us, key=lambda u: -u["usd"]):
             items.append(dict(name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],

@@ -106,7 +106,7 @@ def tick(store, log=print):
     store.put(BUNDLE, gzip.compress(json.dumps(parts).encode()))
     dash = dict(at=ts, took=round(time.time() - t0, 1), scanned=len(infos), hunter=view, mirror=mview, wallets=board)
     store.put("dashboard", json.dumps(dash, default=str).encode())
-    N.send([("Caçador", st)], ts, log=log, balance=view["stats"]["balance"])   # after the save: never alert twice
+    # Pedro (Nov 13): pushes only for flagged matches (one per match, below), no bet / exit pushes
     if fix_push:
         N.push(fix_push[0], fix_push[1], log=log, click=fix_push[2])
     s = view["stats"]
@@ -128,10 +128,10 @@ def new_fixes(st, view, ts):
     for m in new:
         r = m["rec"]
         mk = "" if r["kind"] == "match" else f" ({r['market']})"
-        lines.append(" · ".join([f"APOSTA em {r['side']}{mk}", f"odd {r['odds']}"]) + NL +
+        lines.append(" · ".join([f"BET on {r['side']}{mk}", f"odd {r['odds']}"]) + NL +
                      f"{m['match']} · {m['event']} · tier {m['tier'][1:]}" + NL + r["why"])
         sent[f"{m['event_id']}|{r['side']}"] = ts
-    title = "🚨 Match fixing: 1 jogo" if len(new) == 1 else f"🚨 Match fixing: {len(new)} jogos"
+    title = "🚨 Match fixing: 1 match" if len(new) == 1 else f"🚨 Match fixing: {len(new)} matches"
     return title, (NL + NL).join(lines), new[0]["url"] if len(new) == 1 else None
 
 
@@ -145,11 +145,11 @@ def health(store, ok, err=None, log=print):
     if ok:
         if h.get("down_since"):
             mins = (now - h["down_since"]) / 60
-            N.push("Scan voltou a funcionar", f"Esteve parado {mins:.0f} min.", log=log)
+            N.push("Scan is back", f"It was down for {mins:.0f} min.", log=log)
             store.put(HEALTH, b"{}")
         return
     if now - h.get("alerted", 0) >= FAIL_REPEAT:
-        N.push("Scan FALHOU", f"O scan do caçador está a falhar: {err}"[:500], log=log)
+        N.push("Scan FAILED", f"The hunter scan is failing: {err}"[:500], log=log)
         h["alerted"] = now
     h.setdefault("down_since", now)
     store.put(HEALTH, json.dumps(h).encode())
