@@ -161,6 +161,7 @@ def top_tier(game, title, vol=0):
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
          "G": (0.02, 60), "H": (0.0, 55)}   # H: flag + push only, no paper bet (untested, Pedro Nov 13)
+H_MIN = {"T3": 3300, "T4": 2200, "T5": 1500, "T6": 1000}   # rule H: one wallet's pre-match money on a CS2 team
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
 # (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);
 # the fixed $2k it replaced: +3.1% over 608. In dollars, 20% = CS2 T3 ~$4k, T4 ~$2k, T5 ~$1.1k, T6 ~$570, Dota ~$4.7k.
@@ -174,7 +175,7 @@ RULE_TEXT = {"A": "wallet with a huge live bet for the tier (≥50% of a normal 
              "E": "pre-match money in LoL, ≥10% of the market",
              "F": "wallet with a winning record, betting live",
              "G": "wallet with a big live bet for the tier (≥20% of a normal match)",
-             "H": "CS2 pre-match: one wallet put ≥50% of a normal match's money for the tier (min $2k) on one team (flag only, no bet)"}
+             "H": "CS2 pre-match: one wallet put big money for the tier (T3 $3.3k, T4 $2.2k, T5 $1.5k, T6 $1k) on one team (flag only, no bet)"}
 
 
 def classify(u):
@@ -194,6 +195,9 @@ def classify(u):
             return "A", None
         if big >= REL_MIN:
             return "G", None
+    need = H_MIN.get(u.get("tier"))                      # Pedro's thresholds per CS2 tier (Nov 13 2026), all markets summed
+    if not live and u["game"] == "cs2" and need and u.get("team_pre", 0) >= need and not (age is not None and age < 14):
+        return "H", None
     if u["usd"] < WALLET_MIN:                                   # small bets: only sharp / listed / big-for-tier count
         return None, ("sharp wallet, but only counts live in CS2/Dota" if u.get("sharp") else
                       "listed wallet, but its low-tier record does not win" if u.get("listed") else
@@ -203,10 +207,6 @@ def classify(u):
     if not live:
         if u["game"] == "cs2" and age is not None and age < 14:
             return "D", None
-        med = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}") or 0
-        pre = u.get("team_pre", 0)
-        if u["game"] == "cs2" and med and pre >= max(REL_STRONG * med, 2000):
-            return "H", None
         if u["game"] == "dota" and u["vol"] < 100000:
             return "C", None
         if u["game"] == "lol" and share >= 0.10:
