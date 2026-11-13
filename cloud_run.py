@@ -77,7 +77,6 @@ def tick(store, log=print):
         if w:
             payout(cid, json.loads(m.get("outcomes") or "[]"), w)
     BK.resolve(bst["book"], pay, ts)
-    BK.prune(bst["book"])
     board = BK.board(bst["book"], ts, bst["names"], listed)
     bst["names"] = {w: n for w, n in bst["names"].items() if w in bst["book"]}
     parts["state:book"] = json.dumps(bst, separators=(",", ":"))
