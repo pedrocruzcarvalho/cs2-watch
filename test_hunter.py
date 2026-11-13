@@ -63,8 +63,9 @@ def u(**kw):
 def test_rules():
     assert H.classify(u())[0] is None                            # CS2 in-play, small share: no edge
     assert H.classify(u(game="dota"))[0] == "B"
-    assert H.classify(u(share=0.2, top=True))[0] is None         # tier 1/2: never
-    assert H.classify(u(share=0.2))[0] == "A"
+    assert H.classify(u(team_live=9000, tier="T4", top=True))[0] is None   # tier 1/2: never
+    assert H.classify(u(team_live=6000, tier="T4"))[0] == "A"      # 59% of a T4 match's normal money
+    assert H.classify(u(team_live=2500, tier="T4"))[0] == "G"      # 25%
     assert H.classify(u(vol=300000))[0] is None
     assert H.classify(u(px=0.3))[0] is None
     assert H.classify(u(age=1))[0] is None                       # fresh CS2 accounts lose in-play
@@ -72,7 +73,7 @@ def test_rules():
     assert H.classify(u(phase="pre", age=5))[0] == "D"           # fresh CS2 account pre-match: bet against
     assert H.classify(u(phase="pre", game="dota", vol=80000))[0] == "C"
     assert H.classify(u(kind="map"))[0] is None                  # map, small share
-    assert H.classify(u(kind="map", share=0.2, game="lol"))[0] == "A"
+    assert H.classify(u(kind="map", team_live=6000, tier="T4"))[0] == "A"
     assert H.classify(u(kind="map", share=0.2, phase="pre"))[0] is None
 
 

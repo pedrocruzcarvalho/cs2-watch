@@ -161,12 +161,19 @@ def top_tier(game, title, vol=0):
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.03, 75),
          "G": (0.02, 60)}
-TEAM_LIVE_MIN = 2000
-RULE_TEXT = {"A": "dinheiro ao vivo, ≥10% do mercado", "B": "dinheiro ao vivo em Dota",
+REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
+# (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);
+# the fixed $2k it replaced: +3.1% over 608. In dollars, 20% = CS2 T3 ~$4k, T4 ~$2k, T5 ~$1.1k, T6 ~$570, Dota ~$4.7k.
+
+
+def team_rel(u):
+    m = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}") if "TIER_MEDIAN" in globals() else None
+    return u.get("team_live", 0) / m if m else None
+RULE_TEXT = {"A": "carteira com aposta ao vivo enorme para o tier (≥50% do normal de um jogo)", "B": "dinheiro ao vivo em Dota",
              "C": "dinheiro pré-jogo em Dota, jogo < $100k", "D": "conta CS2 fresca pré-jogo: apostar contra",
              "E": "dinheiro pré-jogo em LoL, ≥10% do mercado",
              "F": "carteira com historial que ganha, a apostar ao vivo",
-             "G": "a mesma carteira já pôs $2k+ ao vivo nesta equipa"}
+             "G": "carteira com aposta ao vivo grande para o tier (≥20% do normal de um jogo)"}
 
 
 def classify(u):
@@ -180,15 +187,18 @@ def classify(u):
         return None, "conta CS2 com menos de 3 dias (perdem)"
     if u.get("sharp") and live and u["game"] != "lol":
         return "F", None
-    if live and u["game"] != "lol" and u.get("team_live", 0) >= TEAM_LIVE_MIN and share < 0.10:
-        return "G", None
-    if u["usd"] < WALLET_MIN:                                   # small bets count only for sharp wallets
-        return None, ("carteira afiada, mas só conta ao vivo em CS2/Dota" if u.get("sharp") else
-                      "carteira da lista, mas o historial em tier baixo não ganha")
-    if u.get("kind", "match") != "match":                       # maps / games: only rule A held up
-        if live and share >= 0.10:
+    big = team_rel(u)                                           # this wallet's in-play money on this team, all markets,
+    if live and u["game"] != "lol" and big is not None:         # against the tier's normal match money
+        if big >= REL_STRONG:
             return "A", None
-        return None, "mapa: só conta ao vivo com ≥10% do mercado"
+        if big >= REL_MIN:
+            return "G", None
+    if u["usd"] < WALLET_MIN:                                   # small bets: only sharp / listed / big-for-tier count
+        return None, ("carteira afiada, mas só conta ao vivo em CS2/Dota" if u.get("sharp") else
+                      "carteira da lista, mas o historial em tier baixo não ganha" if u.get("listed") else
+                      "aposta pequena")
+    if u.get("kind", "match") != "match":
+        return None, "mapa: só conta ao vivo com aposta grande para o tier"
     if not live:
         if u["game"] == "cs2" and age is not None and age < 14:
             return "D", None
@@ -199,10 +209,8 @@ def classify(u):
         return None, "pré-jogo sem vantagem no teste"
     if u["game"] == "lol":
         return None, "LoL ao vivo sem vantagem no teste"
-    if share >= 0.10:
-        return "A", None
     if u["game"] == "cs2":
-        return None, "CS2 ao vivo com fatia pequena do mercado"
+        return None, "CS2 ao vivo: aposta pequena para o tier"
     return "B", None
 
 
@@ -353,7 +361,10 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                 if not sh or usd < BK.MIN_USD:
                     continue
                 is_sharp = tier not in TOP_TIERS and BK.sharp(book, p["w"], now, skip_event=e["id"])
-                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed:
+                med = TIER_MEDIAN.get(f"{game}|{tier}")
+                live_team = sum(q["live"] for q in pos if q["w"] == p["w"] and q["o"] == p["o"])
+                big_for_tier = med and live_team >= REL_MIN * med
+                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed and not big_for_tier:
                     continue
                 out.append(dict(game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
                                 cid=m["cid"], market=m["label"], kind=m["kind"], w=p["w"], name=p["name"], o=p["o"],
