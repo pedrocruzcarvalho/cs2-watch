@@ -190,6 +190,8 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
   .cta { width: 100%; text-align: center; }
   .mh .pill { display: none; }
 }
+.flags{margin:10px 0 0;padding:10px 12px;border:1px solid var(--line-2);border-radius:10px}
+.flr{padding:6px 0;border-top:1px solid var(--line-2);font-size:13px}.flr:first-of-type{border-top:0}.flr.late{opacity:.6}
 </style>
 </head>
 <body>
@@ -330,6 +332,8 @@ function gameCard(m) {
     box = `<div class="betbox no"><div class="bl"><div class="cap2">DON'T BET</div><div class="side dim">${esc(m.no || "")}</div></div>
       <a class="cta ghost" href="${esc(m.url)}" target="_blank" rel="noopener">View on Polymarket ↗</a></div>`;
   }
+  const fl = (m.flags || []);
+  if (fl.length) box += `<div class="flags"><div class="cap2">ALL FLAGS ON THIS MATCH (${fl.length})</div>` + fl.map(f => `<div class="flr ${f.late ? "late" : ""}"><b>${esc(f.side)}</b>${f.kind === "match" ? "" : ` <span class="mute">${esc(f.market)}</span>`} · odd ${f.odds ?? "–"} · ${f.live ? "live" : "pre-match"} · rule ${esc(f.rule)} · confidence ${f.score} <span class="mute">${f.at ? "· " + when(f.at) : ""} · ${f.late ? "expired: " + esc(f.late) : f.bank ? "open" : "flag only"}</span><div class="mute">${esc(f.why)}</div></div>`).join("") + `</div>`;
   if (!d) return `<article class="game full ${r ? "fix" : ""}">${head}${box}</article>`;
   return `<article class="game full ${r ? "fix" : m.bet ? "go" : ""}">${head}${box}${liveBlock(d)}</article>`;
 }

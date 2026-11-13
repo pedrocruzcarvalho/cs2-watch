@@ -653,6 +653,13 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
         else:
             late = next((u for u in us if u["rule"] and not u["no"] and u.get("late")), None)
             no = f"too late to enter ({late['late']})" if late else                 (max(us, key=lambda u: u["usd"])["no"] or "no edge in the backtest")
+        flags = []                                          # every signal that fired on this match (Pedro: show everything)
+        for u in sorted((u for u in us if u["rule"] and not u["no"]), key=lambda u: -u["score"]):
+            f0 = (ledger or {}).get(f"{u['cid']}|{u['o']}|{u['phase']}" + ("|combo" if u.get("combo") else "")) or {}
+            fp = f0.get("price") or u["prices"].get(u["side"])
+            flags.append(dict(side=u["side"], market=u["market"], kind=u["kind"], rule=u["rule"], why=RULE_TEXT[u["rule"]],
+                              odds=round(1 / fp, 2) if fp else None, at=f0.get("seen", u["first"]), live=u["phase"] == "live",
+                              late=u.get("late"), score=u["score"], bank=RULES[u["rule"]][0] > 0))
         items = []
         for u in sorted(us, key=lambda u: -u["usd"]):
             items.append(dict(name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],
@@ -667,7 +674,7 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
                         if mine else None, items=items[:8], money=round(sum(u["usd"] for u in us)), quiet=False,
                         score=max(u["score"] for u in us), detail=(details or {}).get(ev),
                         alert=min(u["first"] if u["phase"] == "pre" else max(u["first"], u["start"]) for u in us),
-                        event_id=ev))
+                        event_id=ev, flags=flags[:8]))
     return sorted(out, key=lambda m: (not m["rec"] and not m["bet"], m["quiet"], m["start"]))
 
 
