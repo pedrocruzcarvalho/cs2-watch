@@ -192,6 +192,18 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 }
 .flags{margin:10px 0 0;padding:10px 12px;border:1px solid var(--line-2);border-radius:10px}
 .flr{padding:6px 0;border-top:1px solid var(--line-2);font-size:13px}.flr:first-of-type{border-top:0}.flr.late{opacity:.6}
+.bar2{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 2px 0}.bar2 .sep{flex:1}
+.bar2 button{background:var(--card);color:var(--mute);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.bar2 button[aria-pressed="true"]{color:#e8edf3;border-color:var(--green)}
+.bar2 label{color:var(--mute);font-size:13px;display:flex;gap:6px;align-items:center}
+.bar2 input{width:72px;background:var(--card);color:var(--ink);border:1px solid var(--line-2);border-radius:8px;padding:5px 8px;font:inherit;font-size:13px}
+.stats4{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px}
+.stats4>div{padding:11px 14px;border-left:1px solid var(--line);min-width:0}.stats4>div:first-child{border-left:0}
+.stats4 .s{font-size:12px;color:var(--mute);margin-top:2px}
+.two{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:10px}
+.tbl table{width:100%;border-collapse:collapse;font-size:13px}.tbl th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.tbl td{padding:7px 10px;border-bottom:1px solid var(--line)}.tbl tr:last-child td{border-bottom:0}.tbl .r{text-align:right}
+@media (max-width:700px){.stats4{grid-template-columns:repeat(2,1fr)}.stats4>div:nth-child(3){border-left:0}.stats4>div:nth-child(n+3){border-top:1px solid var(--line)}.two{grid-template-columns:1fr}}
 .gf{display:flex;gap:6px;margin:4px 2px 0}.gf button{background:var(--card);color:var(--mute);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
 .gf button[aria-pressed="true"]{color:#e8edf3;border-color:var(--green)}
 .pick{display:block;margin:6px 0 0 auto;background:none;border:1px solid var(--line-2);color:var(--mute);border-radius:8px;padding:3px 8px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
@@ -228,8 +240,27 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 
   <div id="v-mine" hidden>
     <div class="gf" id="gf"><button data-g="all" aria-pressed="true">All</button><button data-g="cs2" aria-pressed="false">CS2</button><button data-g="dota" aria-pressed="false">Dota</button><button data-g="lol" aria-pressed="false">LoL</button><button id="only" aria-pressed="false" style="margin-left:auto">Only my bets</button></div>
+    <div class="bar2"><button data-p="1" aria-pressed="false">Today</button><button data-p="7" aria-pressed="false">7 days</button><button data-p="30" aria-pressed="false">30 days</button><button data-p="0" aria-pressed="true">All</button>
+      <span class="sep"></span><button data-a="0" aria-pressed="true">All flags</button><button data-a="1" aria-pressed="false">Pushed only</button>
+      <label>Stake $<input id="stake" type="number" min="1" step="1" value="1" inputmode="decimal"></label></div>
+    <div class="stats4">
+      <div><div class="k">Settled</div><div class="v num" id="s-n">–</div><div class="s" id="s-n2"></div></div>
+      <div><div class="k">Hit rate</div><div class="v num" id="s-hit">–</div><div class="s" id="s-hit2"></div></div>
+      <div><div class="k">Average odd</div><div class="v num" id="s-odd">–</div><div class="s">what the market gave</div></div>
+      <div><div class="k">Edge</div><div class="v num" id="s-edge">–</div><div class="s">hit rate minus the odds' chance</div></div>
+    </div>
+    <div class="stats4">
+      <div><div class="k">Result</div><div class="v num" id="r-res">–</div><div class="s" id="r-res2"></div></div>
+      <div><div class="k">Return</div><div class="v num" id="r-roi">–</div><div class="s">on the total staked</div></div>
+      <div><div class="k">Greens</div><div class="v num pos" id="r-g">–</div><div class="s" id="r-g2"></div></div>
+      <div><div class="k">Reds</div><div class="v num neg" id="r-r">–</div><div class="s" id="r-r2"></div></div>
+    </div>
     <div class="cap2" style="margin:14px 2px 6px"><span id="c-h">IF WE PUT $1 ON EVERY FLAGGED BET</span> <span class="mute" id="c-t"></span></div><div class="chartbox"><div id="chart"></div><div class="foot"><span id="c-a">start</span><span id="c-m"></span><span>now</span></div></div>
-    <div class="cap2" style="margin:14px 2px 6px">MY PLACED BETS ($1 EACH) <span class="mute" id="x-c-t"></span></div><div class="chartbox"><div id="x-chart"></div><div class="foot"><span id="x-c-a">start</span><span id="x-c-m"></span><span>now</span></div></div>
+    <div class="cap2" style="margin:14px 2px 6px"><span id="x-c-h">MY PLACED BETS</span> <span class="mute" id="x-c-t"></span></div><div class="chartbox"><div id="x-chart"></div><div class="foot"><span id="x-c-a">start</span><span id="x-c-m"></span><span>now</span></div></div>
+    <div class="two">
+      <section class="tbl"><table><thead><tr><th>Day</th><th class="r">Bets</th><th class="r">Won</th><th class="r">Edge</th><th class="r">Profit</th></tr></thead><tbody id="t-day"></tbody></table></section>
+      <section class="tbl"><table><thead><tr><th>Rule</th><th class="r">Bets</th><th class="r">Won</th><th class="r">Odd</th><th class="r">Edge</th><th class="r">Per bet</th></tr></thead><tbody id="t-rule"></tbody></table></section>
+    </div>
     <p class="note" style="margin:8px 2px">Tap "I bet this" on the bets you actually placed. Saved in this browser.</p>
     <div class="list" id="mine"></div>
   </div>
@@ -374,27 +405,66 @@ function liveBlock(d) {
   return live;
 }
 
-let GAME = "all", ONLY = false, PICKED = new Set();
+let GAME = "all", ONLY = false, PICKED = new Set(), PER = +store.get("fh-per", "0"), PUSHED = store.get("fh-pushed", "0") === "1", STAKE = +store.get("fh-stake", "1") || 1;
+const RULE_NAME = {A: "A · big live bet for the tier", M: "M · fishy pre-match money", S: "S · shyux wallet", B: "B · Dota live money", C: "C · Dota pre-match", D: "D · against a fresh account", E: "E · LoL pre-match", F: "F · sharp wallet live", G: "G · live bet for the tier", H: "H · CS2 pre-match big money", P: "P · pre-match favourite"};
+const pct = v => (v >= 0 ? "+" : "−") + Math.abs(Math.round(v * 100)) + "%";
+const pp = v => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(1) + " pp";
+const money = v => (v < 0 ? "−$" : "+$") + Math.abs(v).toFixed(2);
+function summary(bets) {                      // settled bets at a flat stake: hit rate, odds, edge, profit
+  const d = bets.filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake && b.price);
+  const w = d.filter(b => b.status === "won"), g = d.filter(b => b.pnl > 0), r = d.filter(b => b.pnl <= 0);
+  const wl = d.filter(b => b.status !== "sold");      // hit rate and edge: bets that ran to the end (sold ones only count in money)
+  const per = b => STAKE * b.pnl / b.stake;
+  return {n: d.length, w: w.length, l: wl.length - w.length, hit: wl.length ? w.length / wl.length : 0,
+          odd: d.length ? d.reduce((a, b) => a + 1 / b.price, 0) / d.length : 0,
+          edge: wl.length ? (w.length - wl.reduce((a, b) => a + b.price, 0)) / wl.length : 0,
+          res: d.reduce((a, b) => a + per(b), 0), gsum: g.reduce((a, b) => a + per(b), 0), rsum: r.reduce((a, b) => a + per(b), 0), g: g.length, r: r.length};
+}
+function stats(bets) {
+  const s = summary(bets), open = bets.filter(b => b.status === "open").length;
+  $("s-n").textContent = s.n; $("s-n2").textContent = open ? `${open} waiting for a result` : "";
+  $("s-hit").textContent = s.n ? Math.round(s.hit * 100) + "%" : "–"; $("s-hit2").innerHTML = s.n ? `<span class="pos">${s.w}</span> / <span class="neg">${s.l}</span>${s.n - s.w - s.l ? ` · ${s.n - s.w - s.l} exited` : ""}` : "";
+  $("s-odd").textContent = s.n ? s.odd.toFixed(2) : "–";
+  $("s-edge").innerHTML = s.n ? `<span class="${s.edge >= 0 ? "pos" : "neg"}">${pp(s.edge)}</span>` : "–";
+  $("r-res").innerHTML = s.n ? `<span class="${s.res >= 0 ? "pos" : "neg"}">${money(s.res)}</span>` : "–";
+  $("r-res2").textContent = s.n ? `${s.n} bets · $${(STAKE * s.n).toFixed(2)} staked` : "";
+  $("r-roi").innerHTML = s.n ? `<span class="${s.res >= 0 ? "pos" : "neg"}">${pct(s.res / (STAKE * s.n))}</span>` : "–";
+  $("r-g").textContent = s.g; $("r-g2").textContent = s.g ? money(s.gsum) + " won" : "";
+  $("r-r").textContent = s.r; $("r-r2").textContent = s.r ? money(s.rsum) + " lost" : "";
+  const row = (label, x, odd) => `<tr><td>${label}</td><td class="r num">${x.n}</td><td class="r num">${x.n ? Math.round(x.hit * 100) + "%" : "–"}</td>${odd ? `<td class="r num">${x.n ? x.odd.toFixed(2) : "–"}</td>` : ""}<td class="r num ${x.edge >= 0 ? "pos" : "neg"}">${x.n ? pp(x.edge) : "–"}</td><td class="r num ${x.res >= 0 ? "pos" : "neg"}">${x.n ? (odd ? pct(x.res / (STAKE * x.n)) : money(x.res)) : "–"}</td></tr>`;
+  const days = {};
+  bets.forEach(b => { const k = new Date(b.placed_at * 1000).toLocaleDateString("en-GB", {day: "2-digit", month: "2-digit"}); (days[k] = days[k] || []).push(b); });
+  $("t-day").innerHTML = Object.entries(days).map(([k, v]) => row(k, summary(v), false)).join("") || `<tr><td colspan="5" class="mute">nothing in this period</td></tr>`;
+  const rules = {};
+  bets.forEach(b => { const k = b.rule || "?"; (rules[k] = rules[k] || []).push(b); });
+  $("t-rule").innerHTML = Object.entries(rules).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => row(esc(RULE_NAME[k] || k), summary(v), true)).join("") || `<tr><td colspan="6" class="mute">nothing in this period</td></tr>`;
+}
 try { PICKED = new Set(JSON.parse(localStorage.getItem("picked") || "[]")); } catch (e) {}
 const bkey = b => `${b.event}|${b.market}|${b.side}`;
 function curve(bets, P) {
   const done = bets.filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake)
     .sort((a, b) => (a.settled_at || a.start || a.placed_at) - (b.settled_at || b.start || b.placed_at));
   let u = 0; const ser = [[(done[0] || {}).placed_at || 0, 0]];
-  done.forEach(b => { u += b.pnl / b.stake; ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
+  done.forEach(b => { u += STAKE * b.pnl / b.stake; ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
   chart(ser, P);
   const w = done.filter(b => b.status === "won").length;
-  $(P + "c-t").textContent = done.length ? `· ${done.length} settled · ${w}W/${done.length - w}L · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / done.length)}% per bet)` : `· ${bets.length} bets, none settled yet`;
+  $(P + "c-t").textContent = done.length ? `· ${done.length} settled · ${w}W/${done.length - w}L · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / (STAKE * done.length))}% per bet)` : `· ${bets.length} bets, none settled yet`;
 }
 function drawBets() {
-  const all = ((D && D.hunter && D.hunter.bets) || []).filter(b => GAME === "all" || b.game === GAME);
+  const cut = PER ? (PER === 1 ? new Date().setHours(0, 0, 0, 0) / 1000 : Date.now() / 1000 - PER * 86400) : 0;
+  const all = ((D && D.hunter && D.hunter.bets) || []).filter(b => (GAME === "all" || b.game === GAME) && b.placed_at >= cut && (!PUSHED || b.alert));
   const mine = all.filter(b => PICKED.has(bkey(b))), shown = ONLY ? mine : all;
-  $("c-h").textContent = ONLY ? "MY PLACED BETS ($1 EACH)" : "IF WE PUT $1 ON EVERY FLAGGED BET";
-  curve(shown, ""); curve(mine, "x-");
+  $("c-h").textContent = ONLY ? `MY PLACED BETS ($${STAKE} EACH)` : `IF WE PUT $${STAKE} ON EVERY ${PUSHED ? "PUSHED" : "FLAGGED"} BET`;
+  $("x-c-h").textContent = `MY PLACED BETS ($${STAKE} EACH)`;
+  curve(shown, ""); curve(mine, "x-"); stats(shown);
   $("x-chart").closest(".chartbox").hidden = ONLY; $("x-c-t").parentElement.hidden = ONLY;
   $("mine").innerHTML = shown.map(betCard).join("") || `<div class="empty">${ONLY ? "You haven't marked any bets here yet." : "No bets here yet."}</div>`;
 }
 document.addEventListener("click", e => {
+  const pb = e.target.closest("[data-p]");
+  if (pb) { PER = +pb.dataset.p; store.set("fh-per", PER); initFilters(); drawBets(); return; }
+  const ab = e.target.closest("[data-a]");
+  if (ab) { PUSHED = ab.dataset.a === "1"; store.set("fh-pushed", PUSHED ? "1" : "0"); initFilters(); drawBets(); return; }
   if (e.target.closest("#only")) { ONLY = !ONLY; $("only").setAttribute("aria-pressed", ONLY); drawBets(); return; }
   const g = e.target.closest("[data-g]");
   if (g) { GAME = g.dataset.g; document.querySelectorAll("#gf button").forEach(x => x.setAttribute("aria-pressed", x === g)); drawBets(); return; }
@@ -403,6 +473,12 @@ document.addEventListener("click", e => {
     try { localStorage.setItem("picked", JSON.stringify([...PICKED])); } catch (e) {} drawBets(); }
 });
 
+document.addEventListener("input", e => { if (e.target.id === "stake") { STAKE = Math.max(0.01, +e.target.value || 1); store.set("fh-stake", STAKE); drawBets(); } });
+function initFilters() {
+  document.querySelectorAll("[data-p]").forEach(x => x.setAttribute("aria-pressed", +x.dataset.p === PER));
+  document.querySelectorAll("[data-a]").forEach(x => x.setAttribute("aria-pressed", (x.dataset.a === "1") === PUSHED));
+  if ($("stake") && document.activeElement !== $("stake")) $("stake").value = STAKE;
+}
 function betCard(b) {
   const st = b.status;
   const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
@@ -411,7 +487,7 @@ function betCard(b) {
   const mk = b.market && b.market !== "Match Winner" && !b.market.startsWith("Several") ? ` · ${esc(b.market)}` : "";
   return `<div class="sig ${st}"><div class="ic">${icon}</div>
     <div style="min-width:0"><div class="l1"><img class="gm ${b.game}" src="img/${b.game}-64.png" alt="" width="18" height="18">${esc(b.match)}</div>
-    <div class="l2"><b>${esc(b.side)}</b>${mk} · odd <b>${(1 / b.price).toFixed(2)}</b>${b.rule ? " · rule " + esc(b.rule) : ""} · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
+    <div class="l2"><b>${esc(b.side)}</b>${mk} · odd <b>${(1 / b.price).toFixed(2)}</b>${b.rule ? " · rule " + esc(b.rule) : ""}${b.alert ? ` · <b style="color:var(--amber)">pushed</b>` : ""} · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
     <div class="res num">${res}<button class="pick ${PICKED.has(bkey(b)) ? "on" : ""}" data-pick="${esc(bkey(b))}">${PICKED.has(bkey(b)) ? "✓ I bet this" : "I bet this"}</button></div></div>`;
 }
 
@@ -442,6 +518,7 @@ function walletCard(x) {
 
 function render() {
   if (!D || !D.hunter) return;
+  initFilters();
   const H = D.hunter, s = H.stats;
   const age = (Date.now() / 1000 - D.at) / 60;
   $("status").innerHTML = `<span class="dot ${age > 25 ? "stale" : ""}"></span><span>updated ${Math.round(age)} min ago</span>`;

@@ -686,6 +686,7 @@ def view(state, sigs, now, infos=(), details=None):
                  profit=round(pnl, 2), staked=round(staked, 2), roi=round(pnl / staked, 4) if staked else None,
                  wins=sum(b["pnl"] > 0 for b in done), losses=sum(b["pnl"] <= 0 for b in done),
                  open=len(open_), at_risk=round(sum(b["stake"] for b in open_), 2))
+    pushed = state.get("alerted") or {}                 # matches that got a phone push (key "event", old "event|side")
     bet_out = []
     for b in bets:
         if b["status"] == "void":
@@ -695,7 +696,8 @@ def view(state, sigs, now, infos=(), details=None):
                                                    "score", "name", "wallet", "usd", "why", "placed_at", "start",
                                                    "status", "stake", "price", "pnl", "winner", "url", "exit_reason", "settled_at",
                                                    "proceeds")},
-                            match=match, event=event))
+                            match=match, event=event,
+                            alert=str(b["event"]) in pushed or f"{b['event']}|{b['side']}" in pushed))
     return dict(stats=stats, series=series, bets=bet_out, upcoming=upcoming(sigs, bets, now, infos, details, state.get("signals")),
                 opened_at=acct.get("opened_at"))
 
