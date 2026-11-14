@@ -174,19 +174,25 @@ def top_tier(game, title, vol=0):
 #   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
-         "G": (0.02, 60), "H": (0.01, 55), "S": (0.03, 75), "P": (0.03, 85)}
-#   P  CS2 tier 3+ before kickoff, one wallet's pre-match money on one team (all markets) >= the tier's median match
-#      money, wallet's price 0.55-0.85 (the favourite)              n=17 +23% (halves +17% / +43%), 15 of 17 won
-#      (Pedro, Nov 14: "it can be prematch if it's blatant, look at yawara"). The same money on the underdog (<0.55):
-#      n=16, 4 won, -52%. Smooth across cuts: 0.75x +11.5% (31), 1.5x +23% (11), price 0.6+ +26% (14).
-P_REL, P_PX = 1.0, (0.55, 0.85)
+         "G": (0.02, 60), "H": (0.01, 55), "S": (0.03, 75), "M": (0.03, 85)}
+#   M  CS2 tier 3+ before kickoff, the money on one team looks bought (fishy(), Nov 14 2026, Pedro: "all i care is
+#      about fishy bets"). Points, from 60 days of finished matches (hunt2), edge = wins minus the price:
+#        team's pre-match money >= 0.5x the tier's normal match money: 1, >= 1x: 2     (0.5-1x +4.5pp, 1-2x +7pp)
+#        >= 80% of the match's pre-match money on this team (match >= 0.5x normal): 1   (+8pp)
+#        one wallet alone >= 0.5x normal: 1                                           (0.5-1x +9.5pp)
+#        4+ big wallets (>= 10% of normal each, not hedged): 1                         (+10pp)
+#        a shyux wallet among them: 1                                                 (+12pp)
+#        a big wallet is a fresh account (< 14 days): -3                               (-13pp, they lose)
+#      score 3+: n=108, won 69%, +8pp over the price (halves +9.6 / +6.1). On the favourite +11pp (both halves +11/+12);
+#      on the underdog -1.5pp (and -16pp in the 2nd half): the push says so. Yawara, BARCA, Tulpar score 3+; Ducks/DNK 5.
+FISHY_MIN = 3
 #   S  a wallet from shyux's sheet (profit > 0) with $1k+ on one CS2 tier 3+ team (all markets, pre + live), odds
 #      0.35-0.85, and no shyux wallet on the other team so far      n=112 +13.9% (halves +18.5% / +11.3%; 5c worse +10%)
 #      (when shyux wallets were on both teams: -45%. In-sample: the sheet was made after these matches.)
 # The phone only gets the rules that held up live too (Nov 14 2026 ledger, odds 0.35-0.85: A +17% over 82; B -4%,
 # C +4%, F +5%, G -4%, H -24%): A and S, odds 0.35-0.85, one push per match, none when both teams are flagged.
-PUSH_RULES = ("A", "S", "P")
-PUSH_PX = (0.35, 0.85)   # H: CS2 pre-match big money for the tier (untested); tracked as a bet like the rest
+PUSH_RULES = ("A", "S", "M")
+PUSH_PX = (0.35, 0.90)            # Pedro: odds don't matter; 0.35 = long shots lose, 0.90 = nothing left to win   # H: CS2 pre-match big money for the tier (untested); tracked as a bet like the rest
 H_MIN = {"T3": 3300, "T4": 2200, "T5": 1500, "T6": 1000}   # rule H: one wallet's pre-match money on a CS2 team
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
 # (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);
@@ -202,7 +208,7 @@ RULE_TEXT = {"A": "wallet with a huge live bet for the tier (≥50% of a normal 
              "F": "wallet with a winning record, betting live",
              "G": "wallet with a big live bet for the tier (≥20% of a normal match)",
              "H": "CS2 pre-match: one wallet put big money for the tier (T3 $3.3k, T4 $2.2k, T5 $1.5k, T6 $1k) on one team (flag only, no bet)",
-             "P": "CS2 pre-match: one wallet put a whole normal match's money for the tier on the favourite (0.55-0.85)",
+             "M": "CS2 pre-match fishy money: score 3+ (money on the team vs the tier, one-sided, one huge wallet, many big wallets, shyux)",
              "S": "shyux's winning CS2 low-tier trader, $1k+ on one team, no shyux money on the other team"}
 
 
@@ -213,13 +219,11 @@ def classify(u):
     if u["px"] < MIN_PX:
         return None, f"underdog a {u['px']:.2f} (perdem muito)"
     age, live, share = u.get("age"), u["phase"] == "live", u["share"]
-    if (u.get("shyux") and u["game"] == "cs2" and u["px"] <= PUSH_PX[1] and not u.get("shyux_opp")
+    if (u.get("shyux") and u["game"] == "cs2" and u["px"] <= 0.85 and not u.get("shyux_opp")
             and u.get("team_pre", 0) + u.get("team_live", 0) >= SHYUX_MIN):
         return "S", None
-    med = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}")
-    if (not live and u["game"] == "cs2" and med and u.get("team_pre", 0) >= P_REL * med
-            and P_PX[0] <= u["px"] <= P_PX[1]):
-        return "P", None
+    if not live and u["game"] == "cs2" and u.get("fishy", 0) >= FISHY_MIN:
+        return "M", None
     if u["game"] == "cs2" and age is not None and age < 3 and live:
         return None, "CS2 account under 3 days old (they lose)"
     if u.get("sharp") and live and u["game"] != "lol":
@@ -359,6 +363,45 @@ def combos(game, e, mk, pos, singles, start, url, evol, tier):
     return out
 
 
+def fishy(game, tier, pos, start, cache, now):
+    """{team: (score, parts, top wallet)} for the pre-match money on each team (see rule M). CS2 tier 3+ only."""
+    med = TIER_MEDIAN.get(f"{game}|{tier}")
+    if game != "cs2" or tier in TOP_TIERS or not med:
+        return {}
+    side, by = {}, {}
+    for p in pos:
+        if p["pre"] > 0:
+            side[p["o"]] = side.get(p["o"], 0) + p["pre"]
+            by[(p["w"], p["o"])] = by.get((p["w"], p["o"]), 0) + p["pre"]
+    tot = sum(side.values())
+    out = {}
+    for o, usd in side.items():
+        others = [x for x in side if x != o]
+        ws = sorted(((w, v) for (w, t), v in by.items() if t == o), key=lambda x: -x[1])
+        big = [w for w, v in ws if v >= 0.1 * med and not any(by.get((w, x), 0) >= 0.3 * v for x in others)]
+        sc, parts = 0, []
+        if usd >= med:
+            sc += 2; parts.append(f"${usd:,.0f} on them before kickoff = {usd / med:.1f}x a normal {tier} match")
+        elif usd >= 0.5 * med:
+            sc += 1; parts.append(f"${usd:,.0f} on them before kickoff = {usd / med:.1f}x a normal {tier} match")
+        if usd / tot >= 0.8 and tot >= 0.5 * med:
+            sc += 1; parts.append(f"{usd / tot:.0%} of all pre-match money is on them")
+        if ws and ws[0][1] >= 0.5 * med:
+            sc += 1; parts.append(f"one wallet alone: ${ws[0][1]:,.0f}")
+        if len(big) >= 4:
+            sc += 1; parts.append(f"{len(big)} big wallets on them")
+        if any(w in SHYUX for w in big):
+            sc += 1; parts.append("shyux wallet: " + ", ".join(SHYUX[w] for w in big if w in SHYUX)[:60])
+        if sc >= FISHY_MIN - 1:                       # only look up account ages when it matters
+            first = {p["w"]: p["first"] for p in pos if p["o"] == o and p["pre"] > 0}
+            fresh = [w for w in big if (c := created_at(w, cache, now)) and (first.get(w, now) - c) / DAY < 14]
+            if fresh:
+                sc -= 3; parts.append(f"{len(fresh)} fresh account(s) among them (those lose)")
+        if ws:
+            out[o] = (sc, parts, ws[0][0])
+    return out
+
+
 def signals(now_dt, cache, log=print, book=None, listed=None, names=None, details=None):
     """Every $1k+ wallet bet on the CS2 / Dota 2 / LoL matches from 5 h ago to 36 h ahead (from $200 for sharp or
     hand-picked wallets), classified. Also writes each wallet's biggest bet per tier 3+ match into the book."""
@@ -390,6 +433,13 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
             infos.append(dict(m, game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
                               tier=tier))
         pos = positions(trades, mk, start)
+        fish = fishy(game, tier, pos, start, cache, now)
+        fish_pos = {}                                    # (wallet, cid, team) of the top wallet's biggest pre buy
+        for o, (sc, parts, w) in fish.items():
+            mine = [p for p in pos if p["w"] == w and p["o"] == o and p["pre"] > 0]
+            if mine:
+                q = max(mine, key=lambda p: (mk[p["cid"]]["kind"] == "match", p["pre"]))
+                fish_pos[(w, q["cid"], o)] = (sc, parts)
         held = {(p["w"], p["cid"], p["o"]): p["pre"] + p["live"] for p in pos}
         for p in pos:
             bought = p["pre_sh"] + p["live_sh"]
@@ -404,7 +454,8 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                 med = TIER_MEDIAN.get(f"{game}|{tier}")
                 live_team = sum(q["live"] for q in pos if q["w"] == p["w"] and q["o"] == p["o"])
                 big_for_tier = med and live_team >= REL_MIN * med
-                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed and not big_for_tier and p["w"] not in SHYUX:
+                fz = fish_pos.get((p["w"], p["cid"], p["o"])) if ph == "pre" else None
+                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed and not big_for_tier and p["w"] not in SHYUX and not fz:
                     continue
                 out.append(dict(game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
                                 cid=m["cid"], market=m["label"], kind=m["kind"], w=p["w"], name=p["name"], o=p["o"],
@@ -416,7 +467,8 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                                 sharp=is_sharp, rec=BK.record(book, p["w"], now, e["id"]) if (is_sharp or p["w"] in listed) else None,
                                 listed=(listed.get(p["w"]) or {}).get("note"), shyux=SHYUX.get(p["w"]),
                                 shyux_opp=any(q["w"] in SHYUX and q["o"] == other and q["pre"] + q["live"] >= BK.MIN_USD
-                                              for q in pos)))
+                                              for q in pos),
+                                fishy=fz[0] if fz else 0, fishy_parts=fz[1] if fz else []))
         agg = {}                                        # the book: each wallet's real money on this match
         for p in pos:
             x = agg.setdefault(p["w"], dict(h={}, spent=0.0, sold=0.0, name=p["name"]))
@@ -456,6 +508,8 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
             u["why"].insert(1, f"from your list: {u['listed'][:80]}")
         if u.get("shyux"):
             u["why"].insert(1, f"on shyux's list ({u['shyux']})")
+        if u.get("fishy_parts"):
+            u["why"] += [f"fishy score {u['fishy']}: " + "; ".join(u["fishy_parts"])]
         u["no"] = "the wallet bet on both teams" if u.get("hedge") else no
         u["exited"] = u["sold_frac"] >= EXIT
         if u["sold_frac"] > 0.05:
@@ -697,9 +751,9 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
                               odds=round(1 / fp, 2) if fp else None, at=f0.get("seen", u["first"]), live=u["phase"] == "live",
                               late=u.get("late"), score=u["score"], bank=RULES[u["rule"]][0] > 0,
                               usd=round(u.get("team_live", 0) if u["rule"] in ("A", "G") else u.get("team_pre", 0) + u.get("team_live", 0) if u["rule"] == "S"
-                                        else u.get("team_pre", 0) if u["rule"] in ("P", "H") else u["usd"]),
+                                        else u.get("team_pre", 0) if u["rule"] in ("M", "H") else u["usd"]),
                               name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],
-                              shyux=u.get("shyux")))
+                              shyux=u.get("shyux"), detail="; ".join(u.get("fishy_parts") or []) if u["rule"] == "M" else None))
         items = []
         for u in sorted(us, key=lambda u: -u["usd"]):
             items.append(dict(name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],

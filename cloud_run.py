@@ -143,7 +143,8 @@ def new_fixes(st, view, ts):
         lines.append(" · ".join([f"BET on {f['side']}{mk}", f"odd {f['odds']}", "LIVE" if f["live"] else "pre-match",
                                  f"confidence {f['score']}/100"]) + NL +
                      f"{m['match']} · {m['event']} · tier {m['tier'][1:]}" + NL +
-                     f"rule {f['rule']}: ${f.get('usd') or 0:,} from {who}" + NL + f["why"])
+                     (f"fishy score: {f['detail']}" if f.get("detail") else f"rule {f['rule']}: ${f.get('usd') or 0:,} from {who}")
+                     + NL + f["why"] + (NL + "underdog: fishy money on underdogs won less often" if 1 / f["odds"] < 0.5 else ""))
         sent[str(m["event_id"])] = ts
     title = "🚨 Match fixing: 1 match" if len(new) == 1 else f"🚨 Match fixing: {len(new)} matches"
     return title, (NL + NL).join(lines), new[0][0]["url"] if len(new) == 1 else None

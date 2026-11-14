@@ -157,9 +157,16 @@ def test_push_only_strong_one_sided_flags():
     assert CR.new_fixes(st, dict(upcoming=[m(f(side="B"))]), NOW + 60) is None   # one push per match, ever
 
 
-def test_blatant_prematch_favourite():
-    p = dict(phase="pre", tier="T5", team_pre=6000, age=None)                 # > a normal T5 match ($5.6k)
-    assert H.classify(u(**p))[0] == "P"
-    assert H.classify(u(**dict(p, px=0.5)))[0] != "P"                          # on the underdog: those lost 52%
-    assert H.classify(u(**dict(p, team_pre=3000)))[0] != "P"                   # not blatant for the tier
-    assert H.classify(u(**dict(p, phase="live")))[0] != "P"
+def test_fishy_score():
+    H.SHYUX.setdefault("0xs", "shy")
+    pos = lambda w, o, usd, first=0: dict(w=w, o=o, pre=usd, live=0, first=first, cid="c")
+    big = [pos("0xa", "A", 4000), pos("0xb", "A", 700), pos("0xc", "A", 700), pos("0xs", "A", 700), pos("0xz", "B", 300)]
+    f = H.fishy("cs2", "T5", big, 0, {w: dict(t=None, checked=1) for w in "0xa 0xb 0xc 0xs".split()}, 1)
+    sc, parts, top = f["A"]
+    assert top == "0xa" and sc == 2 + 1 + 1 + 1 + 1          # 1.2x normal, 94% one-sided, one huge wallet, 4 big, shyux
+    fresh = {w: dict(t=None, checked=1) for w in "0xb 0xc 0xs".split()} | {"0xa": dict(t=-86400, checked=1)}
+    assert H.fishy("cs2", "T5", big, 0, fresh, 1)["A"][0] == 3     # a fresh account among them: -3
+    assert H.fishy("dota", "T3+", big, 0, {}, 1) == {}
+    assert H.classify(u(phase="pre", tier="T5", fishy=3))[0] == "M"
+    assert H.classify(u(phase="pre", tier="T5", fishy=2))[0] != "M"
+    assert H.classify(u(phase="live", tier="T5", fishy=5))[0] != "M"
