@@ -174,13 +174,18 @@ def top_tier(game, title, vol=0):
 #   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
-         "G": (0.02, 60), "H": (0.01, 55), "S": (0.03, 75)}
+         "G": (0.02, 60), "H": (0.01, 55), "S": (0.03, 75), "P": (0.03, 85)}
+#   P  CS2 tier 3+ before kickoff, one wallet's pre-match money on one team (all markets) >= the tier's median match
+#      money, wallet's price 0.55-0.85 (the favourite)              n=17 +23% (halves +17% / +43%), 15 of 17 won
+#      (Pedro, Nov 14: "it can be prematch if it's blatant, look at yawara"). The same money on the underdog (<0.55):
+#      n=16, 4 won, -52%. Smooth across cuts: 0.75x +11.5% (31), 1.5x +23% (11), price 0.6+ +26% (14).
+P_REL, P_PX = 1.0, (0.55, 0.85)
 #   S  a wallet from shyux's sheet (profit > 0) with $1k+ on one CS2 tier 3+ team (all markets, pre + live), odds
 #      0.35-0.85, and no shyux wallet on the other team so far      n=112 +13.9% (halves +18.5% / +11.3%; 5c worse +10%)
 #      (when shyux wallets were on both teams: -45%. In-sample: the sheet was made after these matches.)
 # The phone only gets the rules that held up live too (Nov 14 2026 ledger, odds 0.35-0.85: A +17% over 82; B -4%,
 # C +4%, F +5%, G -4%, H -24%): A and S, odds 0.35-0.85, one push per match, none when both teams are flagged.
-PUSH_RULES = ("A", "S")
+PUSH_RULES = ("A", "S", "P")
 PUSH_PX = (0.35, 0.85)   # H: CS2 pre-match big money for the tier (untested); tracked as a bet like the rest
 H_MIN = {"T3": 3300, "T4": 2200, "T5": 1500, "T6": 1000}   # rule H: one wallet's pre-match money on a CS2 team
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
@@ -197,6 +202,7 @@ RULE_TEXT = {"A": "wallet with a huge live bet for the tier (≥50% of a normal 
              "F": "wallet with a winning record, betting live",
              "G": "wallet with a big live bet for the tier (≥20% of a normal match)",
              "H": "CS2 pre-match: one wallet put big money for the tier (T3 $3.3k, T4 $2.2k, T5 $1.5k, T6 $1k) on one team (flag only, no bet)",
+             "P": "CS2 pre-match: one wallet put a whole normal match's money for the tier on the favourite (0.55-0.85)",
              "S": "shyux's winning CS2 low-tier trader, $1k+ on one team, no shyux money on the other team"}
 
 
@@ -210,6 +216,10 @@ def classify(u):
     if (u.get("shyux") and u["game"] == "cs2" and u["px"] <= PUSH_PX[1] and not u.get("shyux_opp")
             and u.get("team_pre", 0) + u.get("team_live", 0) >= SHYUX_MIN):
         return "S", None
+    med = TIER_MEDIAN.get(f"{u['game']}|{u.get('tier')}")
+    if (not live and u["game"] == "cs2" and med and u.get("team_pre", 0) >= P_REL * med
+            and P_PX[0] <= u["px"] <= P_PX[1]):
+        return "P", None
     if u["game"] == "cs2" and age is not None and age < 3 and live:
         return None, "CS2 account under 3 days old (they lose)"
     if u.get("sharp") and live and u["game"] != "lol":
@@ -686,7 +696,8 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
             flags.append(dict(side=u["side"], market=u["market"], kind=u["kind"], rule=u["rule"], why=RULE_TEXT[u["rule"]],
                               odds=round(1 / fp, 2) if fp else None, at=f0.get("seen", u["first"]), live=u["phase"] == "live",
                               late=u.get("late"), score=u["score"], bank=RULES[u["rule"]][0] > 0,
-                              usd=round(u.get("team_live", 0) if u["rule"] in ("A", "G") else u.get("team_pre", 0) + u.get("team_live", 0) if u["rule"] == "S" else u["usd"]),
+                              usd=round(u.get("team_live", 0) if u["rule"] in ("A", "G") else u.get("team_pre", 0) + u.get("team_live", 0) if u["rule"] == "S"
+                                        else u.get("team_pre", 0) if u["rule"] in ("P", "H") else u["usd"]),
                               name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],
                               shyux=u.get("shyux")))
         items = []

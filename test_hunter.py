@@ -155,3 +155,11 @@ def test_push_only_strong_one_sided_flags():
     st = {}
     assert CR.new_fixes(st, dict(upcoming=[m(f())]), NOW)
     assert CR.new_fixes(st, dict(upcoming=[m(f(side="B"))]), NOW + 60) is None   # one push per match, ever
+
+
+def test_blatant_prematch_favourite():
+    p = dict(phase="pre", tier="T5", team_pre=6000, age=None)                 # > a normal T5 match ($5.6k)
+    assert H.classify(u(**p))[0] == "P"
+    assert H.classify(u(**dict(p, px=0.5)))[0] != "P"                          # on the underdog: those lost 52%
+    assert H.classify(u(**dict(p, team_pre=3000)))[0] != "P"                   # not blatant for the tier
+    assert H.classify(u(**dict(p, phase="live")))[0] != "P"
