@@ -126,3 +126,32 @@ def test_several_small_bets_add_up():
     c = out[0]
     assert c["usd"] == 1050 and c["cid"] == "m" and c["phase"] == "live" and c["combo"]
     assert c["market"].endswith("(3)") and "soma de 3 apostas" in c["extra"][0]
+
+
+def test_shyux_rule():
+    s = dict(shyux="swiftfoxx", team_pre=800, team_live=400)
+    assert H.classify(u(**s))[0] == "S"                                   # $1.2k on one CS2 team, all markets
+    assert H.classify(u(**dict(s, team_live=0)))[0] != "S"                # $800: too small
+    assert H.classify(u(**dict(s, shyux_opp=True)))[0] != "S"             # another shyux wallet on the other team
+    assert H.classify(u(**dict(s, px=0.9)))[0] != "S"                     # odds too short
+    assert H.classify(u(**dict(s, game="dota")))[0] != "S"               # CS2 only
+
+
+def test_dota_tier1_teams_are_top():
+    assert H.tier_of("dota", "Dota 2: Team Liquid vs LGD Gaming (BO3) - 1win Essence Group C") == "T1-2"
+    assert H.tier_of("dota", "Dota 2: PlayTime vs Yellow Submarine (BO3) - 1win Essence Play-in") == "T3+"
+    assert H.tier_of("dota", "Dota 2: PuckChamp vs Spirit Academy (BO3) - Asgard Championship") == "T3+"
+
+
+def test_push_only_strong_one_sided_flags():
+    import cloud_run as CR
+    f = lambda **k: dict(dict(side="A", rule="A", odds=1.6, late=None, score=80, kind="match", market="M", live=True,
+                              usd=5000, name="n", why="w"), **k)
+    m = lambda *fl, ev="e1": dict(event_id=ev, flags=list(fl), match="A vs B", event="Cup", tier="T4", url="u")
+    assert CR.pushable(m(f()))["rule"] == "A"
+    assert CR.pushable(m(f(rule="F"))) is None                            # weak rule: page only
+    assert CR.pushable(m(f(odds=1.05))) is None                           # 0.95: nothing to win
+    assert CR.pushable(m(f(), f(side="B", rule="S"))) is None             # both teams flagged: no push
+    st = {}
+    assert CR.new_fixes(st, dict(upcoming=[m(f())]), NOW)
+    assert CR.new_fixes(st, dict(upcoming=[m(f(side="B"))]), NOW + 60) is None   # one push per match, ever

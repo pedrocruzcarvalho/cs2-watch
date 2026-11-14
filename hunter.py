@@ -26,6 +26,11 @@ DAY = 86400
 MAX_PRICE = 0.90               # never buy above this (nothing left to win)
 MIN_PX = 0.35                  # big bets on long shots lost 40%+ in the test
 PREFIXES = ("Counter-Strike: ", "Dota 2: ", "LoL: ", "League of Legends: ")
+try:                           # shyux's CS2 low-tier traders (his sheet, Nov 14 2026), only the ones in profit
+    SHYUX = {w: v["name"] for w, v in json.loads(open("shyux.json", encoding="utf-8").read())["wallets"].items()}
+except OSError:
+    SHYUX = {}
+SHYUX_MIN = 1000               # rule S: a shyux wallet's money on one CS2 team, all markets, pre + live
 
 
 # ---------------------------------------------------------------------------------------------------- scan
@@ -115,6 +120,12 @@ TOP_EVENTS = {   # tier 1/2 (Pedro bets tier 3 or worse only). Qualifiers of the
     "lol": ("worlds", "world championship", "msi", "mid-season", "first stand", "esports world cup", "lck", "lpl",
             "lec", "lcs", "lta", "lcp", "cblol", "demacia cup", "asian games", "world star challengers")}
 LOW_WORDS = ("qualifier", "promotion", "academy", "challengers league", "division 2")
+# Dota 2 tier 1 teams: any match with one of them is tier 1/2 whatever the event (Pedro, Nov 14: "Dota tier 1 should
+# never get a notification"; 1win Essence / EPL Masters were slipping through as tier 3)
+DOTA_TOP_TEAMS = {"team liquid", "team spirit", "aurora", "parivision", "tundra esports", "betboom team", "team falcons",
+                  "xtreme gaming", "gaimin gladiators", "natus vincere", "team secret", "nigma galaxy", "heroic", "og",
+                  "team yandex", "1win", "mouz", "lgd gaming", "legion", "virtus.pro", "nouns", "shopify rebellion",
+                  "team tidebound", "boom esports", "talon esports"}
 BIG_MATCH = 300000             # a match with more money than this is top tier whatever its name
 
 
@@ -127,6 +138,9 @@ def tier_of(game, title, vol=0):
     else:
         low = title.lower()
         top = any(k in low for k in TOP_EVENTS.get(game, ())) and not any(k in low for k in LOW_WORDS)
+        teams = [x.strip().lower() for x in split_title(title)[0].split(" (")[0].split(" vs ")]
+        if game == "dota" and any(x in DOTA_TOP_TEAMS for x in teams):
+            top = True
         t = "T1-2" if top else "T3+"
     if vol >= BIG_MATCH and t not in ("T1", "T2", "T1-2"):
         t = "T1-2" if game != "cs2" else "T2"
@@ -160,7 +174,14 @@ def top_tier(game, title, vol=0):
 #   G  one wallet's in-play money on one team, all of the match's markets added up, $2k+, CS2 / Dota 2
 #                                                    CS2 n=303 +7.2% (halves +4% / +10%); Dota n=305 +3.9% (+4% / +4%)
 RULES = {"A": (0.05, 80), "B": (0.02, 50), "C": (0.04, 70), "D": (0.03, 65), "E": (0.02, 60), "F": (0.01, 60),
-         "G": (0.02, 60), "H": (0.01, 55)}   # H: CS2 pre-match big money for the tier (untested); tracked as a bet like the rest
+         "G": (0.02, 60), "H": (0.01, 55), "S": (0.03, 75)}
+#   S  a wallet from shyux's sheet (profit > 0) with $1k+ on one CS2 tier 3+ team (all markets, pre + live), odds
+#      0.35-0.85, and no shyux wallet on the other team so far      n=112 +13.9% (halves +18.5% / +11.3%; 5c worse +10%)
+#      (when shyux wallets were on both teams: -45%. In-sample: the sheet was made after these matches.)
+# The phone only gets the rules that held up live too (Nov 14 2026 ledger, odds 0.35-0.85: A +17% over 82; B -4%,
+# C +4%, F +5%, G -4%, H -24%): A and S, odds 0.35-0.85, one push per match, none when both teams are flagged.
+PUSH_RULES = ("A", "S")
+PUSH_PX = (0.35, 0.85)   # H: CS2 pre-match big money for the tier (untested); tracked as a bet like the rest
 H_MIN = {"T3": 3300, "T4": 2200, "T5": 1500, "T6": 1000}   # rule H: one wallet's pre-match money on a CS2 team
 REL_MIN, REL_STRONG = 0.20, 0.50   # one wallet's in-play money on a team vs the tier's median match money
 # (Nov 13 2026, Pedro: "big" depends on the tier) 20%+: +4.9% over 488 (halves +4/+6); 50%+: +11.9% over 163 (+7/+17);
@@ -175,7 +196,8 @@ RULE_TEXT = {"A": "wallet with a huge live bet for the tier (≥50% of a normal 
              "E": "pre-match money in LoL, ≥10% of the market",
              "F": "wallet with a winning record, betting live",
              "G": "wallet with a big live bet for the tier (≥20% of a normal match)",
-             "H": "CS2 pre-match: one wallet put big money for the tier (T3 $3.3k, T4 $2.2k, T5 $1.5k, T6 $1k) on one team (flag only, no bet)"}
+             "H": "CS2 pre-match: one wallet put big money for the tier (T3 $3.3k, T4 $2.2k, T5 $1.5k, T6 $1k) on one team (flag only, no bet)",
+             "S": "shyux's winning CS2 low-tier trader, $1k+ on one team, no shyux money on the other team"}
 
 
 def classify(u):
@@ -185,6 +207,9 @@ def classify(u):
     if u["px"] < MIN_PX:
         return None, f"underdog a {u['px']:.2f} (perdem muito)"
     age, live, share = u.get("age"), u["phase"] == "live", u["share"]
+    if (u.get("shyux") and u["game"] == "cs2" and u["px"] <= PUSH_PX[1] and not u.get("shyux_opp")
+            and u.get("team_pre", 0) + u.get("team_live", 0) >= SHYUX_MIN):
+        return "S", None
     if u["game"] == "cs2" and age is not None and age < 3 and live:
         return None, "CS2 account under 3 days old (they lose)"
     if u.get("sharp") and live and u["game"] != "lol":
@@ -369,7 +394,7 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                 med = TIER_MEDIAN.get(f"{game}|{tier}")
                 live_team = sum(q["live"] for q in pos if q["w"] == p["w"] and q["o"] == p["o"])
                 big_for_tier = med and live_team >= REL_MIN * med
-                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed and not big_for_tier:
+                if usd < WALLET_MIN and not is_sharp and p["w"] not in listed and not big_for_tier and p["w"] not in SHYUX:
                     continue
                 out.append(dict(game=game, event=e["id"], slug=e["slug"], title=e["title"], start=start, url=url,
                                 cid=m["cid"], market=m["label"], kind=m["kind"], w=p["w"], name=p["name"], o=p["o"],
@@ -379,7 +404,9 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
                                 sold_frac=p["sold_frac"], sold_usd=p["sold_usd"], sold_at=p["sold_at"],
                                 hedge=held.get((p["w"], p["cid"], other), 0) >= 0.3 * usd,
                                 sharp=is_sharp, rec=BK.record(book, p["w"], now, e["id"]) if (is_sharp or p["w"] in listed) else None,
-                                listed=(listed.get(p["w"]) or {}).get("note")))
+                                listed=(listed.get(p["w"]) or {}).get("note"), shyux=SHYUX.get(p["w"]),
+                                shyux_opp=any(q["w"] in SHYUX and q["o"] == other and q["pre"] + q["live"] >= BK.MIN_USD
+                                              for q in pos)))
         agg = {}                                        # the book: each wallet's real money on this match
         for p in pos:
             x = agg.setdefault(p["w"], dict(h={}, spent=0.0, sold=0.0, name=p["name"]))
@@ -417,6 +444,8 @@ def signals(now_dt, cache, log=print, book=None, listed=None, names=None, detail
             u["why"].insert(1, f"tier 3+ record: made money in {wins} of {n} matches, real profit {roi * 100:+.0f}%")
         if u.get("listed"):
             u["why"].insert(1, f"from your list: {u['listed'][:80]}")
+        if u.get("shyux"):
+            u["why"].insert(1, f"on shyux's list ({u['shyux']})")
         u["no"] = "the wallet bet on both teams" if u.get("hedge") else no
         u["exited"] = u["sold_frac"] >= EXIT
         if u["sold_frac"] > 0.05:
@@ -656,7 +685,10 @@ def upcoming(sigs, bets, now, infos=(), details=None, ledger=None):
             fp = f0.get("price") or u["prices"].get(u["side"])
             flags.append(dict(side=u["side"], market=u["market"], kind=u["kind"], rule=u["rule"], why=RULE_TEXT[u["rule"]],
                               odds=round(1 / fp, 2) if fp else None, at=f0.get("seen", u["first"]), live=u["phase"] == "live",
-                              late=u.get("late"), score=u["score"], bank=RULES[u["rule"]][0] > 0))
+                              late=u.get("late"), score=u["score"], bank=RULES[u["rule"]][0] > 0,
+                              usd=round(u.get("team_live", 0) if u["rule"] in ("A", "G") else u.get("team_pre", 0) + u.get("team_live", 0) if u["rule"] == "S" else u["usd"]),
+                              name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],
+                              shyux=u.get("shyux")))
         items = []
         for u in sorted(us, key=lambda u: -u["usd"]):
             items.append(dict(name=u["name"] if u["name"] and not u["name"].startswith("0x") else u["w"][:8],

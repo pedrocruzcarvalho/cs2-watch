@@ -115,24 +115,38 @@ def tick(store, log=print):
         f"{s['open']} open)")
 
 
+def pushable(m):
+    """The flag on this match worth a push, or None (Pedro, Nov 14: "waaay too often"): only rules that held up live
+    (H.PUSH_RULES), odds within H.PUSH_PX, still copyable, and never when the other team has one too."""
+    lo, hi = H.PUSH_PX
+    fl = [f for f in m.get("flags") or [] if f["rule"] in H.PUSH_RULES and not f.get("late")
+          and f.get("odds") and lo <= 1 / f["odds"] <= hi]
+    if not fl or len({f["side"] for f in m.get("flags") or [] if f["rule"] in H.PUSH_RULES}) > 1:
+        return None
+    return max(fl, key=lambda f: f["score"])
+
+
 def new_fixes(st, view, ts):
-    """(title, text, click) for the matches flagged APOSTA for the first time, or None. One push per match and side,
-    whether or not the bank can bet it; marked as sent in the state that is saved before the push."""
+    """(title, text, click) for matches with a pushable flag for the first time, or None. One push per match, ever;
+    marked as sent in the state that is saved before the push."""
     sent = st.setdefault("alerted", {})
     for k in [k for k, t in sent.items() if ts - t > 7 * 86400]:
         del sent[k]
-    new = [m for m in view["upcoming"] if m.get("rec") and f"{m['event_id']}|{m['rec']['side']}" not in sent]
+    done = {k.split("|")[0] for k in sent}          # old keys were "event|side"
+    new = [(m, f) for m in view["upcoming"] if str(m["event_id"]) not in done for f in [pushable(m)] if f]
     if not new:
         return None
     lines = []
-    for m in new:
-        r = m["rec"]
-        mk = "" if r["kind"] == "match" else f" ({r['market']})"
-        lines.append(" · ".join([f"BET on {r['side']}{mk}", f"odd {r['odds']}", f"confidence {m.get('score') or 0}/100"]) + NL +
-                     f"{m['match']} · {m['event']} · tier {m['tier'][1:]}" + NL + r["why"])
-        sent[f"{m['event_id']}|{r['side']}"] = ts
+    for m, f in new:
+        mk = "" if f["kind"] == "match" else f" ({f['market']})"
+        who = f"shyux list: {f['shyux']}" if f.get("shyux") else f["name"]
+        lines.append(" · ".join([f"BET on {f['side']}{mk}", f"odd {f['odds']}", "LIVE" if f["live"] else "pre-match",
+                                 f"confidence {f['score']}/100"]) + NL +
+                     f"{m['match']} · {m['event']} · tier {m['tier'][1:]}" + NL +
+                     f"rule {f['rule']}: ${f.get('usd') or 0:,} from {who}" + NL + f["why"])
+        sent[str(m["event_id"])] = ts
     title = "🚨 Match fixing: 1 match" if len(new) == 1 else f"🚨 Match fixing: {len(new)} matches"
-    return title, (NL + NL).join(lines), new[0]["url"] if len(new) == 1 else None
+    return title, (NL + NL).join(lines), new[0][0]["url"] if len(new) == 1 else None
 
 
 def health(store, ok, err=None, log=print):
