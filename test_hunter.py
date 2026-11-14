@@ -167,6 +167,8 @@ def test_fishy_score():
     fresh = {w: dict(t=None, checked=1) for w in "0xb 0xc 0xs".split()} | {"0xa": dict(t=-86400, checked=1)}
     assert H.fishy("cs2", "T5", big, 0, fresh, 1)["A"][0] == 3     # a fresh account among them: -3
     assert H.fishy("dota", "T3+", big, 0, {}, 1) == {}
+    shy_fresh = {w: dict(t=None, checked=1) for w in "0xa 0xb 0xc".split()} | {"0xs": dict(t=-86400, checked=1)}
+    assert H.fishy("cs2", "T5", big, 0, shy_fresh, 1)["A"][0] == 6   # a fresh shyux wallet is not penalised
     assert H.classify(u(phase="pre", tier="T5", fishy=3))[0] == "M"
     assert H.classify(u(phase="pre", tier="T5", fishy=2))[0] != "M"
     assert H.classify(u(phase="live", tier="T5", fishy=5))[0] != "M"

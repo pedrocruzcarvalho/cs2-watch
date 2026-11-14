@@ -394,7 +394,8 @@ def fishy(game, tier, pos, start, cache, now):
             sc += 1; parts.append("shyux wallet: " + ", ".join(SHYUX[w] for w in big if w in SHYUX)[:60])
         if sc >= FISHY_MIN - 1:                       # only look up account ages when it matters
             first = {p["w"]: p["first"] for p in pos if p["o"] == o and p["pre"] > 0}
-            fresh = [w for w in big if (c := created_at(w, cache, now)) and (first.get(w, now) - c) / DAY < 14]
+            fresh = [w for w in big if w not in SHYUX           # shyux's fresh wallets win (+17pp under 14 days):
+                     and (c := created_at(w, cache, now)) and (first.get(w, now) - c) / DAY < 14]   # only unknown ones lose
             if fresh:
                 sc -= 3; parts.append(f"{len(fresh)} fresh account(s) among them (those lose)")
         if ws:
