@@ -571,11 +571,12 @@ def market_states(cids):
     out, cids = {}, list(cids)
     for i in range(0, len(cids), 20):
         q = "&".join(f"condition_ids={c}" for c in cids[i:i + 20])
-        try:
-            for m in C.get(f"{C.GAMMA}/markets?{q}&limit=50"):
-                out[m["conditionId"]] = m
-        except Exception:
-            pass
+        for extra in ("&closed=true", ""):              # Gamma leaves closed markets out unless asked (found Nov 15 2026)
+            try:
+                for m in C.get(f"{C.GAMMA}/markets?{q}{extra}&limit=50"):
+                    out.setdefault(m["conditionId"], m)
+            except Exception:
+                pass
     return out
 
 
@@ -695,7 +696,7 @@ def view(state, sigs, now, infos=(), details=None):
         bet_out.append(dict({k: b.get(k) for k in ("game", "tier", "market", "side", "their_side", "rule", "phase",
                                                    "score", "name", "wallet", "usd", "why", "placed_at", "start",
                                                    "status", "stake", "price", "pnl", "winner", "url", "exit_reason", "settled_at",
-                                                   "proceeds")},
+                                                   "proceeds", "cid", "slug")},
                             match=match, event=event,
                             alert=str(b["event"]) in pushed or f"{b['event']}|{b['side']}" in pushed))
     return dict(stats=stats, series=series, bets=bet_out, upcoming=upcoming(sigs, bets, now, infos, details, state.get("signals")),

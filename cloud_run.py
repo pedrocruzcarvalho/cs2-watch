@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import cs2_watch as C
 import book as BK
 import hunter as H
+import me as ME
 import mirror as M
 import notify as N
 import teams as TM
@@ -94,6 +95,12 @@ def tick(store, log=print):
     H.place(st, sigs, ts, log=log)
     view = H.view(st, sigs, ts, infos, details)
     fix_push = new_fixes(st, view, ts)                       # marked now, saved with the state, pushed after the save
+    try:                                                     # Pedro's own account: which flags he really bet (me.py)
+        mest = ME.sync(json.loads(parts.get("state:me") or "{}"), ts, log=log)
+        parts["state:me"] = json.dumps(mest)
+        ME.mark(view, ME.bets(mest))
+    except Exception as e:                                   # must never stop the hunter
+        log(f"me failed: {e!r}")
     parts["state:hunter"] = json.dumps(st)
     mst = json.loads(parts.get("state:mirror") or "{}")      # paper copy of one wallet, no alerts (mirror.py)
     mview = None

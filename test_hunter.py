@@ -172,3 +172,20 @@ def test_fishy_score():
     assert H.classify(u(phase="pre", tier="T5", fishy=3))[0] == "M"
     assert H.classify(u(phase="pre", tier="T5", fishy=2))[0] != "M"
     assert H.classify(u(phase="live", tier="T5", fishy=5))[0] != "M"
+
+
+def test_my_account_marks_flags():
+    import me as ME
+    rows = [dict(type="TRADE", side="BUY", condition_id="c1", outcome="A", usdc_size=10, size=16, timestamp=NOW - 100,
+                 transaction_hash="h1", title="Counter-Strike: A vs B (BO3) - Cup", event_slug="s"),
+            dict(type="TRADE", side="BUY", condition_id="c9", outcome="X", usdc_size=5, size=10, timestamp=NOW - 90,
+                 transaction_hash="h2", title="Washington vs. Michigan State", event_slug="cfb")]
+    st = ME.sync({}, NOW, log=lambda *_: None, walk=lambda *a: rows)
+    st = ME.sync(st, NOW, log=lambda *_: None, walk=lambda *a: rows)          # same rows again: no duplicates
+    assert len(st["trades"]) == 1                                              # football left out
+    st["winners"] = {"c1": "A"}
+    mine = ME.bets(st)
+    assert mine[0]["status"] == "won" and mine[0]["pnl"] == 6.0 and mine[0]["price"] == 0.625
+    view = dict(bets=[dict(cid="c1", slug="s", side="A"), dict(cid="c2", slug="s", side="B")])
+    ME.mark(view, mine)
+    assert view["bets"][0]["mine"] and not view["bets"][1]["mine"] and view["me"]["bets"][0]["flagged"]

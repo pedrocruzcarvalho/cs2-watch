@@ -207,7 +207,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 .gf{display:flex;gap:6px;margin:4px 2px 0}.gf button{background:var(--card);color:var(--mute);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
 .gf button[aria-pressed="true"]{color:#e8edf3;border-color:var(--green)}
 .pick{display:block;margin:6px 0 0 auto;background:none;border:1px solid var(--line-2);color:var(--mute);border-radius:8px;padding:3px 8px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
-.pick.on{border-color:var(--green);color:var(--green)}
+.pick.on{border-color:var(--green);color:var(--green)}.pick.lossb{border-color:var(--red);color:var(--red)}
 </style>
 </head>
 <body>
@@ -261,7 +261,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
       <section class="tbl"><table><thead><tr><th>Day</th><th class="r">Bets</th><th class="r">Won</th><th class="r">Edge</th><th class="r">Profit</th></tr></thead><tbody id="t-day"></tbody></table></section>
       <section class="tbl"><table><thead><tr><th>Rule</th><th class="r">Bets</th><th class="r">Won</th><th class="r">Odd</th><th class="r">Edge</th><th class="r">Per bet</th></tr></thead><tbody id="t-rule"></tbody></table></section>
     </div>
-    <p class="note" style="margin:8px 2px">Tap "I bet this" on the bets you actually placed. Saved in this browser.</p>
+    <p class="note" style="margin:8px 2px">Your bets come straight from your Polymarket account @offchops2 (updated every scan): flags you bet show "✓ you bet", and "Only my bets" lists every CS2 / Dota / LoL bet you placed, in real dollars.</p>
     <div class="list" id="mine"></div>
   </div>
 
@@ -405,7 +405,7 @@ function liveBlock(d) {
   return live;
 }
 
-let GAME = "all", ONLY = false, PICKED = new Set(), PER = +store.get("fh-per", "0"), PUSHED = store.get("fh-pushed", "0") === "1", STAKE = +store.get("fh-stake", "1") || 1;
+let GAME = "all", ONLY = false, PER = +store.get("fh-per", "0"), PUSHED = store.get("fh-pushed", "0") === "1", STAKE = +store.get("fh-stake", "1") || 1;
 const RULE_NAME = {A: "A · big live bet for the tier", M: "M · fishy pre-match money", S: "S · shyux wallet", B: "B · Dota live money", C: "C · Dota pre-match", D: "D · against a fresh account", E: "E · LoL pre-match", F: "F · sharp wallet live", G: "G · live bet for the tier", H: "H · CS2 pre-match big money", P: "P · pre-match favourite"};
 const pct = v => (v >= 0 ? "+" : "−") + Math.abs(Math.round(v * 100)) + "%";
 const pp = v => (v >= 0 ? "+" : "−") + Math.abs(v * 100).toFixed(1) + " pp";
@@ -414,11 +414,11 @@ function summary(bets) {                      // settled bets at a flat stake: h
   const d = bets.filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake && b.price);
   const w = d.filter(b => b.status === "won"), g = d.filter(b => b.pnl > 0), r = d.filter(b => b.pnl <= 0);
   const wl = d.filter(b => b.status !== "sold");      // hit rate and edge: bets that ran to the end (sold ones only count in money)
-  const per = b => STAKE * b.pnl / b.stake;
+  const per = profit;
   return {n: d.length, w: w.length, l: wl.length - w.length, hit: wl.length ? w.length / wl.length : 0,
           odd: d.length ? d.reduce((a, b) => a + 1 / b.price, 0) / d.length : 0,
           edge: wl.length ? (w.length - wl.reduce((a, b) => a + b.price, 0)) / wl.length : 0,
-          res: d.reduce((a, b) => a + per(b), 0), gsum: g.reduce((a, b) => a + per(b), 0), rsum: r.reduce((a, b) => a + per(b), 0), g: g.length, r: r.length};
+          res: d.reduce((a, b) => a + per(b), 0), staked: d.reduce((a, b) => a + (b.real ? b.stake : STAKE), 0), gsum: g.reduce((a, b) => a + per(b), 0), rsum: r.reduce((a, b) => a + per(b), 0), g: g.length, r: r.length};
 }
 function stats(bets) {
   const s = summary(bets), open = bets.filter(b => b.status === "open").length;
@@ -427,11 +427,11 @@ function stats(bets) {
   $("s-odd").textContent = s.n ? s.odd.toFixed(2) : "–";
   $("s-edge").innerHTML = s.n ? `<span class="${s.edge >= 0 ? "pos" : "neg"}">${pp(s.edge)}</span>` : "–";
   $("r-res").innerHTML = s.n ? `<span class="${s.res >= 0 ? "pos" : "neg"}">${money(s.res)}</span>` : "–";
-  $("r-res2").textContent = s.n ? `${s.n} bets · $${(STAKE * s.n).toFixed(2)} staked` : "";
-  $("r-roi").innerHTML = s.n ? `<span class="${s.res >= 0 ? "pos" : "neg"}">${pct(s.res / (STAKE * s.n))}</span>` : "–";
+  $("r-res2").textContent = s.n ? `${s.n} bets · $${s.staked.toFixed(2)} staked` : "";
+  $("r-roi").innerHTML = s.n ? `<span class="${s.res >= 0 ? "pos" : "neg"}">${pct(s.res / s.staked)}</span>` : "–";
   $("r-g").textContent = s.g; $("r-g2").textContent = s.g ? money(s.gsum) + " won" : "";
   $("r-r").textContent = s.r; $("r-r2").textContent = s.r ? money(s.rsum) + " lost" : "";
-  const row = (label, x, odd) => `<tr><td>${label}</td><td class="r num">${x.n}</td><td class="r num">${x.n ? Math.round(x.hit * 100) + "%" : "–"}</td>${odd ? `<td class="r num">${x.n ? x.odd.toFixed(2) : "–"}</td>` : ""}<td class="r num ${x.edge >= 0 ? "pos" : "neg"}">${x.n ? pp(x.edge) : "–"}</td><td class="r num ${x.res >= 0 ? "pos" : "neg"}">${x.n ? (odd ? pct(x.res / (STAKE * x.n)) : money(x.res)) : "–"}</td></tr>`;
+  const row = (label, x, odd) => `<tr><td>${label}</td><td class="r num">${x.n}</td><td class="r num">${x.n ? Math.round(x.hit * 100) + "%" : "–"}</td>${odd ? `<td class="r num">${x.n ? x.odd.toFixed(2) : "–"}</td>` : ""}<td class="r num ${x.edge >= 0 ? "pos" : "neg"}">${x.n ? pp(x.edge) : "–"}</td><td class="r num ${x.res >= 0 ? "pos" : "neg"}">${x.n ? (odd ? pct(x.res / x.staked) : money(x.res)) : "–"}</td></tr>`;
   const days = {};
   bets.forEach(b => { const k = new Date(b.placed_at * 1000).toLocaleDateString("en-GB", {day: "2-digit", month: "2-digit"}); (days[k] = days[k] || []).push(b); });
   $("t-day").innerHTML = Object.entries(days).map(([k, v]) => row(k, summary(v), false)).join("") || `<tr><td colspan="5" class="mute">nothing in this period</td></tr>`;
@@ -439,26 +439,27 @@ function stats(bets) {
   bets.forEach(b => { const k = b.rule || "?"; (rules[k] = rules[k] || []).push(b); });
   $("t-rule").innerHTML = Object.entries(rules).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => row(esc(RULE_NAME[k] || k), summary(v), true)).join("") || `<tr><td colspan="6" class="mute">nothing in this period</td></tr>`;
 }
-try { PICKED = new Set(JSON.parse(localStorage.getItem("picked") || "[]")); } catch (e) {}
-const bkey = b => `${b.event}|${b.market}|${b.side}`;
 function curve(bets, P) {
   const done = bets.filter(b => ["won", "lost", "sold"].includes(b.status) && b.stake)
     .sort((a, b) => (a.settled_at || a.start || a.placed_at) - (b.settled_at || b.start || b.placed_at));
   let u = 0; const ser = [[(done[0] || {}).placed_at || 0, 0]];
-  done.forEach(b => { u += STAKE * b.pnl / b.stake; ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
+  done.forEach(b => { u += profit(b); ser.push([b.settled_at || b.start || b.placed_at, Math.round(u * 100) / 100]); });
   chart(ser, P);
-  const w = done.filter(b => b.status === "won").length;
-  $(P + "c-t").textContent = done.length ? `· ${done.length} settled · ${w}W/${done.length - w}L · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / (STAKE * done.length))}% per bet)` : `· ${bets.length} bets, none settled yet`;
+  const w = done.filter(b => b.status === "won").length, staked = done.reduce((a, b) => a + (b.real ? b.stake : STAKE), 0);
+  $(P + "c-t").textContent = done.length ? `· ${done.length} settled · ${w}W/${done.length - w}L · ${u >= 0 ? "+" : "−"}$${Math.abs(u).toFixed(2)} (${u >= 0 ? "+" : ""}${Math.round(100 * u / staked)}% on $${staked.toFixed(0)} staked)` : `· ${bets.length} bets, none settled yet`;
 }
+const profit = b => b.real ? b.pnl : STAKE * b.pnl / b.stake;       // my real bets in real dollars, flags at the stake box
 function drawBets() {
   const cut = PER ? (PER === 1 ? new Date().setHours(0, 0, 0, 0) / 1000 : Date.now() / 1000 - PER * 86400) : 0;
-  const all = ((D && D.hunter && D.hunter.bets) || []).filter(b => (GAME === "all" || b.game === GAME) && b.placed_at >= cut && (!PUSHED || b.alert));
-  const mine = all.filter(b => PICKED.has(bkey(b))), shown = ONLY ? mine : all;
-  $("c-h").textContent = ONLY ? `MY PLACED BETS ($${STAKE} EACH)` : `IF WE PUT $${STAKE} ON EVERY ${PUSHED ? "PUSHED" : "FLAGGED"} BET`;
-  $("x-c-h").textContent = `MY PLACED BETS ($${STAKE} EACH)`;
+  const keep = b => (GAME === "all" || b.game === GAME) && b.placed_at >= cut;
+  const all = ((D && D.hunter && D.hunter.bets) || []).filter(b => keep(b) && (!PUSHED || b.alert));
+  const mine = (((D && D.hunter && D.hunter.me) || {}).bets || []).filter(b => keep(b) && (!PUSHED || b.flagged));
+  const shown = ONLY ? mine : all;
+  $("c-h").textContent = ONLY ? "MY REAL BETS (@offchops2, real $)" : `IF WE PUT $${STAKE} ON EVERY ${PUSHED ? "PUSHED" : "FLAGGED"} BET`;
+  $("x-c-h").textContent = "MY REAL BETS (@offchops2, real $)";
   curve(shown, ""); curve(mine, "x-"); stats(shown);
   $("x-chart").closest(".chartbox").hidden = ONLY; $("x-c-t").parentElement.hidden = ONLY;
-  $("mine").innerHTML = shown.map(betCard).join("") || `<div class="empty">${ONLY ? "You haven't marked any bets here yet." : "No bets here yet."}</div>`;
+  $("mine").innerHTML = shown.map(betCard).join("") || `<div class="empty">${ONLY ? "No CS2 / Dota / LoL bets on @offchops2 in this period." : "No bets here yet."}</div>`;
 }
 document.addEventListener("click", e => {
   const pb = e.target.closest("[data-p]");
@@ -468,9 +469,6 @@ document.addEventListener("click", e => {
   if (e.target.closest("#only")) { ONLY = !ONLY; $("only").setAttribute("aria-pressed", ONLY); drawBets(); return; }
   const g = e.target.closest("[data-g]");
   if (g) { GAME = g.dataset.g; document.querySelectorAll("#gf button").forEach(x => x.setAttribute("aria-pressed", x === g)); drawBets(); return; }
-  const k = e.target.closest("[data-pick]");
-  if (k) { const id = k.dataset.pick; PICKED.has(id) ? PICKED.delete(id) : PICKED.add(id);
-    try { localStorage.setItem("picked", JSON.stringify([...PICKED])); } catch (e) {} drawBets(); }
 });
 
 document.addEventListener("input", e => { if (e.target.id === "stake") { STAKE = Math.max(0.01, +e.target.value || 1); store.set("fh-stake", STAKE); drawBets(); } });
@@ -481,14 +479,15 @@ function initFilters() {
 }
 function betCard(b) {
   const st = b.status;
-  const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : "•";
-  const res = st === "won" ? `WON` : st === "lost" ? `LOST`
+  const icon = st === "won" ? "✓" : st === "lost" ? "✗" : st === "sold" ? "↩" : st === "void" ? "–" : "•";
+  const res = st === "won" ? `WON` : st === "lost" ? `LOST` : st === "void" ? `VOID<small>refunded</small>`
             : st === "sold" ? `EXITED<small>${esc(b.exit_reason || "")}</small>` : `in play`;
   const mk = b.market && b.market !== "Match Winner" && !b.market.startsWith("Several") ? ` · ${esc(b.market)}` : "";
   return `<div class="sig ${st}"><div class="ic">${icon}</div>
     <div style="min-width:0"><div class="l1"><img class="gm ${b.game}" src="img/${b.game}-64.png" alt="" width="18" height="18">${esc(b.match)}</div>
     <div class="l2"><b>${esc(b.side)}</b>${mk} · odd <b>${(1 / b.price).toFixed(2)}</b>${b.rule ? " · rule " + esc(b.rule) : ""}${b.alert ? ` · <b style="color:var(--amber)">pushed</b>` : ""} · ${when(b.placed_at)} · ${esc(b.event)}</div></div>
-    <div class="res num">${res}<button class="pick ${PICKED.has(bkey(b)) ? "on" : ""}" data-pick="${esc(bkey(b))}">${PICKED.has(bkey(b)) ? "✓ I bet this" : "I bet this"}</button></div></div>`;
+    <div class="res num">${res}${b.real ? `<span class="pick ${b.pnl == null || b.pnl >= 0 ? "on" : "lossb"}">$${b.stake.toFixed(2)}${b.pnl != null ? ` → ${b.pnl >= 0 ? "+" : "−"}$${Math.abs(b.pnl).toFixed(2)}` : ""}</span>${b.flagged ? "" : `<span class="pick">not flagged</span>`}`
+      : b.mine ? `<span class="pick on">✓ you bet $${(b.my_stake || 0).toFixed(2)}</span>` : ""}</div></div>`;
 }
 
 function chart(series, P = "") {
