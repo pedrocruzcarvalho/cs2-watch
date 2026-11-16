@@ -1,5 +1,5 @@
 """
-One 10-minute tick of the hunter (hunter.py): scan CS2 + Dota 2, settle, bet, publish the page, push new bets.
+One 5-minute tick of the hunter (hunter.py): scan CS2 + Dota 2, settle, bet, publish the page, push new bets.
 
 State lives in Cloudflare KV as one gzipped value ("state:bundle", part "state:hunter"), the page data in "dashboard".
 If a tick fails, the phone gets one push (then at most one every 3 hours) and another when the scan works again, so

@@ -235,7 +235,7 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
 
   <div id="v-next">
     <div class="games" id="games"></div>
-    <p class="note">Only tier 3 or lower CS2, Dota 2 and LoL matches that are coming up (next 36 h) or live. When someone puts big money on a match for its tier (one bet or several added up), the card lights up: green = bet (with the team and odds), grey = don't bet. Dimmed matches have no suspicious money yet. Updates every 10 min.</p>
+    <p class="note">Only tier 3 or lower CS2, Dota 2 and LoL matches that are coming up (next 36 h) or live. When someone puts big money on a match for its tier (one bet or several added up), the card lights up: green = bet (with the team and odds), grey = don't bet. Dimmed matches have no suspicious money yet. Updates every 5 min.</p>
   </div>
 
   <div id="v-mine" hidden>
@@ -261,12 +261,12 @@ h2 small { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 6
       <section class="tbl"><table><thead><tr><th>Day</th><th class="r">Bets</th><th class="r">Won</th><th class="r">Edge</th><th class="r">Profit</th></tr></thead><tbody id="t-day"></tbody></table></section>
       <section class="tbl"><table><thead><tr><th>Rule</th><th class="r">Bets</th><th class="r">Won</th><th class="r">Odd</th><th class="r">Edge</th><th class="r">Per bet</th></tr></thead><tbody id="t-rule"></tbody></table></section>
     </div>
-    <p class="note" style="margin:8px 2px">Your bets come straight from your Polymarket account @offchops2 (updated every scan): flags you bet show "✓ you bet", and "Only my bets" lists every CS2 / Dota / LoL bet you placed, in real dollars.</p>
+    <p class="note" style="margin:8px 2px">Your bets come straight from your Polymarket account @offchops2 (updated every 5 min): flags you bet show "✓ you bet", and "Only my bets" lists every CS2 / Dota / LoL bet you placed, in real dollars.</p>
     <div class="list" id="mine"></div>
   </div>
 
   <div id="v-wallets" hidden>
-    <p class="note" style="margin:0 2px 10px">Wallets to follow in tier 3+ matches. <b style="color:#e8edf3">Sharp</b> = bets mostly on tier 3+ (70%+ of its matches), has 5+ resolved matches there, made money in 60%+ of them and has 10%+ real profit. A match only counts as a win if its balance went up (buys, sells and final payout). Wallets that bet a lot on tier 1 are left out (updated every scan). <b style="color:#e8edf3">List</b> = picked by you. When a sharp wallet bets live (CS2 or Dota, from $200), it is a signal to bet.</p>
+    <p class="note" style="margin:0 2px 10px">Wallets to follow in tier 3+ matches. <b style="color:#e8edf3">Sharp</b> = bets mostly on tier 3+ (70%+ of its matches), has 5+ resolved matches there, made money in 60%+ of them and has 10%+ real profit. A match only counts as a win if its balance went up (buys, sells and final payout). Wallets that bet a lot on tier 1 are left out (updated every 5 min). <b style="color:#e8edf3">List</b> = picked by you. When a sharp wallet bets live (CS2 or Dota, from $200), it is a signal to bet.</p>
     <div class="wl" id="wallets"></div>
   </div>
 

@@ -1,4 +1,4 @@
-// Hand-picked wallets to follow. Stored in KV under "watchlist"; the scanner reads it every 10 minutes.
+// Hand-picked wallets to follow. Stored in KV under "watchlist"; the scanner reads it every 5 minutes.
 // The whole site sits behind Cloudflare Access, so only allowed emails can reach this.
 const ADDR = /0x[a-fA-F0-9]{40}/;
 const json = (body, status = 200) =>

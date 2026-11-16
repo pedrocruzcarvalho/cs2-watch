@@ -1,4 +1,4 @@
-// Every 10 minutes: start the cs2-watch scan workflow on GitHub (workflow_dispatch).
+// Every 5 minutes: start the cs2-watch scan workflow on GitHub (workflow_dispatch).
 // GH_TOKEN is a fine-grained token limited to the cs2-watch repo with Actions: read & write.
 const URL = "https://api.github.com/repos/pedrocruzcarvalho/cs2-watch/actions/workflows/scan.yml/dispatches";
 
